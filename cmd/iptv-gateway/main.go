@@ -24,6 +24,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	logging.SetLevel(c.LogLevel)
+
 	s, err := server.NewServer(c)
 	if err != nil {
 		logging.Error(ctx, "failed to create server", "error", err)

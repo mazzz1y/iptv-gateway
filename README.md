@@ -17,7 +17,7 @@ This app allows you to distribute playlists and XMLTV files to your TVs and cent
 ## Usage
 
 ```bash
-podman run -d -p 8080:8080 \
+docker run -d -p 8080:8080 \
   -v $PWD/cache:/cache \
   -v $PWD/config.yaml:/config/config.yaml:ro \
   ghcr.io/mazzz1y/iptv-gateway:latest

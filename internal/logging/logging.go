@@ -14,10 +14,23 @@ import (
 var logger *slog.Logger
 
 func init() {
-	SetLevel(slog.LevelInfo)
+	SetLevel("info")
 }
 
-func SetLevel(level slog.Level) {
+func SetLevel(l string) {
+	var level slog.Level
+	switch strings.ToLower(l) {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn", "warning":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
 	logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 }
 
