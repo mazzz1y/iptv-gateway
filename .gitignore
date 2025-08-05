@@ -1,0 +1,6 @@
+/cache
+/iptv-gateway
+config.yaml
+.idea
+main
+*.meta

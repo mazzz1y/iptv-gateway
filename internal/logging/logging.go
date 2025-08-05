@@ -1,0 +1,125 @@
+package logging
+
+import (
+	"context"
+	"iptv-gateway/internal/constant"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+)
+
+var logger *slog.Logger
+
+func init() {
+	SetLevel(slog.LevelInfo)
+}
+
+func SetLevel(level slog.Level) {
+	logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+}
+
+func Info(ctx context.Context, msg string, args ...any) {
+	log(ctx, slog.LevelInfo, msg, args...)
+}
+
+func Error(ctx context.Context, msg string, args ...any) {
+	log(ctx, slog.LevelError, msg, args...)
+}
+
+func Debug(ctx context.Context, msg string, args ...any) {
+	log(ctx, slog.LevelDebug, msg, args...)
+}
+
+func HttpRequest(ctx context.Context, r *http.Request, status int, duration time.Duration, extraArgs ...any) {
+	level := slog.LevelInfo
+	if status >= 500 {
+		level = slog.LevelError
+	} else if status >= 400 {
+		level = slog.LevelWarn
+	}
+
+	ctxArgs := extractContextValues(ctx)
+
+	stdFields := []any{
+		"method", r.Method,
+		"path", sanitizePath(r.URL.Path),
+		"status", status,
+		"duration", duration,
+		"remote", r.RemoteAddr,
+	}
+
+	args := make([]any, 0, len(ctxArgs)+len(stdFields)+len(extraArgs))
+
+	if len(ctxArgs) > 0 {
+		args = append(args, ctxArgs...)
+	}
+	args = append(args, stdFields...)
+	if len(extraArgs) > 0 {
+		args = append(args, extraArgs...)
+	}
+
+	logger.Log(ctx, level, "request", args...)
+}
+
+func SanitizeURL(urlString string) string {
+	parsedURL, err := url.Parse(urlString)
+
+	if err == nil && parsedURL.Host != "" {
+		if parsedURL.Path != "" {
+			parsedURL.Path = sanitizePath(parsedURL.Path)
+			parsedURL.RawPath = ""
+		}
+		return strings.ReplaceAll(parsedURL.String(), "%2A", "*")
+	}
+
+	return sanitizePath(urlString)
+}
+
+func sanitizePath(path string) string {
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if len(parts) <= 1 {
+		return "/" + strings.Join(parts, "/")
+	}
+
+	if len(parts) > 2 {
+		parts = []string{"**", parts[len(parts)-1]}
+	} else {
+		for i := 0; i < len(parts)-1; i++ {
+			parts[i] = "*"
+		}
+	}
+
+	return "/" + strings.Join(parts, "/")
+}
+
+func log(ctx context.Context, level slog.Level, msg string, args ...any) {
+	ctxArgs := extractContextValues(ctx)
+	if len(ctxArgs) > 0 {
+		combinedArgs := make([]any, 0, len(ctxArgs)+len(args))
+		combinedArgs = append(combinedArgs, ctxArgs...)
+		combinedArgs = append(combinedArgs, args...)
+		args = combinedArgs
+	}
+	logger.Log(ctx, level, msg, args...)
+}
+
+func extractContextValues(ctx context.Context) []any {
+	keys := []string{
+		constant.ContextRequestID,
+		constant.ContextClientName,
+		constant.ContextSubscriptionName,
+	}
+
+	var result []any
+	for _, key := range keys {
+		if value := ctx.Value(key); value != nil {
+			// For debugging
+			slog.Debug("context value", "key", key, "value", value)
+			result = append(result, key, value)
+		}
+	}
+	return result
+}

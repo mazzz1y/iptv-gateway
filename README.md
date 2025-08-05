@@ -1,0 +1,106 @@
+# IPTV Gateway
+
+A minimal, functional IPTV gateway for your TV
+
+This app allows you to distribute playlists and XMLTV files to your TVs and centrally manage them in a flexible manner.
+
+## Features
+
+- Proxying M3U8 and EPG, including stream remuxing
+- Playlist merging
+- Filtering based on M3U8 tags, attributes, or channel names (global, per subscription, or per client)
+- On-disk caching
+- Custom error screens (specify any streaming command)
+- Rate limiting (global, per subscription, or per client)
+- Low memory usage — all processing is done on the fly
+
+## Usage
+
+```bash
+podman run -d -p 8080:8080 \
+  -v $PWD/cache:/cache \
+  -v $PWD/config.yaml:/config/config.yaml:ro \
+  ghcr.io/mazzz1y/iptv-gateway:latest
+```
+
+```yaml
+# Proxy, Excludes, and Concurrent Streams can be set at the global, subscription, or user level.
+# Users can use the following links:
+# - http://localhost:8080/{secret}/playlist.m3u8
+# - http://localhost:8080/{secret}/epg.xml.gz
+# - http://localhost:8080/{secret}/epg.xml
+
+
+listen_addr: ":8080"
+public_url: "http://localhost:8080"
+
+secret: secret # Secret used for encrypting proxy links
+
+proxy:
+  # Enable ffmpeg remuxing globally
+  enabled: true
+  concurrent_streams: 4
+
+excludes:
+  attrs:
+    tvg-group: ^(?i)xxx$
+
+subscriptions:
+  - name: english
+    playlist: http://example.com/english.m3u8 # Both playlist and epg can be arrays of links; they will be merged
+    epg: http://example.com/en.xml.gz
+    proxy:
+      concurrent_streams: 2
+
+  - name: french
+    playlist: https://example.com/french.m3u
+    epg: http://example.com/fr.xml.gz
+    proxy:
+      concurrent_streams: 3
+
+clients:
+  - name: device1
+    secret: secret1
+    subscriptions: french
+    excludes:
+      attrs:
+        tvg-language: ^english$
+    channel_name: "Some-Channel"
+  - name: device2
+    secret: secret2
+    subscriptions: [ "english", "french" ] # Both subscriptions will be merged
+```
+
+### Custom streaming settings
+
+```yaml
+proxy:
+  stream:
+    command: [ "ffmpeg", "-i", "{{.url}}", "-c", "copy", "-f", "mpegts", "pipe:1" ]
+    env_vars:
+      http_proxy: http://192.168.1.1:1080
+  error:
+    command: [ "...", "{{.message}}", "..." ]
+    rate_limit_exceeded:
+      template_vars:
+        message: "Rate limit exceeded. Please try again later."
+    link_expired:
+      template_vars:
+        message: "Link has expired. Please refresh your playlist."
+    upstream_error:
+      template_vars:
+        message: "Unable to play stream. Please try again later or contact administrator."
+```
+
+### Excludes format
+```yaml
+excludes:
+  tags:
+    EXTGRP: [ "^Sports$", "^Movies$" ]
+  attrs:
+    tvg-group: [ "^News$" ]
+    tvg-language: [ "^english$" ]
+  channel_name:
+    - "^Test Channel 1$"
+    - "^Another Channel$"
+```
