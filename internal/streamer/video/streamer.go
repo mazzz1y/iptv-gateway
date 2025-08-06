@@ -108,8 +108,8 @@ func (s *Streamer) prepareCommand() ([]string, error) {
 		return nil, errors.New("command cannot be empty")
 	}
 
-	commandParts := make([]string, len(s.config.Command))
-	for i, part := range s.config.Command {
+	command := make([]string, len(s.config.Command))
+	for i, part := range command {
 		tmpl, err := template.New("command-part").Parse(part)
 		if err != nil {
 			return nil, err
@@ -120,8 +120,12 @@ func (s *Streamer) prepareCommand() ([]string, error) {
 			return nil, err
 		}
 
-		commandParts[i] = buf.String()
+		command[i] = buf.String()
 	}
 
-	return commandParts, nil
+	if len(command) == 1 {
+		command = []string{"sh", "-c", command[0]}
+	}
+
+	return command, nil
 }

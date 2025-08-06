@@ -66,10 +66,12 @@ type Error struct {
 }
 
 type Handler struct {
-	Command      []string          `yaml:"command,omitempty"`
+	Command      Command           `yaml:"command,omitempty"`
 	TemplateVars map[string]string `yaml:"template_vars,omitempty"`
 	EnvVars      map[string]string `yaml:"env_vars,omitempty"`
 }
+
+type Command []string
 
 type PlaylistSource []string
 type EPGSource []string
@@ -117,6 +119,11 @@ func (t *TTL) UnmarshalYAML(value *yaml.Node) error {
 		return fmt.Errorf("unknown time unit: %s", unit)
 	}
 
+	return nil
+}
+
+func (p *Command) UnmarshalYAML(value *yaml.Node) error {
+	*p = unmarshalStringOrArray(value)
 	return nil
 }
 
