@@ -53,7 +53,7 @@ func (s *Server) acquireWithTimeout(ctx context.Context, sem *semaphore.Weighted
 		if errors.Is(err, context.DeadlineExceeded) {
 			logging.Info(ctx, "semaphore acquisition timeout", "type", semType)
 		} else {
-			logging.Error(ctx, "semaphore acquisition failed", "type", semType, "error", err)
+			logging.Error(ctx, err, "semaphore acquisition failed", "type", semType)
 		}
 		return false
 	}

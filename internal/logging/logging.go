@@ -2,12 +2,15 @@ package logging
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"iptv-gateway/internal/constant"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -38,15 +41,24 @@ func Info(ctx context.Context, msg string, args ...any) {
 	log(ctx, slog.LevelInfo, msg, args...)
 }
 
-func Error(ctx context.Context, msg string, args ...any) {
-	log(ctx, slog.LevelError, msg, args...)
+func Error(ctx context.Context, err error, msg string, args ...any) {
+	if err != nil {
+		args = append(args, "error", err)
+	}
+
+	level := slog.LevelError
+	if errors.Is(err, context.Canceled) || errors.Is(err, syscall.EPIPE) {
+		level = slog.LevelDebug
+	}
+
+	log(ctx, level, msg, args...)
 }
 
 func Debug(ctx context.Context, msg string, args ...any) {
 	log(ctx, slog.LevelDebug, msg, args...)
 }
 
-func HttpRequest(ctx context.Context, r *http.Request, status int, duration time.Duration, extraArgs ...any) {
+func HttpRequest(ctx context.Context, r *http.Request, status int, duration time.Duration, bytesWritten int64, extraArgs ...any) {
 	level := slog.LevelInfo
 	if status >= 500 {
 		level = slog.LevelError
@@ -57,11 +69,12 @@ func HttpRequest(ctx context.Context, r *http.Request, status int, duration time
 	ctxArgs := extractContextValues(ctx)
 
 	stdFields := []any{
-		"method", r.Method,
-		"path", sanitizePath(r.URL.Path),
-		"status", status,
-		"duration", duration,
 		"remote", r.RemoteAddr,
+		"method", r.Method,
+		"status", status,
+		"path", sanitizePath(r.URL.Path),
+		"written", humanizeBytes(bytesWritten),
+		"duration", humanizeDuration(duration),
 	}
 
 	args := make([]any, 0, len(ctxArgs)+len(stdFields)+len(extraArgs))
@@ -74,7 +87,7 @@ func HttpRequest(ctx context.Context, r *http.Request, status int, duration time
 		args = append(args, extraArgs...)
 	}
 
-	logger.Log(ctx, level, "request", args...)
+	logger.Log(ctx, level, "http", args...)
 }
 
 func SanitizeURL(urlString string) string {
@@ -129,10 +142,41 @@ func extractContextValues(ctx context.Context) []any {
 	var result []any
 	for _, key := range keys {
 		if value := ctx.Value(key); value != nil {
-			// For debugging
-			slog.Debug("context value", "key", key, "value", value)
 			result = append(result, key, value)
 		}
 	}
 	return result
+}
+
+func humanizeBytes(bytes int64) string {
+	const (
+		KB = 1024
+		MB = 1024 * 1024
+	)
+
+	switch {
+	case bytes >= MB:
+		return fmt.Sprintf("%.1fMB", float64(bytes)/MB)
+	case bytes >= KB:
+		return fmt.Sprintf("%.1fKB", float64(bytes)/KB)
+	default:
+		return fmt.Sprintf("%dB", bytes)
+	}
+}
+
+func humanizeDuration(d time.Duration) string {
+	if d < time.Microsecond {
+		return fmt.Sprintf("%dns", d.Nanoseconds())
+	}
+	if d < time.Millisecond {
+		return fmt.Sprintf("%.2fµs", float64(d.Nanoseconds())/1000)
+	}
+	if d < time.Second {
+		return fmt.Sprintf("%.2fms", float64(d.Nanoseconds())/1000000)
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.2fs", d.Seconds())
+	}
+
+	return fmt.Sprintf("%.1fm", d.Minutes())
 }

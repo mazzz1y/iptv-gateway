@@ -21,7 +21,7 @@ func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
 		rw := newResponseWriter(w)
 		next.ServeHTTP(rw, r)
 		duration := time.Since(startTime)
-		logging.HttpRequest(r.Context(), r, rw.statusCode, duration)
+		logging.HttpRequest(r.Context(), r, rw.statusCode, duration, rw.bytesWritten)
 	})
 }
 
@@ -39,14 +39,14 @@ func (s *Server) authenticationMiddleware(next http.Handler) http.Handler {
 		vars := mux.Vars(r)
 		secret, ok := vars["secret"]
 		if !ok || secret == "" {
-			logging.Error(r.Context(), "authentication failed: no secret")
+			logging.Error(r.Context(), nil, "authentication failed: no secret")
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
 		}
 
 		c := s.manager.GetClient(secret)
 		if c == nil {
-			logging.Error(r.Context(), "authentication failed: invalid secret", "secret", secret)
+			logging.Error(r.Context(), nil, "authentication failed: invalid secret", "secret", secret)
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
 		}

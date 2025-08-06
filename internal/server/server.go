@@ -25,13 +25,13 @@ type Server struct {
 func NewServer(cfg *config.Config) (*Server, error) {
 	m, err := manager.NewManager(cfg)
 	if err != nil {
-		logging.Error(context.TODO(), "failed to initialize manager", "error", err)
+		logging.Error(context.TODO(), err, "failed to initialize manager")
 		return nil, err
 	}
 
 	c, err := cache.NewCache(cfg.Cache.Path, time.Duration(cfg.Cache.TTL))
 	if err != nil {
-		logging.Error(context.TODO(), "failed to create cache", "error", err)
+		logging.Error(context.TODO(), err, "failed to create cache")
 		return nil, err
 	}
 
@@ -58,7 +58,7 @@ func (s *Server) Start() error {
 
 	err := s.server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logging.Error(context.TODO(), "server failed", "error", err)
+		logging.Error(context.TODO(), err, "server failed")
 		return err
 	}
 
@@ -74,7 +74,7 @@ func (s *Server) Stop() error {
 	logging.Info(ctx, "stopping http server")
 
 	if err := s.server.Shutdown(ctx); err != nil {
-		logging.Error(ctx, "server shutdown failed", "error", err)
+		logging.Error(ctx, err, "server shutdown failed")
 		return err
 	}
 

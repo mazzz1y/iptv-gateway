@@ -24,7 +24,7 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 
 	streamer := m3u8.NewStreamer(c.GetSubscriptions(), c.GetEpgLink(), s.cache)
 	if _, err := streamer.WriteTo(ctx, w); err != nil {
-		logging.Error(ctx, "failed to write playlist", "error", err)
+		logging.Error(ctx, err, "failed to write playlist")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
@@ -43,7 +43,7 @@ func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 
 	if _, err = streamer.WriteTo(ctx, w); err != nil {
-		logging.Error(ctx, "failed to write EPG", "error", err)
+		logging.Error(ctx, err, "failed to write EPG")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
@@ -63,7 +63,7 @@ func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename=\"epg.xml.gz\"")
 
 	if _, err = streamer.WriteToGzip(ctx, w); err != nil {
-		logging.Error(ctx, "failed to write gzipped epg", "error", err)
+		logging.Error(ctx, err, "failed to write gzipped epg")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
@@ -80,7 +80,7 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 	case url_generator.Stream:
 		s.handleStreamProxy(ctx, w, r, data)
 	default:
-		logging.Error(ctx, "invalid proxy request type", "type", data.RequestType)
+		logging.Error(ctx, nil, "invalid proxy request type", "type", data.RequestType)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	}
 }
@@ -90,7 +90,7 @@ func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, dat
 
 	reader, err := s.cache.NewReader(ctx, data.URL)
 	if err != nil {
-		logging.Error(ctx, "file proxy failed", "error", err)
+		logging.Error(ctx, err, "file proxy failed")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -103,7 +103,7 @@ func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, dat
 	w.Header().Set("Content-Type", contentType)
 
 	if _, err = io.Copy(w, reader); err != nil {
-		logging.Error(ctx, "file copy failed", "error", err)
+		logging.Error(ctx, err, "file copy failed")
 	}
 }
 
@@ -128,14 +128,14 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 
 	bWritten, err := streamer.Stream(ctx, w)
 	if err != nil {
-		logging.Error(ctx, "video stream failed", "error", err)
+		logging.Error(ctx, err, "video stream failed")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	if bWritten == 0 {
 		if _, err := video.NewStreamer(sub.UpstreamErrorCommand()).Stream(ctx, w); err != nil {
-			logging.Error(ctx, "fallback stream failed", "error", err)
+			logging.Error(ctx, err, "fallback stream failed")
 		}
 	}
 }
@@ -151,7 +151,7 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 	m3u8Streamer := m3u8.NewStreamer(c.GetSubscriptions(), "", s.cache)
 	channels, err := m3u8Streamer.GetAllChannels(ctx)
 	if err != nil {
-		logging.Error(ctx, "failed to get channels", "error", err)
+		logging.Error(ctx, err, "failed to get channels")
 		return nil, err
 	}
 

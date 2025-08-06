@@ -138,7 +138,7 @@ func (c *Cache) cleanupRoutine(cacheDir string, ttl time.Duration) {
 		select {
 		case <-c.cleanupTicker.C:
 			if err := c.cleanExpired(cacheDir, ttl); err != nil {
-				logging.Error(context.Background(), "failed to clean expired Cache", "error", err.Error())
+				logging.Error(context.Background(), err, "failed to clean expired Cache")
 				return
 			}
 		case <-c.doneCh:

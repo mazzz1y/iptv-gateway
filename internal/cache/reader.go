@@ -52,8 +52,6 @@ type Reader struct {
 }
 
 func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
-	logging.Info(ctx, "file access", "url", logging.SanitizeURL(url))
-
 	hash := sha256.Sum256([]byte(url))
 	name := hex.EncodeToString(hash[:16])
 	reader := &Reader{
@@ -66,6 +64,8 @@ func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
 	}
 
 	s := reader.checkCacheStatus()
+
+	logging.Debug(ctx, "file access", "cache", formatCacheStatus(s), "url", logging.SanitizeURL(url))
 
 	var err error
 	var readCloser io.ReadCloser
@@ -90,7 +90,6 @@ func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
 		}
 	}
 
-	logging.Info(ctx, "file access", "cache", formatCacheStatus(s), "url", logging.SanitizeURL(url))
 	return reader, err
 }
 
