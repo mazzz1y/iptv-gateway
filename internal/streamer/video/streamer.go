@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"iptv-gateway/internal/logging"
 	"os"
@@ -103,24 +104,19 @@ func (s *Streamer) ContentType() string {
 	return "video/mp2t"
 }
 
+// TODO: move to subscription initialization to avoid processing in runtime
 func (s *Streamer) prepareCommand() ([]string, error) {
 	if len(s.config.Command) == 0 {
 		return nil, errors.New("command cannot be empty")
 	}
 
 	command := make([]string, len(s.config.Command))
-	for i, part := range command {
-		tmpl, err := template.New("command-part").Parse(part)
+	for i, part := range s.config.Command {
+		result, err := s.renderCommandPart(part)
 		if err != nil {
 			return nil, err
 		}
-
-		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, s.config.TemplateVars); err != nil {
-			return nil, err
-		}
-
-		command[i] = buf.String()
+		command[i] = result
 	}
 
 	if len(command) == 1 {
@@ -128,4 +124,33 @@ func (s *Streamer) prepareCommand() ([]string, error) {
 	}
 
 	return command, nil
+}
+
+func (s *Streamer) renderCommandPart(tmplStr string) (string, error) {
+	var prevResult string
+	currentTmplStr := tmplStr
+	buf := &bytes.Buffer{}
+
+	for {
+		buf.Reset()
+
+		tmpl, err := template.New("command-part").Parse(currentTmplStr)
+		if err != nil {
+			return "", fmt.Errorf("parse template: %w", err)
+		}
+
+		if err := tmpl.Execute(buf, s.config.TemplateVars); err != nil {
+			return "", fmt.Errorf("render: %w", err)
+		}
+
+		newResult := buf.String()
+		if prevResult == newResult {
+			break
+		}
+
+		prevResult = newResult
+		currentTmplStr = newResult
+	}
+
+	return buf.String(), nil
 }
