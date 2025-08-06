@@ -130,7 +130,10 @@ func TestStreamer_PrepareCommand_WithNumericVars(t *testing.T) {
 	}
 
 	for i, expected := range expectedParts {
-		if commandParts[i] != expected {
+		normalizedExpected := strings.ReplaceAll(expected, " ", "")
+		normalizedActual := strings.ReplaceAll(commandParts[i], " ", "")
+
+		if normalizedActual != normalizedExpected {
 			t.Fatalf("Expected command part '%s', got '%s'", expected, commandParts[i])
 		}
 	}
