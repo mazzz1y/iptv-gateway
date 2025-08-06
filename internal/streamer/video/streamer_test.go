@@ -58,3 +58,33 @@ func TestStreamer_PrepareCommand_InvalidTemplate(t *testing.T) {
 		t.Fatal("Expected error for invalid template, got nil")
 	}
 }
+
+func TestStreamer_PrepareCommand_WithNestedVars(t *testing.T) {
+	config := StreamerConfig{
+		Command: []string{"ffmpeg", "-i", "{{.Source}}"},
+		TemplateVars: map[string]string{
+			"Source":   "{{.Protocol}}://{{.Server}}/{{.Path}}",
+			"Protocol": "rtmp",
+			"Server":   "example.com",
+			"Path":     "live/stream",
+		},
+	}
+
+	streamer := NewStreamer(config)
+	commandParts, err := streamer.prepareCommand()
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	expectedParts := []string{"ffmpeg", "-i", "rtmp://example.com/live/stream"}
+	if len(commandParts) != len(expectedParts) {
+		t.Fatalf("Expected %d command parts, got %d", len(expectedParts), len(commandParts))
+	}
+
+	for i, expected := range expectedParts {
+		if commandParts[i] != expected {
+			t.Fatalf("Expected command part '%s', got '%s'", expected, commandParts[i])
+		}
+	}
+}
