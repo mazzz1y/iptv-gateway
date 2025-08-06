@@ -200,61 +200,6 @@ http://example.com/stream1_duplicate`
 	httpClient.AssertExpectations(t)
 }
 
-func TestStreamerWithProxiedLinks(t *testing.T) {
-	ctx := context.Background()
-	httpClient := new(MockHTTPClient)
-
-	sampleM3U := `#EXTM3U
-#EXTINF:-1 tvg-id="test1" tvg-logo="http://example.com/logo.png", Test Channel 1
-http://example.com/stream1`
-
-	mockEntry := createMockReader(bytes.NewReader([]byte(sampleM3U)))
-
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist.m3u").Return(mockEntry, nil)
-
-	urlGenerator := &MockURLGenerator{}
-
-	proxyStreamURL, _ := url.Parse("http://proxy.example.com/stream?url=http%3A%2F%2Fexample.com%2Fstream1")
-	proxyLogoURL, _ := url.Parse("http://proxy.example.com/file?url=http%3A%2F%2Fexample.com%2Flogo.png")
-
-	urlGenerator.On("CreateURL", mock.MatchedBy(func(data url_generator.Data) bool {
-		return data.RequestType == url_generator.Stream
-	})).Return(proxyStreamURL, nil)
-
-	urlGenerator.On("CreateURL", mock.MatchedBy(func(data url_generator.Data) bool {
-		return data.RequestType == url_generator.File
-	})).Return(proxyLogoURL, nil)
-
-	enabled := true
-	proxy := config.Proxy{
-		Enabled: &enabled,
-	}
-
-	sub := manager.NewSubscription(
-		"test-subscription",
-		urlGenerator,
-		[]string{"http://example.com/playlist.m3u"},
-		nil,
-		nil,
-		proxy,
-		config.Excludes{},
-	)
-
-	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
-
-	buffer := &bytes.Buffer{}
-
-	_, err := streamer.WriteTo(ctx, buffer)
-	require.NoError(t, err)
-
-	output := buffer.String()
-	assert.Contains(t, output, "http://proxy.example.com/stream?url=http%3A%2F%2Fexample.com%2Fstream1")
-	assert.Contains(t, output, "http://proxy.example.com/file?url=http%3A%2F%2Fexample.com%2Flogo.png")
-
-	httpClient.AssertExpectations(t)
-	urlGenerator.AssertExpectations(t)
-}
-
 func TestStreamerErrorHandling(t *testing.T) {
 	ctx := context.Background()
 	httpClient := new(MockHTTPClient)

@@ -196,42 +196,7 @@ func (s *Streamer) isDuplicate(track *m3u8.Track) bool {
 }
 
 func (s *Streamer) processProxyLinks(track *m3u8.Track) error {
-	urlGenerator, ok := s.CurrentSubscription.GetURLGenerator().(*url_generator.Generator)
-	if !ok {
-		mockGenerator, ok := s.CurrentSubscription.GetURLGenerator().(interface {
-			CreateURL(data url_generator.Data) (*url.URL, error)
-		})
-		if !ok {
-			return fmt.Errorf("invalid URL generator type")
-		}
-
-		for key, value := range track.Attrs {
-			if isURL(value) {
-				encURL, err := mockGenerator.CreateURL(url_generator.Data{
-					RequestType: url_generator.File,
-					URL:         value,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to encode attribute URL: %w", err)
-				}
-				track.Attrs[key] = encURL.String()
-			}
-		}
-
-		if track.URI != nil && isURL(track.URI.String()) {
-			newURL, err := mockGenerator.CreateURL(url_generator.Data{
-				RequestType: url_generator.Stream,
-				ChannelID:   track.Name,
-				URL:         track.URI.String(),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to encode stream URL: %w", err)
-			}
-			track.URI = newURL
-		}
-
-		return nil
-	}
+	urlGenerator := s.CurrentSubscription.GetURLGenerator().(*url_generator.Generator)
 
 	for key, value := range track.Attrs {
 		if isURL(value) {
