@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Masterminds/sprig/v3"
 	"io"
 	"iptv-gateway/internal/logging"
 	"os"
@@ -19,7 +20,7 @@ const bufferSize = 1 * 1024 * 1024
 type StreamerConfig struct {
 	Command      []string          `yaml:"command"`
 	EnvVars      map[string]string `yaml:"env_vars"`
-	TemplateVars map[string]string `yaml:"template_vars"`
+	TemplateVars map[string]any    `yaml:"template_vars"`
 }
 
 type Streamer struct {
@@ -134,7 +135,11 @@ func (s *Streamer) renderCommandPart(tmplStr string) (string, error) {
 	for {
 		buf.Reset()
 
-		tmpl, err := template.New("command-part").Parse(currentTmplStr)
+		tmpl, err := template.
+			New("command-part").
+			Funcs(sprig.FuncMap()).
+			Parse(currentTmplStr)
+
 		if err != nil {
 			return "", fmt.Errorf("parse template: %w", err)
 		}

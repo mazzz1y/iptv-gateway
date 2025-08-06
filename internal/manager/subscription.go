@@ -71,7 +71,7 @@ func (s *Subscription) IsProxied() bool {
 }
 
 func (s *Subscription) StreamCommand(streamUrl string) video.StreamerConfig {
-	templVars := make(map[string]string)
+	templVars := make(map[string]any)
 	if s.proxyConfig.Stream.TemplateVars != nil {
 		for k, v := range s.proxyConfig.Stream.TemplateVars {
 			templVars[k] = v

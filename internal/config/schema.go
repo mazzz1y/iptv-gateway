@@ -67,7 +67,7 @@ type Error struct {
 
 type Handler struct {
 	Command      Command           `yaml:"command,omitempty"`
-	TemplateVars map[string]string `yaml:"template_vars,omitempty"`
+	TemplateVars map[string]any    `yaml:"template_vars,omitempty"`
 	EnvVars      map[string]string `yaml:"env_vars,omitempty"`
 }
 

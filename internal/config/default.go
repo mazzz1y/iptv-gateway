@@ -33,17 +33,17 @@ func defaultConfig() *Config {
 					},
 				},
 				RateLimitExceeded: Handler{
-					TemplateVars: map[string]string{
+					TemplateVars: map[string]any{
 						"message": "Rate limit exceeded. Please try again later.",
 					},
 				},
 				LinkExpired: Handler{
-					TemplateVars: map[string]string{
+					TemplateVars: map[string]any{
 						"message": "Link has expired. Please refresh your playlist.",
 					},
 				},
 				UpstreamError: Handler{
-					TemplateVars: map[string]string{
+					TemplateVars: map[string]any{
 						"message": "Unable to play stream. Please try again later or contact administrator.",
 					},
 				},

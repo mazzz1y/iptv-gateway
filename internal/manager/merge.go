@@ -14,7 +14,7 @@ func mergeExcludes(filters ...config.Excludes) config.Excludes {
 	for _, filter := range filters {
 		mergeTagFilters(result.Tags, filter.Tags)
 		mergeAttrFilters(result.Attrs, filter.Attrs)
-		
+
 		if len(filter.ChannelName) > 0 {
 			result.ChannelName = append(result.ChannelName, filter.ChannelName...)
 		}
@@ -61,22 +61,22 @@ func mergeProxies(proxies ...config.Proxy) config.Proxy {
 
 		result.Stream = mergeHandlers(result.Stream, proxy.Stream)
 		result.Error.Handler = mergeHandlers(result.Error.Handler, proxy.Error.Handler)
-		
-				result.Error.RateLimitExceeded = mergeHandlers(
-			result.Error.Handler, 
-			result.Error.RateLimitExceeded, 
+
+		result.Error.RateLimitExceeded = mergeHandlers(
+			result.Error.Handler,
+			result.Error.RateLimitExceeded,
 			proxy.Error.RateLimitExceeded,
 		)
-		
+
 		result.Error.LinkExpired = mergeHandlers(
-			result.Error.Handler, 
-			result.Error.LinkExpired, 
+			result.Error.Handler,
+			result.Error.LinkExpired,
 			proxy.Error.LinkExpired,
 		)
-		
+
 		result.Error.UpstreamError = mergeHandlers(
-			result.Error.Handler, 
-			result.Error.UpstreamError, 
+			result.Error.Handler,
+			result.Error.UpstreamError,
 			proxy.Error.UpstreamError,
 		)
 	}
@@ -102,7 +102,7 @@ func mergeHandlers(handlers ...config.Handler) config.Handler {
 func mergeTemplateVars(result *config.Handler, handler config.Handler) {
 	if len(handler.TemplateVars) > 0 {
 		if result.TemplateVars == nil {
-			result.TemplateVars = make(map[string]string)
+			result.TemplateVars = make(map[string]any, len(handler.TemplateVars))
 		}
 		for k, v := range handler.TemplateVars {
 			result.TemplateVars[k] = v
