@@ -7,7 +7,6 @@ import (
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/manager"
 	"iptv-gateway/internal/streamer/m3u8"
-	"iptv-gateway/internal/streamer/video"
 	"iptv-gateway/internal/streamer/xmltv"
 	"iptv-gateway/internal/url_generator"
 	"net/http"
@@ -71,7 +70,7 @@ func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	data := ctx.Value(constant.ContextStreamData).(*url_generator.Data)
-	
+
 	logging.Debug(ctx, "handling proxy request", "type", data.RequestType)
 
 	switch data.RequestType {
@@ -111,7 +110,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	sub := ctx.Value(constant.ContextSubscription).(*manager.Subscription)
 
 	if !s.acquireSemaphores(ctx) {
-		video.NewStreamer(sub.LimitCommand()).Stream(ctx, w)
+		sub.LimitStreamer().Stream(ctx, w)
 		return
 	}
 	defer s.releaseSemaphores(ctx)
@@ -123,7 +122,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 
 	logging.Info(ctx, "streaming", "channel", data.ChannelID)
 
-	streamer := video.NewStreamer(sub.StreamCommand(urlWithParams))
+	streamer := sub.LinkStreamer(urlWithParams)
 	w.Header().Set("Content-Type", streamer.ContentType())
 
 	bWritten, err := streamer.Stream(ctx, w)
@@ -134,7 +133,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	}
 
 	if bWritten == 0 {
-		if _, err := video.NewStreamer(sub.UpstreamErrorCommand()).Stream(ctx, w); err != nil {
+		if _, err := sub.UpstreamErrorStreamer().Stream(ctx, w); err != nil {
 			logging.Error(ctx, err, "fallback stream failed")
 		}
 	}

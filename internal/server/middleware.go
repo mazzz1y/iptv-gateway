@@ -9,7 +9,6 @@ import (
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/streamer/video"
 	"iptv-gateway/internal/url_generator"
 	"net/http"
 	"time"
@@ -84,8 +83,7 @@ func (s *Server) decryptProxyDataMiddleware(next http.Handler) http.Handler {
 				if errors.Is(err, url_generator.ErrExpiredURL) {
 					ctx := context.WithValue(r.Context(), constant.ContextSubscription, sub)
 					ctx = context.WithValue(ctx, constant.ContextSubscriptionName, sub.GetName())
-					streamer := video.NewStreamer(sub.ExpiredCommand())
-					streamer.Stream(ctx, w)
+					sub.ExpiredCommandStreamer().Stream(ctx, w)
 					return
 				}
 			}

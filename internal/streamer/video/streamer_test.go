@@ -7,7 +7,7 @@ import (
 
 func TestStreamer_PrepareCommand_EmptyCommand(t *testing.T) {
 	streamer := NewStreamer(StreamerConfig{Command: []string{}})
-	_, err := streamer.prepareCommand()
+	_, err := streamer.renderCommand()
 
 	if err == nil {
 		t.Fatal("Expected error for empty command, got nil")
@@ -28,7 +28,7 @@ func TestStreamer_PrepareCommand_WithTemplateVars(t *testing.T) {
 	}
 
 	streamer := NewStreamer(config)
-	commandParts, err := streamer.prepareCommand()
+	commandParts, err := streamer.renderCommand()
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -52,7 +52,7 @@ func TestStreamer_PrepareCommand_InvalidTemplate(t *testing.T) {
 	}
 
 	streamer := NewStreamer(config)
-	_, err := streamer.prepareCommand()
+	_, err := streamer.renderCommand()
 
 	if err == nil {
 		t.Fatal("Expected error for invalid template, got nil")
@@ -71,7 +71,7 @@ func TestStreamer_PrepareCommand_WithNestedVars(t *testing.T) {
 	}
 
 	streamer := NewStreamer(config)
-	commandParts, err := streamer.prepareCommand()
+	commandParts, err := streamer.renderCommand()
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -113,7 +113,7 @@ func TestStreamer_PrepareCommand_WithNumericVars(t *testing.T) {
 	}
 
 	streamer := NewStreamer(config)
-	commandParts, err := streamer.prepareCommand()
+	commandParts, err := streamer.renderCommand()
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)

@@ -88,7 +88,10 @@ func (m *Manager) addSubscriptionsToClient(client *Client, clientConf config.Cli
 			return fmt.Errorf("failed to create URL generator: %w", err)
 		}
 
-		client.AddSubscription(subConf, urlGen, m.config.Excludes, m.config.Proxy, m.subSemaphores[subConf.Name])
+		err = client.AddSubscription(subConf, urlGen, m.config.Excludes, m.config.Proxy, m.subSemaphores[subConf.Name])
+		if err != nil {
+			return fmt.Errorf("failed to build subscription '%s' for client '%s': %w", subName, clientConf.Name, err)
+		}
 	}
 
 	return nil

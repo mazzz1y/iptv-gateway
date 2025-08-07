@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"github.com/Masterminds/sprig/v3"
 	"io"
@@ -17,20 +16,44 @@ import (
 
 const bufferSize = 1 * 1024 * 1024
 
-type StreamerConfig struct {
-	Command      []string          `yaml:"command"`
-	EnvVars      map[string]string `yaml:"env_vars"`
-	TemplateVars map[string]any    `yaml:"template_vars"`
-}
-
 type Streamer struct {
-	config StreamerConfig
+	cmdTmpl  []*template.Template
+	envVars  []string
+	tmplVars map[string]any
 }
 
-func NewStreamer(config StreamerConfig) *Streamer {
-	return &Streamer{
-		config: config,
+func NewStreamer(command []string, envVars map[string]string, tmplVars map[string]any) (*Streamer, error) {
+	cmdTmpl := make([]*template.Template, 0, len(command))
+
+	for _, cmdPart := range command {
+		tmpl, err := template.
+			New("").
+			Funcs(sprig.FuncMap()).
+			Parse(cmdPart)
+
+		if err != nil {
+			return nil, fmt.Errorf("parse template: %w", err)
+		}
+		cmdTmpl = append(cmdTmpl, tmpl)
 	}
+
+	environ := os.Environ()
+	for key, value := range envVars {
+		environ = append(environ, key+"="+value)
+	}
+
+	return &Streamer{
+		cmdTmpl:  cmdTmpl,
+		envVars:  environ,
+		tmplVars: tmplVars,
+	}, nil
+}
+
+func (s *Streamer) WithTemplateVars(templateVars map[string]any) *Streamer {
+	for key, value := range templateVars {
+		s.tmplVars[key] = value
+	}
+	return s
 }
 
 func (s *Streamer) Stream(ctx context.Context, w io.Writer) (int64, error) {
@@ -43,7 +66,7 @@ func (s *Streamer) Stream(ctx context.Context, w io.Writer) (int64, error) {
 		cancelStream()
 	}()
 
-	commandParts, err := s.prepareCommand()
+	commandParts, err := s.renderCommand(s.tmplVars)
 	if err != nil {
 		return 0, err
 	}
@@ -51,11 +74,7 @@ func (s *Streamer) Stream(ctx context.Context, w io.Writer) (int64, error) {
 	run := exec.CommandContext(streamCtx, commandParts[0], commandParts[1:]...)
 	logging.Debug(ctx, "executing command", "cmd", strings.Join(run.Args, " "))
 
-	run.Env = os.Environ()
-	for key, value := range s.config.EnvVars {
-		run.Env = append(run.Env, key+"="+value)
-	}
-
+	run.Env = s.envVars
 	stdout, err := run.StdoutPipe()
 	if err != nil {
 		return 0, err
@@ -105,19 +124,29 @@ func (s *Streamer) ContentType() string {
 	return "video/mp2t"
 }
 
-// TODO: move to subscription initialization to avoid processing in runtime
-func (s *Streamer) prepareCommand() ([]string, error) {
-	if len(s.config.Command) == 0 {
-		return nil, errors.New("command cannot be empty")
-	}
+func (s *Streamer) renderCommand(templateVars map[string]any) ([]string, error) {
+	command := make([]string, len(s.cmdTmpl))
 
-	command := make([]string, len(s.config.Command))
-	for i, part := range s.config.Command {
-		result, err := s.renderCommandPart(part)
-		if err != nil {
-			return nil, err
+	for i, tmpl := range s.cmdTmpl {
+		buf := &bytes.Buffer{}
+		var prevResult string
+
+		for {
+			buf.Reset()
+
+			if err := tmpl.Execute(buf, templateVars); err != nil {
+				return nil, fmt.Errorf("render: %w", err)
+			}
+
+			newResult := buf.String()
+			if prevResult == newResult {
+				break
+			}
+
+			prevResult = newResult
 		}
-		command[i] = result
+
+		command[i] = prevResult
 	}
 
 	if len(command) == 1 {
@@ -125,37 +154,4 @@ func (s *Streamer) prepareCommand() ([]string, error) {
 	}
 
 	return command, nil
-}
-
-func (s *Streamer) renderCommandPart(tmplStr string) (string, error) {
-	var prevResult string
-	currentTmplStr := tmplStr
-	buf := &bytes.Buffer{}
-
-	for {
-		buf.Reset()
-
-		tmpl, err := template.
-			New("command-part").
-			Funcs(sprig.FuncMap()).
-			Parse(currentTmplStr)
-
-		if err != nil {
-			return "", fmt.Errorf("parse template: %w", err)
-		}
-
-		if err := tmpl.Execute(buf, s.config.TemplateVars); err != nil {
-			return "", fmt.Errorf("render: %w", err)
-		}
-
-		newResult := buf.String()
-		if prevResult == newResult {
-			break
-		}
-
-		prevResult = newResult
-		currentTmplStr = newResult
-	}
-
-	return buf.String(), nil
 }

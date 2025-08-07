@@ -35,20 +35,26 @@ func NewClient(clientConfig config.Client, publicUrl string) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) AddSubscription(conf config.Subscription, urlGen URLGenerator,
-	serverExcludes config.Excludes, serverProxy config.Proxy, sem *semaphore.Weighted) {
+func (c *Client) AddSubscription(
+	conf config.Subscription, urlGen URLGenerator,
+	serverExcludes config.Excludes, serverProxy config.Proxy, sem *semaphore.Weighted) error {
 
-	sub := NewSubscription(
+	sub, err := NewSubscription(
 		conf.Name,
 		urlGen,
 		conf.Playlist,
 		conf.EPG,
-		sem,
 		mergeProxies(serverProxy, conf.Proxy, c.proxy),
 		mergeExcludes(serverExcludes, conf.Excludes, c.excludes),
+		sem,
 	)
 
+	if err != nil {
+		return err
+	}
+
 	c.subscriptions = append(c.subscriptions, sub)
+	return nil
 }
 
 func (c *Client) GetEpgLink() string {
