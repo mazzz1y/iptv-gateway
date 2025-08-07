@@ -53,10 +53,23 @@ func NewStreamer(command []string, envVars map[string]string, tmplVars map[strin
 }
 
 func (s *Streamer) WithTemplateVars(templateVars map[string]any) *Streamer {
-	for key, value := range templateVars {
-		s.tmplVars[key] = value
+	clone := &Streamer{
+		cmdTmpl:  s.cmdTmpl,
+		envVars:  s.envVars,
+		tmplVars: make(map[string]any),
 	}
-	return s
+
+	if s.tmplVars != nil {
+		for k, v := range s.tmplVars {
+			clone.tmplVars[k] = v
+		}
+	}
+
+	for k, v := range templateVars {
+		clone.tmplVars[k] = v
+	}
+
+	return clone
 }
 
 func (s *Streamer) Stream(ctx context.Context, w io.Writer) (int64, error) {
