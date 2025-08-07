@@ -153,7 +153,7 @@ public_url: "http://example.com"
 secret: "test-secret"
 proxy:
   enabled: true
-  concurrent_streams: 10
+  concurrency: 10
   stream:
     command: ["custom-command", "-i", "{{.url}}", "pipe:1"]
   error:
