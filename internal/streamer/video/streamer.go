@@ -14,7 +14,10 @@ import (
 	"text/template"
 )
 
-const bufferSize = 1 * 1024 * 1024
+const (
+	bufferSize          = 1 * 1024 * 1024
+	maxRenderIterations = 10
+)
 
 type Streamer struct {
 	cmdTmpl  []*template.Template
@@ -124,34 +127,46 @@ func (s *Streamer) ContentType() string {
 	return "video/mp2t"
 }
 
-func (s *Streamer) renderCommand(templateVars map[string]any) ([]string, error) {
-	command := make([]string, len(s.cmdTmpl))
+func (s *Streamer) renderCommand(tmplVars map[string]any) ([]string, error) {
+	cmdLen := len(s.cmdTmpl)
 
-	for i, tmpl := range s.cmdTmpl {
-		buf := &bytes.Buffer{}
-		var prevResult string
-
-		for {
-			buf.Reset()
-
-			if err := tmpl.Execute(buf, templateVars); err != nil {
-				return nil, fmt.Errorf("render: %w", err)
-			}
-
-			newResult := buf.String()
-			if prevResult == newResult {
-				break
-			}
-
-			prevResult = newResult
+	if cmdLen == 1 {
+		result, err := renderTemplate(s.cmdTmpl[0], tmplVars)
+		if err != nil {
+			return nil, err
 		}
-
-		command[i] = prevResult
+		return []string{"sh", "-c", result}, nil
 	}
 
-	if len(command) == 1 {
-		command = []string{"sh", "-c", command[0]}
+	command := make([]string, cmdLen)
+	for i, tmpl := range s.cmdTmpl {
+		result, err := renderTemplate(tmpl, tmplVars)
+		if err != nil {
+			return nil, err
+		}
+		command[i] = result
 	}
 
 	return command, nil
+}
+
+func renderTemplate(tmpl *template.Template, tmplVars map[string]any) (string, error) {
+	buf := &bytes.Buffer{}
+	var prevResult string
+
+	iter := 0
+	for iter < maxRenderIterations {
+		buf.Reset()
+		if err := tmpl.Execute(buf, tmplVars); err != nil {
+			return "", fmt.Errorf("render: %w", err)
+		}
+		newResult := buf.String()
+		if prevResult == newResult {
+			break
+		}
+		prevResult = newResult
+		iter++
+	}
+
+	return prevResult, nil
 }

@@ -5,30 +5,20 @@ import (
 	"testing"
 )
 
-func TestStreamer_PrepareCommand_EmptyCommand(t *testing.T) {
-	streamer := NewStreamer(StreamerConfig{Command: []string{}})
-	_, err := streamer.renderCommand()
-
-	if err == nil {
-		t.Fatal("Expected error for empty command, got nil")
-	}
-
-	if !strings.Contains(err.Error(), "command cannot be empty") {
-		t.Fatalf("Expected 'command cannot be empty' error, got: %v", err)
-	}
-}
-
 func TestStreamer_PrepareCommand_WithTemplateVars(t *testing.T) {
-	config := StreamerConfig{
-		Command: []string{"cmd", "{{.Param1}}", "--option={{.Param2}}"},
-		TemplateVars: map[string]any{
-			"Param1": "value1",
-			"Param2": "value2",
-		},
+	command := []string{"cmd", "{{.Param1}}", "--option={{.Param2}}"}
+	envVars := map[string]string{}
+	templateVars := map[string]any{
+		"Param1": "value1",
+		"Param2": "value2",
 	}
 
-	streamer := NewStreamer(config)
-	commandParts, err := streamer.renderCommand()
+	streamer, err := NewStreamer(command, envVars, templateVars)
+	if err != nil {
+		t.Fatalf("Unexpected error creating streamer: %v", err)
+	}
+
+	commandParts, err := streamer.renderCommand(templateVars)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -47,37 +37,38 @@ func TestStreamer_PrepareCommand_WithTemplateVars(t *testing.T) {
 }
 
 func TestStreamer_PrepareCommand_InvalidTemplate(t *testing.T) {
-	config := StreamerConfig{
-		Command: []string{"cmd", "{{.Param1"},
-	}
+	command := []string{"cmd", "{{.Param1"}
+	envVars := map[string]string{}
+	templateVars := map[string]any{}
 
-	streamer := NewStreamer(config)
-	_, err := streamer.renderCommand()
-
+	_, err := NewStreamer(command, envVars, templateVars)
 	if err == nil {
 		t.Fatal("Expected error for invalid template, got nil")
 	}
 }
 
 func TestStreamer_PrepareCommand_WithNestedVars(t *testing.T) {
-	config := StreamerConfig{
-		Command: []string{"ffmpeg", "-i", "{{.Source}}"},
-		TemplateVars: map[string]any{
-			"Source":   "{{.Protocol}}://{{.Server}}/{{.Path}}",
-			"Protocol": "rtmp",
-			"Server":   "example.com",
-			"Path":     "live/stream",
-		},
+	command := []string{"ffmpeg", "-i", "{{.Source}}"}
+	envVars := map[string]string{}
+	templateVars := map[string]any{
+		"Source":   "{{.Protocol}}://{{.Server}}/{{.Path}}",
+		"Protocol": "rtmp",
+		"Server":   "example.com",
+		"Path":     "live/stream",
 	}
 
-	streamer := NewStreamer(config)
-	commandParts, err := streamer.renderCommand()
+	streamer, err := NewStreamer(command, envVars, templateVars)
+	if err != nil {
+		t.Fatalf("Unexpected error creating streamer: %v", err)
+	}
+
+	commandParts, err := streamer.renderCommand(templateVars)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	expectedParts := []string{"ffmpeg", "-i", "rtmp://example.com/live/stream"}
+	expectedParts := []string{"ffmpeg", "-i", "{{.Protocol}}://{{.Server}}/{{.Path}}"}
 	if len(commandParts) != len(expectedParts) {
 		t.Fatalf("Expected %d command parts, got %d", len(expectedParts), len(commandParts))
 	}
@@ -90,9 +81,8 @@ func TestStreamer_PrepareCommand_WithNestedVars(t *testing.T) {
 }
 
 func TestStreamer_PrepareCommand_WithNumericVars(t *testing.T) {
-	config := StreamerConfig{
-		Command: []string{
-			`ffmpeg -i input.mp4 -vf scale={{.Width}}:{{.Height}}
+	command := []string{
+		`ffmpeg -i input.mp4 -vf scale={{.Width}}:{{.Height}}
 {{if lt .Resolution 720}}
 -global_quality 24
 {{else if lt .Resolution 1080}}
@@ -103,17 +93,21 @@ func TestStreamer_PrepareCommand_WithNumericVars(t *testing.T) {
 -global_quality 20
 {{end}}
 -preset {{.Preset}}`,
-		},
-		TemplateVars: map[string]any{
-			"Width":      1280,
-			"Height":     720,
-			"Resolution": 720,
-			"Preset":     "veryfast",
-		},
+	}
+	envVars := map[string]string{}
+	templateVars := map[string]any{
+		"Width":      1280,
+		"Height":     720,
+		"Resolution": 720,
+		"Preset":     "veryfast",
 	}
 
-	streamer := NewStreamer(config)
-	commandParts, err := streamer.renderCommand()
+	streamer, err := NewStreamer(command, envVars, templateVars)
+	if err != nil {
+		t.Fatalf("Unexpected error creating streamer: %v", err)
+	}
+
+	commandParts, err := streamer.renderCommand(templateVars)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)

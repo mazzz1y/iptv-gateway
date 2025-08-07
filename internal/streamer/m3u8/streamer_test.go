@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/semaphore"
 )
 
 type MockHTTPClient struct {
@@ -63,16 +64,16 @@ func (m *MockURLGenerator) Decrypt(s string) (*url_generator.Data, error) {
 	return args.Get(0).(*url_generator.Data), args.Error(1)
 }
 
-func createTestSubscription(name string, playlists []string, excludes config.Excludes) *manager.Subscription {
-	s := manager.NewSubscription(
+func createTestSubscription(name string, playlists []string, excludes config.Excludes) (*manager.Subscription, error) {
+	semaphore := semaphore.NewWeighted(1)
+	return manager.NewSubscription(
 		name,
 		nil, playlists,
 		nil,
-		nil,
 		config.Proxy{},
 		excludes,
+		semaphore,
 	)
-	return s
 }
 
 func TestStreamerWriteTo(t *testing.T) {
@@ -89,17 +90,18 @@ http://example.com/stream2`
 
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist.m3u").Return(mockEntry, nil)
 
-	sub := createTestSubscription(
+	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{"http://example.com/playlist.m3u"},
 		config.Excludes{},
 	)
+	require.NoError(t, err)
 
 	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
-	_, err := streamer.WriteTo(ctx, buffer)
+	_, err = streamer.WriteTo(ctx, buffer)
 	require.NoError(t, err)
 
 	output := buffer.String()
@@ -138,17 +140,18 @@ http://example.com/movies1`
 		},
 	}
 
-	sub := createTestSubscription(
+	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{"http://example.com/playlist.m3u"},
 		excludes,
 	)
+	require.NoError(t, err)
 
 	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
-	_, err := streamer.WriteTo(ctx, buffer)
+	_, err = streamer.WriteTo(ctx, buffer)
 	require.NoError(t, err)
 
 	output := buffer.String()
@@ -173,17 +176,18 @@ http://example.com/stream1_duplicate`
 
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist.m3u").Return(mockEntry, nil)
 
-	sub := createTestSubscription(
+	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{"http://example.com/playlist.m3u"},
 		config.Excludes{},
 	)
+	require.NoError(t, err)
 
 	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
-	_, err := streamer.WriteTo(ctx, buffer)
+	_, err = streamer.WriteTo(ctx, buffer)
 	require.NoError(t, err)
 
 	output := buffer.String()
@@ -206,17 +210,18 @@ func TestStreamerErrorHandling(t *testing.T) {
 
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist.m3u").Return(nil, fmt.Errorf("connection failed"))
 
-	sub := createTestSubscription(
+	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{"http://example.com/playlist.m3u"},
 		config.Excludes{},
 	)
+	require.NoError(t, err)
 
 	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
-	_, err := streamer.WriteTo(ctx, buffer)
+	_, err = streamer.WriteTo(ctx, buffer)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "connection failed")
 
@@ -241,23 +246,25 @@ http://example.com/sports1`
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist1.m3u").Return(mockEntry1, nil)
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist2.m3u").Return(mockEntry2, nil)
 
-	sub1 := createTestSubscription(
+	sub1, err := createTestSubscription(
 		"subscription1",
 		[]string{"http://example.com/playlist1.m3u"},
 		config.Excludes{},
 	)
+	require.NoError(t, err)
 
-	sub2 := createTestSubscription(
+	sub2, err := createTestSubscription(
 		"subscription2",
 		[]string{"http://example.com/playlist2.m3u"},
 		config.Excludes{},
 	)
+	require.NoError(t, err)
 
 	streamer := NewStreamer([]*manager.Subscription{sub1, sub2}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
-	_, err := streamer.WriteTo(ctx, buffer)
+	_, err = streamer.WriteTo(ctx, buffer)
 	require.NoError(t, err)
 
 	output := buffer.String()
@@ -289,7 +296,7 @@ http://example.com/music1`
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist1.m3u").Return(mockEntry1, nil)
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist2.m3u").Return(mockEntry2, nil)
 
-	sub := createTestSubscription(
+	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{
 			"http://example.com/playlist1.m3u",
@@ -297,6 +304,7 @@ http://example.com/music1`
 		},
 		config.Excludes{},
 	)
+	require.NoError(t, err)
 
 	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
@@ -336,7 +344,7 @@ http://example.com/news1`
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist1.m3u").Return(mockEntry, nil)
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist2.m3u").Return(nil, io.ErrUnexpectedEOF)
 
-	sub := createTestSubscription(
+	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{
 			"http://example.com/playlist1.m3u",
@@ -344,12 +352,13 @@ http://example.com/news1`
 		},
 		config.Excludes{},
 	)
+	require.NoError(t, err)
 
 	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
-	_, err := streamer.WriteTo(ctx, buffer)
+	_, err = streamer.WriteTo(ctx, buffer)
 	require.Error(t, err)
 	assert.Equal(t, io.ErrUnexpectedEOF, err)
 
@@ -361,16 +370,17 @@ func TestStreamerEmptySubscription(t *testing.T) {
 	ctx := context.Background()
 	httpClient := new(MockHTTPClient)
 
-	emptySub := createTestSubscription(
+	emptySub, err := createTestSubscription(
 		"empty-subscription",
 		[]string{},
 		config.Excludes{},
 	)
+	require.NoError(t, err)
 
 	streamer := NewStreamer([]*manager.Subscription{emptySub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
-	_, err := streamer.WriteTo(ctx, buffer)
+	_, err = streamer.WriteTo(ctx, buffer)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no data in subscriptions")
 
