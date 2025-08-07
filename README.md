@@ -39,7 +39,7 @@ secret: secret # Secret used for encrypting proxy links
 proxy:
   # Enable ffmpeg remuxing globally
   enabled: true
-  concurrent_streams: 4
+  concurrency: 4
 
 excludes:
   attrs:
@@ -56,13 +56,13 @@ subscriptions:
     playlist: http://example.com/english.m3u8 # Both playlist and epg can be arrays of links; they will be merged
     epg: http://example.com/en.xml.gz
     proxy:
-      concurrent_streams: 2
+      concurrency: 2
 
   - name: french
     playlist: https://example.com/french.m3u
     epg: http://example.com/fr.xml.gz
     proxy:
-      concurrent_streams: 3
+      concurrency: 3
 
 clients:
   - name: device1

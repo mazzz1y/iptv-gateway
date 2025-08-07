@@ -58,7 +58,7 @@ type Excludes struct {
 
 type Proxy struct {
 	Enabled           *bool   `yaml:"enabled"`
-	ConcurrentStreams int64   `yaml:"concurrent_streams"`
+	ConcurrentStreams int64   `yaml:"concurrency"`
 	Stream            Handler `yaml:"stream,omitempty"`
 	Error             Error   `yaml:"error,omitempty"`
 }
