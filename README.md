@@ -45,6 +45,12 @@ excludes:
   attrs:
     tvg-group: ^(?i)xxx$
 
+presets:
+  - name: children
+    excludes:
+      attrs:
+        tvg-group: ^(?i)adult$
+
 subscriptions:
   - name: english
     playlist: http://example.com/english.m3u8 # Both playlist and epg can be arrays of links; they will be merged
@@ -68,6 +74,7 @@ clients:
     channel_name: "Some-Channel"
   - name: device2
     secret: secret2
+    preset: children
     subscriptions: [ "english", "french" ] # Both subscriptions will be merged
 ```
 
