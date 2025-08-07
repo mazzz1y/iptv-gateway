@@ -10,13 +10,14 @@ type Client struct {
 	name          string
 	semaphore     *semaphore.Weighted
 	subscriptions []*Subscription
+	presets       []config.Preset
 	proxy         config.Proxy
 	excludes      config.Excludes
 	epgLink       string
 	secret        string
 }
 
-func NewClient(clientConfig config.Client, publicUrl string) (*Client, error) {
+func NewClient(clientConfig config.Client, presets []config.Preset, publicUrl string) (*Client, error) {
 	if clientConfig.Secret == "" {
 		return nil, fmt.Errorf("client secret cannot be empty")
 	}
@@ -29,6 +30,7 @@ func NewClient(clientConfig config.Client, publicUrl string) (*Client, error) {
 	return &Client{
 		name:      clientConfig.Name,
 		semaphore: sem,
+		presets:   presets,
 		proxy:     clientConfig.Proxy,
 		secret:    clientConfig.Secret,
 		epgLink:   fmt.Sprintf("%s/%s/epg.xml.gz", publicUrl, clientConfig.Secret),
@@ -37,15 +39,27 @@ func NewClient(clientConfig config.Client, publicUrl string) (*Client, error) {
 
 func (c *Client) AddSubscription(
 	conf config.Subscription, urlGen URLGenerator,
-	serverExcludes config.Excludes, serverProxy config.Proxy, sem *semaphore.Weighted) error {
+	serverExcludes config.Excludes, serverProxy config.Proxy,
+	sem *semaphore.Weighted) error {
+
+	proxy := mergeProxies(serverProxy, conf.Proxy)
+	exclude := mergeExcludes(serverExcludes, conf.Excludes)
+
+	for _, preset := range c.presets {
+		proxy = mergeProxies(proxy, preset.Proxy)
+		exclude = mergeExcludes(exclude, preset.Excludes)
+	}
+
+	proxy = mergeProxies(proxy, c.proxy)
+	exclude = mergeExcludes(exclude, c.excludes)
 
 	sub, err := NewSubscription(
 		conf.Name,
 		urlGen,
 		conf.Playlist,
 		conf.EPG,
-		mergeProxies(serverProxy, conf.Proxy, c.proxy),
-		mergeExcludes(serverExcludes, conf.Excludes, c.excludes),
+		proxy,
+		exclude,
 		sem,
 	)
 

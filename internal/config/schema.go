@@ -2,12 +2,11 @@ package config
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"net/url"
 	"regexp"
 	"strconv"
 	"time"
-
-	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -20,6 +19,7 @@ type Config struct {
 	Clients       []Client       `yaml:"clients"`
 	Subscriptions []Subscription `yaml:"subscriptions"`
 	Excludes      Excludes       `yaml:"excludes,omitempty"`
+	Presets       []Preset       `yaml:"presets,omitempty"`
 }
 
 type CacheConfig struct {
@@ -30,19 +30,24 @@ type CacheConfig struct {
 type TTL time.Duration
 
 type Client struct {
-	Name          string              `yaml:"name"`
-	Secret        string              `yaml:"secret"`
-	Subscriptions ClientSubscriptions `yaml:"subscriptions"`
-	Proxy         Proxy               `yaml:"proxy"`
-	Excludes      Excludes            `yaml:"excludes,omitempty"`
+	Name          string      `yaml:"name"`
+	Secret        string      `yaml:"secret"`
+	Subscriptions StringOrArr `yaml:"subscriptions"`
+	Preset        StringOrArr `yaml:"presets,omitempty"`
+	Proxy         Proxy       `yaml:"proxy,omitempty"`
+	Excludes      Excludes    `yaml:"excludes,omitempty"`
 }
 
 type Subscription struct {
-	Name     string         `yaml:"name"`
-	Playlist PlaylistSource `yaml:"playlist"`
-	EPG      EPGSource      `yaml:"epg"`
-	Proxy    Proxy          `yaml:"proxy"`
-	Excludes Excludes       `yaml:"excludes,omitempty"`
+	Name     string      `yaml:"name"`
+	Playlist StringOrArr `yaml:"playlist"`
+	EPG      StringOrArr `yaml:"epg"`
+	Proxy    Proxy       `yaml:"proxy"`
+	Excludes Excludes    `yaml:"excludes,omitempty"`
+}
+
+func (s Subscription) GetName() string {
+	return s.Name
 }
 
 type Excludes struct {
@@ -54,8 +59,19 @@ type Excludes struct {
 type Proxy struct {
 	Enabled           *bool   `yaml:"enabled"`
 	ConcurrentStreams int64   `yaml:"concurrent_streams"`
-	Stream            Handler `yaml:"stream"`
-	Error             Error   `yaml:"error"`
+	Stream            Handler `yaml:"stream,omitempty"`
+	Error             Error   `yaml:"error,omitempty"`
+}
+
+func (p *Proxy) UnmarshalYAML(value *yaml.Node) error {
+	var enabled bool
+	if err := value.Decode(&enabled); err == nil {
+		p.Enabled = &enabled
+		return nil
+	}
+
+	type proxyYAML Proxy
+	return value.Decode((*proxyYAML)(p))
 }
 
 type Error struct {
@@ -66,19 +82,69 @@ type Error struct {
 }
 
 type Handler struct {
-	Command      Command           `yaml:"command,omitempty"`
+	Command      StringOrArr       `yaml:"command,omitempty"`
 	TemplateVars map[string]any    `yaml:"template_vars,omitempty"`
 	EnvVars      map[string]string `yaml:"env_vars,omitempty"`
 }
 
-type Command []string
+type Preset struct {
+	Name     string   `yaml:"name"`
+	Proxy    Proxy    `yaml:"proxy,omitempty"`
+	Excludes Excludes `yaml:"excludes,omitempty"`
+}
 
-type PlaylistSource []string
-type EPGSource []string
-type ClientSubscriptions []string
+func (p Preset) GetName() string {
+	return p.Name
+}
+
 type RegexpArr []regexp.Regexp
 
+func (r *RegexpArr) UnmarshalYAML(value *yaml.Node) error {
+	patterns, err := unmarshalStringOrArray(value)
+	if err != nil {
+		return err
+	}
+	if len(patterns) == 0 {
+		return nil
+	}
+
+	regexps := make([]regexp.Regexp, 0, len(patterns))
+	for _, pattern := range patterns {
+		compiled, err := regexp.Compile(pattern)
+		if err != nil {
+			return fmt.Errorf("invalid regex pattern '%s': %w", pattern, err)
+		}
+		regexps = append(regexps, *compiled)
+	}
+
+	*r = regexps
+	return nil
+}
+
 type PublicURL url.URL
+
+func (pu *PublicURL) UnmarshalYAML(value *yaml.Node) error {
+	var urlStr string
+	if err := value.Decode(&urlStr); err != nil {
+		return err
+	}
+
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return err
+	}
+	if u.Host == "" {
+		return fmt.Errorf("public_url must contain a host")
+	}
+
+	*pu = PublicURL(*u)
+	return nil
+}
+
+func (pu *PublicURL) String() string {
+	u := url.URL(*pu)
+	return u.String()
+}
 
 func (t *TTL) UnmarshalYAML(value *yaml.Node) error {
 	var ttlStr string
@@ -122,89 +188,29 @@ func (t *TTL) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-func (p *Command) UnmarshalYAML(value *yaml.Node) error {
-	*p = unmarshalStringOrArray(value)
-	return nil
-}
+type StringOrArr []string
 
-func (p *PlaylistSource) UnmarshalYAML(value *yaml.Node) error {
-	*p = unmarshalStringOrArray(value)
-	return nil
-}
-
-func (e *EPGSource) UnmarshalYAML(value *yaml.Node) error {
-	*e = unmarshalStringOrArray(value)
-	return nil
-}
-
-func (s *ClientSubscriptions) UnmarshalYAML(value *yaml.Node) error {
-	*s = unmarshalStringOrArray(value)
-	return nil
-}
-
-func (r *RegexpArr) UnmarshalYAML(value *yaml.Node) error {
-	patterns := unmarshalStringOrArray(value)
-	if len(patterns) == 0 {
-		return nil
-	}
-
-	regexps := make([]regexp.Regexp, 0, len(patterns))
-	for _, pattern := range patterns {
-		compiled, err := regexp.Compile(pattern)
-		if err != nil {
-			return fmt.Errorf("invalid regex pattern '%s': %w", pattern, err)
-		}
-		regexps = append(regexps, *compiled)
-	}
-
-	*r = regexps
-	return nil
-}
-
-func (pu *PublicURL) UnmarshalYAML(value *yaml.Node) error {
-	var urlStr string
-	if err := value.Decode(&urlStr); err != nil {
-		return err
-	}
-
-	u, err := url.Parse(urlStr)
+func (s *StringOrArr) UnmarshalYAML(node *yaml.Node) error {
+	val, err := unmarshalStringOrArray(node)
 	if err != nil {
 		return err
 	}
-	if u.Host == "" {
-		return fmt.Errorf("public_url must contain a host")
-	}
 
-	*pu = PublicURL(*u)
+	*s = val
 	return nil
 }
 
-func (pu *PublicURL) String() string {
-	u := url.URL(*pu)
-	return u.String()
-}
-
-func (p *Proxy) UnmarshalYAML(value *yaml.Node) error {
-	var enabled bool
-	if err := value.Decode(&enabled); err == nil {
-		p.Enabled = &enabled
-		return nil
-	}
-
-	type proxyYAML Proxy
-	return value.Decode((*proxyYAML)(p))
-}
-
-func unmarshalStringOrArray(node *yaml.Node) []string {
+func unmarshalStringOrArray(node *yaml.Node) ([]string, error) {
 	var singleValue string
-	if err := node.Decode(&singleValue); err == nil {
-		return []string{singleValue}
+	var err error
+	if err = node.Decode(&singleValue); err == nil {
+		return []string{singleValue}, nil
 	}
 
 	var multipleValues []string
-	if err := node.Decode(&multipleValues); err == nil {
-		return multipleValues
+	if err = node.Decode(&multipleValues); err == nil {
+		return multipleValues, nil
 	}
 
-	return nil
+	return nil, err
 }

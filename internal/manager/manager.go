@@ -57,7 +57,17 @@ func (m *Manager) GetSemaphore() *semaphore.Weighted {
 
 func (m *Manager) initClients() error {
 	for _, clientConf := range m.config.Clients {
-		client, err := NewClient(clientConf, m.config.PublicURL.String())
+
+		presets := make([]config.Preset, len(clientConf.Preset))
+		for _, presetName := range clientConf.Preset {
+			preset, found := findByName(m.config.Presets, presetName)
+			if !found {
+				return fmt.Errorf("preset '%s' for client '%s' is not defined in config", presetName, clientConf.Name)
+			}
+			presets = append(presets, preset)
+		}
+
+		client, err := NewClient(clientConf, presets, m.config.PublicURL.String())
 		if err != nil {
 			return fmt.Errorf("failed to initialize client %s: %w", clientConf.Name, err)
 		}
@@ -78,7 +88,7 @@ func (m *Manager) addSubscriptionsToClient(client *Client, clientConf config.Cli
 	}
 
 	for _, subName := range clientConf.Subscriptions {
-		subConf, found := m.findSubscription(subName)
+		subConf, found := findByName(m.config.Subscriptions, subName)
 		if !found {
 			return fmt.Errorf("subscription '%s' for client '%s' is not defined in config", subName, clientConf.Name)
 		}
@@ -88,7 +98,10 @@ func (m *Manager) addSubscriptionsToClient(client *Client, clientConf config.Cli
 			return fmt.Errorf("failed to create URL generator: %w", err)
 		}
 
-		err = client.AddSubscription(subConf, urlGen, m.config.Excludes, m.config.Proxy, m.subSemaphores[subConf.Name])
+		err = client.AddSubscription(
+			subConf, urlGen,
+			m.config.Excludes, m.config.Proxy,
+			m.subSemaphores[subConf.Name])
 		if err != nil {
 			return fmt.Errorf("failed to build subscription '%s' for client '%s': %w", subName, clientConf.Name, err)
 		}
@@ -102,13 +115,4 @@ func (m *Manager) createURLGenerator(clientSecret, subName string) (URLGenerator
 	secretKey := m.config.Secret + subName + clientSecret
 
 	return url_generator.NewGenerator(baseURL, secretKey)
-}
-
-func (m *Manager) findSubscription(name string) (config.Subscription, bool) {
-	for _, sub := range m.config.Subscriptions {
-		if sub.Name == name {
-			return sub, true
-		}
-	}
-	return config.Subscription{}, false
 }
