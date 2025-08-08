@@ -2,14 +2,26 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"io"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/manager"
 	"iptv-gateway/internal/streamer/m3u8"
+	"iptv-gateway/internal/streamer/video"
 	"iptv-gateway/internal/streamer/xmltv"
 	"iptv-gateway/internal/url_generator"
 	"net/http"
+	"syscall"
+	"time"
+)
+
+const (
+	streamContentType = "video/mp2t"
+	linkTTL           = time.Hour * 24 * 30
 )
 
 func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
@@ -25,6 +37,7 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 	if _, err := streamer.WriteTo(ctx, w); err != nil {
 		logging.Error(ctx, err, "failed to write playlist")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -44,6 +57,7 @@ func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
 	if _, err = streamer.WriteTo(ctx, w); err != nil {
 		logging.Error(ctx, err, "failed to write EPG")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -64,6 +78,7 @@ func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
 	if _, err = streamer.WriteToGzip(ctx, w); err != nil {
 		logging.Error(ctx, err, "failed to write gzipped epg")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -77,7 +92,7 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 	case url_generator.File:
 		s.handleFileProxy(ctx, w, data)
 	case url_generator.Stream:
-		s.handleStreamProxy(ctx, w, r, data)
+		s.handleStreamProxy(ctx, w, r)
 	default:
 		logging.Error(ctx, nil, "invalid proxy request type", "type", data.RequestType)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -106,39 +121,6 @@ func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, dat
 	}
 }
 
-func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request, data *url_generator.Data) {
-	sub := ctx.Value(constant.ContextSubscription).(*manager.Subscription)
-
-	if !s.acquireSemaphores(ctx) {
-		sub.LimitStreamer().Stream(ctx, w)
-		return
-	}
-	defer s.releaseSemaphores(ctx)
-
-	urlWithParams := data.URL
-	if r.URL.RawQuery != "" {
-		urlWithParams = data.URL + "?" + r.URL.RawQuery
-	}
-
-	logging.Info(ctx, "streaming", "channel", data.ChannelID)
-
-	streamer := sub.LinkStreamer(urlWithParams)
-	w.Header().Set("Content-Type", streamer.ContentType())
-
-	bWritten, err := streamer.Stream(ctx, w)
-	if err != nil {
-		logging.Error(ctx, err, "video stream failed")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	if bWritten == 0 {
-		if _, err := sub.UpstreamErrorStreamer().Stream(ctx, w); err != nil {
-			logging.Error(ctx, err, "fallback stream failed")
-		}
-	}
-}
-
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(http.StatusText(http.StatusOK)))
@@ -155,4 +137,79 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 	}
 
 	return xmltv.NewStreamer(c.GetSubscriptions(), s.cache, channels), nil
+}
+
+func generateHash(parts ...any) string {
+	h := sha256.New()
+	for _, part := range parts {
+		h.Write([]byte(fmt.Sprint(part)))
+	}
+	return hex.EncodeToString(h.Sum(nil)[:4])
+}
+
+func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	logging.Debug(ctx, "proxying stream")
+
+	sub := ctx.Value(constant.ContextSubscription).(*manager.Subscription)
+	data := ctx.Value(constant.ContextStreamData).(*url_generator.Data)
+
+	var streamKey string
+	url := data.URL
+	if r.URL.RawQuery != "" {
+		url += "?" + r.URL.RawQuery
+		streamKey = generateHash(url, time.Now().Unix())
+	} else {
+		streamKey = generateHash(data.URL)
+	}
+
+	if time.Since(data.Created) > linkTTL {
+		logging.Error(ctx, errors.New("stream url expired"), "")
+		sub.ExpiredCommandStreamer().Stream(ctx, w)
+		return
+	}
+
+	streamSource := sub.LinkStreamer(url)
+	if streamSource == nil {
+		logging.Error(ctx, errors.New("failed to create stream source"), "")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	streamReq := video.StreamRequest{
+		StreamKey:  streamKey,
+		StreamData: streamSource,
+		Context:    ctx,
+	}
+
+	if !s.streamManager.HasActiveStream(streamKey) {
+		if !s.acquireSemaphores(ctx) {
+			logging.Error(ctx, errors.New("failed to acquire semaphores"), "")
+			sub.LimitStreamer().Stream(ctx, w)
+			return
+		}
+		defer s.releaseSemaphores(ctx)
+		logging.Info(ctx, "creating new stream")
+	} else {
+		logging.Info(ctx, "connecting to existing stream")
+	}
+
+	reader, err := s.streamManager.GetStream(streamReq)
+	if err != nil {
+		logging.Error(ctx, err, "failed to get stream")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	defer reader.Close()
+
+	w.Header().Set("Content-Type", streamContentType)
+	written, err := io.Copy(w, reader)
+
+	if err == nil && written == 0 {
+		logging.Error(ctx, errors.New("no data written to response"), "")
+		sub.UpstreamErrorStreamer().Stream(ctx, w)
+	}
+
+	if err != nil && !errors.Is(err, syscall.EPIPE) {
+		logging.Error(ctx, err, "error copying stream to response")
+	}
 }

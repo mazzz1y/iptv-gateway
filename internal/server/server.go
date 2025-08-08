@@ -8,6 +8,7 @@ import (
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/manager"
+	"iptv-gateway/internal/streamer/video"
 	"net/http"
 	"time"
 )
@@ -18,6 +19,8 @@ type Server struct {
 	manager *manager.Manager
 	cache   *cache.Cache
 
+	streamManager *video.StreamManager
+
 	serverURL  string
 	listenAddr string
 }
@@ -25,22 +28,23 @@ type Server struct {
 func NewServer(cfg *config.Config) (*Server, error) {
 	m, err := manager.NewManager(cfg)
 	if err != nil {
-		logging.Error(context.TODO(), err, "failed to initialize manager")
 		return nil, err
 	}
 
 	c, err := cache.NewCache(cfg.Cache.Path, time.Duration(cfg.Cache.TTL))
 	if err != nil {
-		logging.Error(context.TODO(), err, "failed to create cache")
 		return nil, err
 	}
 
+	streamManager := video.NewStreamManager()
+
 	server := &Server{
-		router:     mux.NewRouter(),
-		manager:    m,
-		cache:      c,
-		serverURL:  cfg.PublicURL.String(),
-		listenAddr: cfg.ListenAddr,
+		router:        mux.NewRouter(),
+		manager:       m,
+		cache:         c,
+		streamManager: streamManager,
+		serverURL:     cfg.PublicURL.String(),
+		listenAddr:    cfg.ListenAddr,
 	}
 
 	return server, nil
@@ -70,11 +74,13 @@ func (s *Server) Stop() error {
 	defer cancel()
 
 	s.cache.Close()
+	s.streamManager.Stop()
 
 	logging.Info(ctx, "stopping http server")
 
 	if err := s.server.Shutdown(ctx); err != nil {
-		logging.Error(ctx, err, "server shutdown failed")
+		logging.Error(ctx, err, "server shutdown failed, force closing connections")
+		s.server.Close()
 		return err
 	}
 

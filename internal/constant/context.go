@@ -7,4 +7,5 @@ const (
 	ContextStreamData       string = "stream_data"
 	ContextSubscription     string = "subscription"
 	ContextSubscriptionName string = "subscription_name"
+	ContextStreamID         string = "stream_id"
 )
