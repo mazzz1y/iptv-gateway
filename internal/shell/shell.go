@@ -1,7 +1,6 @@
-package video
+package shell
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -10,22 +9,21 @@ import (
 	"iptv-gateway/internal/logging"
 	"os"
 	"os/exec"
-	"strings"
 	"text/template"
 )
 
 const (
-	bufferSize          = 8 * 1024 * 1024
 	maxRenderIterations = 10
+	bufferSize          = 64 * 1024
 )
 
-type Streamer struct {
+type CommandBuilder struct {
 	cmdTmpl  []*template.Template
 	envVars  []string
 	tmplVars map[string]any
 }
 
-func NewStreamer(command []string, envVars map[string]string, tmplVars map[string]any) (*Streamer, error) {
+func NewCommandBuilder(command []string, envVars map[string]string, tmplVars map[string]any) (*CommandBuilder, error) {
 	cmdTmpl := make([]*template.Template, 0, len(command))
 
 	for _, cmdPart := range command {
@@ -45,22 +43,22 @@ func NewStreamer(command []string, envVars map[string]string, tmplVars map[strin
 		environ = append(environ, key+"="+value)
 	}
 
-	return &Streamer{
+	return &CommandBuilder{
 		cmdTmpl:  cmdTmpl,
 		envVars:  environ,
 		tmplVars: tmplVars,
 	}, nil
 }
 
-func (s *Streamer) WithTemplateVars(templateVars map[string]any) *Streamer {
-	clone := &Streamer{
-		cmdTmpl:  s.cmdTmpl,
-		envVars:  s.envVars,
+func (c *CommandBuilder) WithTemplateVars(templateVars map[string]any) *CommandBuilder {
+	clone := &CommandBuilder{
+		cmdTmpl:  c.cmdTmpl,
+		envVars:  c.envVars,
 		tmplVars: make(map[string]any),
 	}
 
-	if s.tmplVars != nil {
-		for k, v := range s.tmplVars {
+	if c.tmplVars != nil {
+		for k, v := range c.tmplVars {
 			clone.tmplVars[k] = v
 		}
 	}
@@ -72,25 +70,24 @@ func (s *Streamer) WithTemplateVars(templateVars map[string]any) *Streamer {
 	return clone
 }
 
-func (s *Streamer) Stream(ctx context.Context, w io.Writer) (int64, error) {
+func (c *CommandBuilder) Stream(ctx context.Context, w io.Writer) (int64, error) {
 	streamCtx, cancelStream := context.WithCancel(ctx)
 	defer cancelStream()
 
 	go func() {
 		<-ctx.Done()
-		logging.Debug(ctx, "context canceled, stopping stream")
+		logging.Debug(ctx, "context canceled, stopping shell command")
 		cancelStream()
 	}()
 
-	commandParts, err := s.renderCommand(s.tmplVars)
+	commandParts, err := c.renderCommand(c.tmplVars)
 	if err != nil {
 		return 0, err
 	}
 
 	run := exec.CommandContext(streamCtx, commandParts[0], commandParts[1:]...)
-	logging.Debug(ctx, "executing command", "cmd", strings.Join(run.Args, " "))
 
-	run.Env = s.envVars
+	run.Env = c.envVars
 	stdout, err := run.StdoutPipe()
 	if err != nil {
 		return 0, err
@@ -106,9 +103,12 @@ func (s *Streamer) Stream(ctx context.Context, w io.Writer) (int64, error) {
 	}
 
 	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			logging.Debug(streamCtx, "command output", "msg", scanner.Text())
+		buf := make([]byte, bufferSize)
+		for {
+			_, err := stderr.Read(buf)
+			if err != nil {
+				break
+			}
 		}
 	}()
 
@@ -136,15 +136,11 @@ func (s *Streamer) Stream(ctx context.Context, w io.Writer) (int64, error) {
 	}
 }
 
-func (s *Streamer) ContentType() string {
-	return "video/mp2t"
-}
-
-func (s *Streamer) renderCommand(tmplVars map[string]any) ([]string, error) {
-	cmdLen := len(s.cmdTmpl)
+func (c *CommandBuilder) renderCommand(tmplVars map[string]any) ([]string, error) {
+	cmdLen := len(c.cmdTmpl)
 
 	if cmdLen == 1 {
-		result, err := renderTemplate(s.cmdTmpl[0], tmplVars)
+		result, err := renderTemplate(c.cmdTmpl[0], tmplVars)
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +148,7 @@ func (s *Streamer) renderCommand(tmplVars map[string]any) ([]string, error) {
 	}
 
 	command := make([]string, cmdLen)
-	for i, tmpl := range s.cmdTmpl {
+	for i, tmpl := range c.cmdTmpl {
 		result, err := renderTemplate(tmpl, tmplVars)
 		if err != nil {
 			return nil, err

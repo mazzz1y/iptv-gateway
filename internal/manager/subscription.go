@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"golang.org/x/sync/semaphore"
 	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/streamer/video"
+	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/url_generator"
 	"net/url"
 )
@@ -24,17 +24,17 @@ type Subscription struct {
 	proxyConfig   config.Proxy
 	excludeConfig config.Excludes
 
-	linkStreamer          *video.Streamer
-	rateLimitStreamer     *video.Streamer
-	upstreamErrorStreamer *video.Streamer
-	expiredLinkStreamer   *video.Streamer
+	linkStreamer          *shell.CommandBuilder
+	rateLimitStreamer     *shell.CommandBuilder
+	upstreamErrorStreamer *shell.CommandBuilder
+	expiredLinkStreamer   *shell.CommandBuilder
 }
 
 func NewSubscription(
 	name string, urlGen URLGenerator, playlists []string, epgs []string,
 	proxy config.Proxy, excludes config.Excludes, sem *semaphore.Weighted) (*Subscription, error) {
 
-	streamStreamer, err := video.NewStreamer(
+	streamStreamer, err := shell.NewCommandBuilder(
 		proxy.Stream.Command,
 		proxy.Stream.EnvVars,
 		proxy.Stream.TemplateVars,
@@ -43,7 +43,7 @@ func NewSubscription(
 		return nil, fmt.Errorf("failed to create stream command: %w", err)
 	}
 
-	rateLimitStreamer, err := video.NewStreamer(
+	rateLimitStreamer, err := shell.NewCommandBuilder(
 		proxy.Error.RateLimitExceeded.Command,
 		proxy.Error.RateLimitExceeded.EnvVars,
 		proxy.Error.RateLimitExceeded.TemplateVars,
@@ -52,7 +52,7 @@ func NewSubscription(
 		return nil, fmt.Errorf("failed to create rate limit command: %w", err)
 	}
 
-	upstreamErrorStreamer, err := video.NewStreamer(
+	upstreamErrorStreamer, err := shell.NewCommandBuilder(
 		proxy.Error.UpstreamError.Command,
 		proxy.Error.UpstreamError.EnvVars,
 		proxy.Error.UpstreamError.TemplateVars,
@@ -61,7 +61,7 @@ func NewSubscription(
 		return nil, fmt.Errorf("failed to create upstream error command: %w", err)
 	}
 
-	expiredLinkStreamer, err := video.NewStreamer(
+	expiredLinkStreamer, err := shell.NewCommandBuilder(
 		proxy.Error.LinkExpired.Command,
 		proxy.Error.LinkExpired.EnvVars,
 		proxy.Error.LinkExpired.TemplateVars,
@@ -112,18 +112,18 @@ func (s *Subscription) IsProxied() bool {
 	return s.proxyConfig.Enabled != nil && *s.proxyConfig.Enabled
 }
 
-func (s *Subscription) LinkStreamer(streamUrl string) *video.Streamer {
+func (s *Subscription) LinkStreamer(streamUrl string) *shell.CommandBuilder {
 	return s.linkStreamer.WithTemplateVars(map[string]any{"url": streamUrl})
 }
 
-func (s *Subscription) LimitStreamer() *video.Streamer {
+func (s *Subscription) LimitStreamer() *shell.CommandBuilder {
 	return s.rateLimitStreamer
 }
 
-func (s *Subscription) UpstreamErrorStreamer() *video.Streamer {
+func (s *Subscription) UpstreamErrorStreamer() *shell.CommandBuilder {
 	return s.upstreamErrorStreamer
 }
 
-func (s *Subscription) ExpiredCommandStreamer() *video.Streamer {
+func (s *Subscription) ExpiredCommandStreamer() *shell.CommandBuilder {
 	return s.expiredLinkStreamer
 }

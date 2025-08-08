@@ -12,7 +12,13 @@ func defaultConfig() *Config {
 		},
 		Proxy: Proxy{
 			Stream: Handler{
-				Command: []string{"ffmpeg", "-i", "{{.url}}", "-c", "copy", "-f", "mpegts", "pipe:1"},
+				Command: []string{
+					"ffmpeg",
+					"-i", "{{.url}}",
+					"-c", "copy",
+					"-f", "mpegts",
+					"pipe:1",
+				},
 			},
 			Error: Error{
 				Handler: Handler{
