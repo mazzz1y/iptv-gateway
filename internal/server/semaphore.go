@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const acquireSemaphoreTimeout = 3 * time.Second
+const acquireSemaphoreTimeout = 6 * time.Second
 
 func (s *Server) acquireSemaphores(ctx context.Context) bool {
 	c, _ := ctx.Value(constant.ContextClient).(*manager.Client)
