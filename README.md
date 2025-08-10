@@ -1,5 +1,7 @@
 # IPTV Gateway
 
+> ⚠️ **Warning**: This project is currently under construction. Some features might be unstable or incomplete.
+
 A minimal, functional IPTV gateway for your TV
 
 This app allows you to distribute playlists and XMLTV files to your TVs and centrally manage them in a flexible manner.
@@ -100,6 +102,7 @@ proxy:
 ```
 
 ### Excludes format
+
 ```yaml
 excludes:
   tags:
