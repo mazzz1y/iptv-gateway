@@ -83,7 +83,9 @@ func (c *CommandBuilder) Stream(ctx context.Context, w io.Writer) (int64, error)
 	go func() {
 		<-ctx.Done()
 		logging.Debug(ctx, "context canceled, stopping shell command")
-		run.Process.Signal(syscall.SIGINT)
+		if run.Process != nil {
+			run.Process.Signal(syscall.SIGINT)
+		}
 	}()
 	defer run.Wait()
 

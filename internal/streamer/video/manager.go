@@ -94,11 +94,6 @@ func (m *StreamManager) GetReader(req StreamRequest) (io.ReadCloser, error) {
 }
 
 func (m *StreamManager) startStream(ctx context.Context, req StreamRequest, w io.Writer) {
-	if req.Semaphore != nil {
-		defer req.Semaphore.Release(1)
-		defer logging.Debug(ctx, "releasing subscription semaphore")
-	}
-
 	key := req.StreamKey
 
 	unlock := m.LockStream(key)
@@ -121,6 +116,11 @@ func (m *StreamManager) startStream(ctx context.Context, req StreamRequest, w io
 	go func() {
 		emptyCh := writer.IsEmptyChannel()
 		defer writer.CancelNotify(emptyCh)
+
+		if req.Semaphore != nil {
+			defer req.Semaphore.Release(1)
+			defer logging.Debug(ctx, "releasing subscription semaphore")
+		}
 
 		select {
 		case <-emptyCh:
