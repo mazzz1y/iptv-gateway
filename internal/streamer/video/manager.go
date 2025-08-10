@@ -121,7 +121,6 @@ func (m *StreamManager) startStream(ctx context.Context, req StreamRequest, w io
 		}
 	}()
 
-	logging.Info(ctx, "starting stream")
 	bytesWritten, err := req.StreamData.Stream(streamCtx, writer)
 
 	if err != nil {
