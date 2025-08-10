@@ -167,6 +167,13 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		return
 	}
 
+	if !s.acquireSemaphores(ctx) {
+		logging.Error(ctx, errors.New("failed to acquire semaphores"), "")
+		sub.LimitStreamer().Stream(ctx, w)
+		return
+	}
+	defer s.releaseSemaphores(ctx)
+
 	streamSource := sub.LinkStreamer(url)
 	if streamSource == nil {
 		logging.Error(ctx, errors.New("failed to create stream source"), "")
@@ -178,21 +185,15 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		StreamKey:  streamKey,
 		StreamData: streamSource,
 		Context:    ctx,
+		Semaphore:  sub.GetSemaphore(),
 	}
 
-	if !s.streamManager.HasActiveStream(streamKey) {
-		if !s.acquireSemaphores(ctx) {
-			logging.Error(ctx, errors.New("failed to acquire semaphores"), "")
-			sub.LimitStreamer().Stream(ctx, w)
-			return
-		}
-		defer s.releaseSemaphores(ctx)
-		logging.Info(ctx, "creating new stream")
-	} else {
-		logging.Info(ctx, "connecting to existing stream")
+	reader, err := s.streamManager.GetReader(streamReq)
+	if errors.Is(err, video.ErrSubscriptionSemaphore) {
+		logging.Error(ctx, err, "failed to get stream")
+		sub.LimitStreamer().Stream(ctx, w)
+		return
 	}
-
-	reader, err := s.streamManager.GetStream(streamReq)
 	if err != nil {
 		logging.Error(ctx, err, "failed to get stream")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

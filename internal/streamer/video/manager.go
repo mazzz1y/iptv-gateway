@@ -3,10 +3,16 @@ package video
 import (
 	"context"
 	"errors"
+	"golang.org/x/sync/semaphore"
 	"io"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/logging"
+	"iptv-gateway/internal/utils"
 	"sync"
+)
+
+var (
+	ErrSubscriptionSemaphore = errors.New("failed to acquire subscription semaphore")
 )
 
 type StreamSource interface {
@@ -17,6 +23,7 @@ type StreamRequest struct {
 	Context    context.Context
 	StreamKey  string
 	StreamData StreamSource
+	Semaphore  *semaphore.Weighted
 }
 
 type StreamManager struct {
@@ -43,11 +50,6 @@ func (m *StreamManager) Stop() {
 	m.pool.Stop()
 }
 
-func (m *StreamManager) HasActiveStream(streamKey string) bool {
-	writer := m.pool.GetWriter(streamKey)
-	return writer != nil && !writer.IsEmpty()
-}
-
 func (m *StreamManager) LockStream(streamKey string) func() {
 	mutex, _ := m.streamLocks.LoadOrStore(streamKey, &sync.Mutex{})
 	mtx := mutex.(*sync.Mutex)
@@ -59,7 +61,7 @@ func (m *StreamManager) LockStream(streamKey string) func() {
 	}
 }
 
-func (m *StreamManager) GetStream(req StreamRequest) (io.ReadCloser, error) {
+func (m *StreamManager) GetReader(req StreamRequest) (io.ReadCloser, error) {
 	unlock := m.LockStream(req.StreamKey)
 	defer unlock()
 
@@ -77,6 +79,11 @@ func (m *StreamManager) GetStream(req StreamRequest) (io.ReadCloser, error) {
 
 	isNewStream := m.pool.AddClient(req.StreamKey, pw)
 	if isNewStream {
+		if utils.AcquireSemaphore(ctx, req.Semaphore, "subscription") {
+			logging.Debug(ctx, "acquired subscription semaphore")
+		} else {
+			return nil, ErrSubscriptionSemaphore
+		}
 		go m.startStream(ctx, req, pw)
 		logging.Info(ctx, "started new stream")
 	} else {
@@ -87,6 +94,11 @@ func (m *StreamManager) GetStream(req StreamRequest) (io.ReadCloser, error) {
 }
 
 func (m *StreamManager) startStream(ctx context.Context, req StreamRequest, w io.Writer) {
+	if req.Semaphore != nil {
+		defer req.Semaphore.Release(1)
+		defer logging.Debug(ctx, "releasing subscription semaphore")
+	}
+
 	key := req.StreamKey
 
 	unlock := m.LockStream(key)

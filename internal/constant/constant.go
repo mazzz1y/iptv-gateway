@@ -1,7 +1,11 @@
 package constant
 
-import "compress/gzip"
+import (
+	"compress/gzip"
+	"time"
+)
 
 const (
-	GzipLevel = gzip.BestSpeed
+	GzipLevel        = gzip.BestSpeed
+	SemaphoreTimeout = 6 * time.Second
 )
