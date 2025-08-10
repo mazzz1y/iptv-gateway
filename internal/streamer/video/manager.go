@@ -136,8 +136,6 @@ func (m *StreamManager) startStream(ctx context.Context, req StreamRequest, w io
 		logging.Info(streamCtx, "stream ended")
 	}
 
-	m.pool.Cleanup(streamCtx)
-
 	if closer, ok := w.(io.Closer); ok {
 		closer.Close()
 	}

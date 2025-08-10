@@ -15,7 +15,6 @@ import (
 	"iptv-gateway/internal/streamer/xmltv"
 	"iptv-gateway/internal/url_generator"
 	"net/http"
-	"syscall"
 	"time"
 )
 
@@ -209,7 +208,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		sub.UpstreamErrorStreamer().Stream(ctx, w)
 	}
 
-	if err != nil && !errors.Is(err, syscall.EPIPE) && !errors.Is(err, syscall.ECONNRESET) {
+	if err != nil && !errors.Is(err, io.ErrClosedPipe) {
 		logging.Error(ctx, err, "error copying stream to response")
 	}
 }

@@ -1,9 +1,7 @@
 package video
 
 import (
-	"context"
 	"io"
-	"iptv-gateway/internal/logging"
 	"sync"
 )
 
@@ -59,6 +57,7 @@ func (p *WriterPool) RemoveClient(streamKey string, client io.Writer) {
 
 	if exists {
 		writer.RemoveClient(client)
+		p.cleanup()
 	}
 }
 
@@ -68,7 +67,7 @@ func (p *WriterPool) GetWriter(streamKey string) *StreamWriter {
 	return p.writers[streamKey]
 }
 
-func (p *WriterPool) Cleanup(ctx context.Context) {
+func (p *WriterPool) cleanup() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -81,6 +80,5 @@ func (p *WriterPool) Cleanup(ctx context.Context) {
 
 	for _, key := range keysToRemove {
 		delete(p.writers, key)
-		logging.Debug(ctx, "removed empty stream")
 	}
 }
