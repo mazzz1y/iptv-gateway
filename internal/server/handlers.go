@@ -209,7 +209,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		sub.UpstreamErrorStreamer().Stream(ctx, w)
 	}
 
-	if err != nil && !errors.Is(err, syscall.EPIPE) {
+	if err != nil && !errors.Is(err, syscall.EPIPE) && !errors.Is(err, syscall.ECONNRESET) {
 		logging.Error(ctx, err, "error copying stream to response")
 	}
 }
