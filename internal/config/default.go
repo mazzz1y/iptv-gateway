@@ -14,6 +14,7 @@ func defaultConfig() *Config {
 			Stream: Handler{
 				Command: []string{
 					"ffmpeg",
+					"-v", "{{ default \"error\" .ffmpeg_log_level }}",
 					"-i", "{{.url}}",
 					"-c", "copy",
 					"-f", "mpegts",
@@ -24,6 +25,7 @@ func defaultConfig() *Config {
 				Handler: Handler{
 					Command: []string{
 						"ffmpeg",
+						"-v", "{{ default \"error\" .ffmpeg_log_level }}",
 						"-f", "lavfi",
 						"-i", "smptebars=size=1280x720:rate=1",
 						"-vf", "drawtext=text='{{.message}}':fontcolor=white:fontsize=36:x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.5:boxborderw=10",
