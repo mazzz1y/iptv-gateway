@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/Masterminds/sprig/v3"
 	"io"
@@ -78,16 +79,26 @@ func (c *CommandBuilder) Stream(ctx context.Context, w io.Writer) (int64, error)
 		return 0, err
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	run := exec.Command(commandParts[0], commandParts[1:]...)
 
 	go func() {
 		<-ctx.Done()
 		logging.Debug(ctx, "context canceled, stopping shell command")
 		if run.Process != nil {
-			run.Process.Signal(syscall.SIGINT)
+			run.Process.Signal(syscall.SIGTERM)
+		}
+
+		err := run.Wait()
+		if err != nil {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				logging.Debug(ctx, "shell command exited", "code", exitErr.ExitCode())
+			}
 		}
 	}()
-	defer run.Wait()
 
 	run.Env = c.envVars
 	stdout, err := run.StdoutPipe()
