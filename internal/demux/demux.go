@@ -1,41 +1,42 @@
-package video
+package demux
 
 import (
 	"context"
 	"errors"
-	"golang.org/x/sync/semaphore"
 	"io"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/utils"
 	"sync"
+
+	"golang.org/x/sync/semaphore"
 )
 
 var (
 	ErrSubscriptionSemaphore = errors.New("failed to acquire subscription semaphore")
 )
 
-type StreamSource interface {
+type Streamer interface {
 	Stream(ctx context.Context, w io.Writer) (int64, error)
 }
 
-type StreamRequest struct {
-	Context    context.Context
-	StreamKey  string
-	StreamData StreamSource
-	Semaphore  *semaphore.Weighted
+type Request struct {
+	Context   context.Context
+	StreamKey string
+	Streamer  Streamer
+	Semaphore *semaphore.Weighted
 }
 
-type StreamManager struct {
+type Demuxer struct {
 	pool          *WriterPool
 	rootCtx       context.Context
 	rootCtxCancel context.CancelFunc
 	streamLocks   sync.Map
 }
 
-func NewStreamManager() *StreamManager {
+func NewDemuxer() *Demuxer {
 	rootCtx, cancel := context.WithCancel(context.Background())
-	return &StreamManager{
+	return &Demuxer{
 		pool:          NewWriterPool(),
 		rootCtx:       rootCtx,
 		rootCtxCancel: cancel,
@@ -43,14 +44,14 @@ func NewStreamManager() *StreamManager {
 	}
 }
 
-func (m *StreamManager) Stop() {
+func (m *Demuxer) Stop() {
 	if m.rootCtxCancel != nil {
 		m.rootCtxCancel()
 	}
 	m.pool.Stop()
 }
 
-func (m *StreamManager) LockStream(streamKey string) func() {
+func (m *Demuxer) LockStream(streamKey string) func() {
 	mutex, _ := m.streamLocks.LoadOrStore(streamKey, &sync.Mutex{})
 	mtx := mutex.(*sync.Mutex)
 
@@ -61,7 +62,7 @@ func (m *StreamManager) LockStream(streamKey string) func() {
 	}
 }
 
-func (m *StreamManager) GetReader(req StreamRequest) (io.ReadCloser, error) {
+func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
 	unlock := m.LockStream(req.StreamKey)
 	defer unlock()
 
@@ -93,7 +94,7 @@ func (m *StreamManager) GetReader(req StreamRequest) (io.ReadCloser, error) {
 	return pr, nil
 }
 
-func (m *StreamManager) startStream(ctx context.Context, req StreamRequest, w io.Writer) {
+func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 	key := req.StreamKey
 
 	unlock := m.LockStream(key)
@@ -115,7 +116,7 @@ func (m *StreamManager) startStream(ctx context.Context, req StreamRequest, w io
 
 	go func() {
 		emptyCh := writer.IsEmptyChannel()
-		defer writer.CancelNotify(emptyCh)
+		defer writer.CancelEmptyChannel(emptyCh)
 
 		if req.Semaphore != nil {
 			defer req.Semaphore.Release(1)
@@ -133,7 +134,7 @@ func (m *StreamManager) startStream(ctx context.Context, req StreamRequest, w io
 		}
 	}()
 
-	bytesWritten, err := req.StreamData.Stream(streamCtx, writer)
+	bytesWritten, err := req.Streamer.Stream(streamCtx, writer)
 
 	if err != nil {
 		if errors.Is(err, context.Canceled) {

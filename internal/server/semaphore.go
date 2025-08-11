@@ -3,11 +3,12 @@ package server
 import (
 	"context"
 	"errors"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/manager"
 	"iptv-gateway/internal/utils"
+
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 func (s *Server) acquireSemaphores(ctx context.Context) bool {
@@ -29,7 +30,7 @@ func (s *Server) acquireSemaphores(ctx context.Context) bool {
 	}
 
 	if clientSem := c.GetSemaphore(); clientSem != nil {
-		g.Go(acquireSem(clientSem, "manager"))
+		g.Go(acquireSem(clientSem, "client"))
 	}
 
 	return g.Wait() == nil

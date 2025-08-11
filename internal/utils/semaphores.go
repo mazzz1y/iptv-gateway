@@ -3,9 +3,10 @@ package utils
 import (
 	"context"
 	"errors"
-	"golang.org/x/sync/semaphore"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/logging"
+
+	"golang.org/x/sync/semaphore"
 )
 
 func AcquireSemaphore(ctx context.Context, sem *semaphore.Weighted, name string) bool {
@@ -14,8 +15,9 @@ func AcquireSemaphore(ctx context.Context, sem *semaphore.Weighted, name string)
 	}
 
 	semCtx, cancel := context.WithTimeout(ctx, constant.SemaphoreTimeout)
-	defer cancel()
 	semCtx = context.WithValue(semCtx, constant.ContextSemaphoreName, name)
+
+	defer cancel()
 
 	logging.Debug(ctx, "acquiring semaphore")
 

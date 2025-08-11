@@ -1,4 +1,4 @@
-package ioutils
+package ioutil
 
 import (
 	"bytes"

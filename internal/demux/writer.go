@@ -1,8 +1,8 @@
-package video
+package demux
 
 import (
 	"io"
-	"iptv-gateway/internal/ioutils"
+	"iptv-gateway/internal/ioutil"
 	"sync"
 )
 
@@ -11,7 +11,7 @@ const (
 )
 
 type StreamWriter struct {
-	clients     map[io.Writer]*ioutils.AsyncWriter
+	clients     map[io.Writer]*ioutil.AsyncWriter
 	clientsLock sync.RWMutex
 
 	buffer     []byte
@@ -25,7 +25,7 @@ type StreamWriter struct {
 
 func NewStreamWriter() *StreamWriter {
 	return &StreamWriter{
-		clients:     make(map[io.Writer]*ioutils.AsyncWriter),
+		clients:     make(map[io.Writer]*ioutil.AsyncWriter),
 		buffer:      make([]byte, bufferSize),
 		bufferPos:   0,
 		bufferFull:  false,
@@ -37,7 +37,7 @@ func (sw *StreamWriter) AddClient(w io.Writer) {
 	sw.clientsLock.Lock()
 	defer sw.clientsLock.Unlock()
 
-	cw := ioutils.NewAsyncWriter(w)
+	cw := ioutil.NewAsyncWriter(w)
 	sw.clients[w] = cw
 
 	sw.bufferLock.RLock()
@@ -152,7 +152,7 @@ func (sw *StreamWriter) IsEmpty() bool {
 	return len(sw.clients) == 0
 }
 
-func (sw *StreamWriter) CancelNotify(ch <-chan struct{}) {
+func (sw *StreamWriter) CancelEmptyChannel(ch <-chan struct{}) {
 	sw.notifyListeners.Delete(ch)
 }
 

@@ -3,14 +3,15 @@ package server
 import (
 	"context"
 	"errors"
-	"github.com/gorilla/mux"
 	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/demux"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/streamer/video"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 type Server struct {
@@ -19,7 +20,7 @@ type Server struct {
 	manager *manager.Manager
 	cache   *cache.Cache
 
-	streamManager *video.StreamManager
+	demux *demux.Demuxer
 
 	serverURL  string
 	listenAddr string
@@ -36,15 +37,15 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		return nil, err
 	}
 
-	streamManager := video.NewStreamManager()
+	streamManager := demux.NewDemuxer()
 
 	server := &Server{
-		router:        mux.NewRouter(),
-		manager:       m,
-		cache:         c,
-		streamManager: streamManager,
-		serverURL:     cfg.PublicURL.String(),
-		listenAddr:    cfg.ListenAddr,
+		router:     mux.NewRouter(),
+		manager:    m,
+		cache:      c,
+		demux:      streamManager,
+		serverURL:  cfg.PublicURL.String(),
+		listenAddr: cfg.ListenAddr,
 	}
 
 	return server, nil
@@ -74,7 +75,7 @@ func (s *Server) Stop() error {
 	defer cancel()
 
 	s.cache.Close()
-	s.streamManager.Stop()
+	s.demux.Stop()
 
 	logging.Info(ctx, "stopping http server")
 

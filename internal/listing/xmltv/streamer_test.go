@@ -9,7 +9,7 @@ import (
 	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/xmltv"
+	"iptv-gateway/internal/parser/xmltv"
 	"strings"
 	"testing"
 

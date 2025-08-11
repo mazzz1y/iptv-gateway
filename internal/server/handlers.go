@@ -8,19 +8,18 @@ import (
 	"fmt"
 	"io"
 	"iptv-gateway/internal/constant"
+	"iptv-gateway/internal/demux"
+	"iptv-gateway/internal/listing/m3u8"
+	"iptv-gateway/internal/listing/xmltv"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/streamer/m3u8"
-	"iptv-gateway/internal/streamer/video"
-	"iptv-gateway/internal/streamer/xmltv"
-	"iptv-gateway/internal/url_generator"
+	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"time"
 )
 
 const (
-	streamContentType = "video/mp2t"
-	linkTTL           = time.Hour * 24 * 30
+	streamContentType = "demux/mp2t"
 )
 
 func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
@@ -83,14 +82,14 @@ func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	data := ctx.Value(constant.ContextStreamData).(*url_generator.Data)
+	data := ctx.Value(constant.ContextStreamData).(*urlgen.Data)
 
 	logging.Debug(ctx, "handling proxy request", "type", data.RequestType)
 
 	switch data.RequestType {
-	case url_generator.File:
+	case urlgen.File:
 		s.handleFileProxy(ctx, w, data)
-	case url_generator.Stream:
+	case urlgen.Stream:
 		s.handleStreamProxy(ctx, w, r)
 	default:
 		logging.Error(ctx, nil, "invalid proxy request type", "type", data.RequestType)
@@ -98,7 +97,7 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, data *url_generator.Data) {
+func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, data *urlgen.Data) {
 	logging.Debug(ctx, "proxying file", "url", data.URL)
 
 	reader, err := s.cache.NewReader(ctx, data.URL)
@@ -138,19 +137,12 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 	return xmltv.NewStreamer(c.GetSubscriptions(), s.cache, channels), nil
 }
 
-func generateHash(parts ...any) string {
-	h := sha256.New()
-	for _, part := range parts {
-		h.Write([]byte(fmt.Sprint(part)))
-	}
-	return hex.EncodeToString(h.Sum(nil)[:4])
-}
-
 func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	logging.Debug(ctx, "proxying stream")
 
 	sub := ctx.Value(constant.ContextSubscription).(*manager.Subscription)
-	data := ctx.Value(constant.ContextStreamData).(*url_generator.Data)
+	data := ctx.Value(constant.ContextStreamData).(*urlgen.Data)
+	ctx = context.WithValue(ctx, constant.ContextChannelID, data.ChannelID)
 
 	var streamKey string
 	url := data.URL
@@ -159,12 +151,6 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		streamKey = generateHash(url, time.Now().Unix())
 	} else {
 		streamKey = generateHash(data.URL)
-	}
-
-	if time.Since(data.Created) > linkTTL {
-		logging.Error(ctx, errors.New("stream url expired"), "")
-		sub.ExpiredCommandStreamer().Stream(ctx, w)
-		return
 	}
 
 	if !s.acquireSemaphores(ctx) {
@@ -181,15 +167,15 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		return
 	}
 
-	streamReq := video.StreamRequest{
-		StreamKey:  streamKey,
-		StreamData: streamSource,
-		Context:    ctx,
-		Semaphore:  sub.GetSemaphore(),
+	demuxReq := demux.Request{
+		Context:   ctx,
+		StreamKey: streamKey,
+		Streamer:  streamSource,
+		Semaphore: sub.GetSemaphore(),
 	}
 
-	reader, err := s.streamManager.GetReader(streamReq)
-	if errors.Is(err, video.ErrSubscriptionSemaphore) {
+	reader, err := s.demux.GetReader(demuxReq)
+	if errors.Is(err, demux.ErrSubscriptionSemaphore) {
 		logging.Error(ctx, err, "failed to get stream")
 		sub.LimitStreamer().Stream(ctx, w)
 		return
@@ -212,4 +198,12 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	if err != nil && !errors.Is(err, io.ErrClosedPipe) {
 		logging.Error(ctx, err, "error copying stream to response")
 	}
+}
+
+func generateHash(parts ...any) string {
+	h := sha256.New()
+	for _, part := range parts {
+		h.Write([]byte(fmt.Sprint(part)))
+	}
+	return hex.EncodeToString(h.Sum(nil)[:4])
 }

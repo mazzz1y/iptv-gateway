@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 	"iptv-gateway/internal/cache"
-	"iptv-gateway/internal/ioutils"
-	"iptv-gateway/internal/m3u8"
+	"iptv-gateway/internal/ioutil"
+	"iptv-gateway/internal/listing/common"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/streamer/common"
-	"iptv-gateway/internal/url_generator"
+	m3u9 "iptv-gateway/internal/parser/m3u8"
+	"iptv-gateway/internal/urlgen"
 	"net/url"
 	"strings"
 	"syscall"
@@ -19,7 +19,7 @@ import (
 type m3u8DecoderFactory struct{}
 
 func (f *m3u8DecoderFactory) NewDecoder(reader *cache.Reader) common.Decoder {
-	return m3u8.NewDecoder(reader)
+	return m3u9.NewDecoder(reader)
 }
 
 type Streamer struct {
@@ -46,8 +46,8 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 		return 0, fmt.Errorf("no subscriptions found")
 	}
 
-	bytesCounter := ioutils.NewCountWriter(w)
-	encoder := m3u8.NewEncoder(bytesCounter, map[string]string{"x-tvg-url": s.epgLink})
+	bytesCounter := ioutil.NewCountWriter(w)
+	encoder := m3u9.NewEncoder(bytesCounter, map[string]string{"x-tvg-url": s.epgLink})
 	defer encoder.Close()
 
 	s.PendingSubscriptions = s.Subscriptions
@@ -68,7 +68,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 			return bytesCounter.Count(), err
 		}
 
-		if track, ok := item.(*m3u8.Track); ok {
+		if track, ok := item.(*m3u9.Track); ok {
 			if s.isDuplicate(track) {
 				continue
 			}
@@ -123,8 +123,8 @@ func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]bool, error) 
 			return nil, err
 		}
 
-		if track, ok := item.(*m3u8.Track); ok {
-			if id, hasID := track.Attrs[m3u8.AttrTvgID]; hasID && id != "" {
+		if track, ok := item.(*m3u9.Track); ok {
+			if id, hasID := track.Attrs[m3u9.AttrTvgID]; hasID && id != "" {
 				channels[id] = true
 			}
 			channels[track.Name] = true
@@ -138,7 +138,7 @@ func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]bool, error) 
 	return channels, nil
 }
 
-func (s *Streamer) isExcluded(track *m3u8.Track) bool {
+func (s *Streamer) isExcluded(track *m3u9.Track) bool {
 	filters := s.CurrentSubscription.GetExcludes()
 
 	if len(filters.Tags) == 0 && len(filters.Attrs) == 0 && len(filters.ChannelName) == 0 {
@@ -176,8 +176,8 @@ func (s *Streamer) isExcluded(track *m3u8.Track) bool {
 	return false
 }
 
-func (s *Streamer) isDuplicate(track *m3u8.Track) bool {
-	id, hasID := track.Attrs[m3u8.AttrTvgID]
+func (s *Streamer) isDuplicate(track *m3u9.Track) bool {
+	id, hasID := track.Attrs[m3u9.AttrTvgID]
 	trackName := strings.ToLower(track.Name)
 
 	if hasID && id != "" {
@@ -195,13 +195,13 @@ func (s *Streamer) isDuplicate(track *m3u8.Track) bool {
 	return false
 }
 
-func (s *Streamer) processProxyLinks(track *m3u8.Track) error {
-	urlGenerator := s.CurrentSubscription.GetURLGenerator().(*url_generator.Generator)
+func (s *Streamer) processProxyLinks(track *m3u9.Track) error {
+	urlGenerator := s.CurrentSubscription.GetURLGenerator().(*urlgen.Generator)
 
 	for key, value := range track.Attrs {
 		if isURL(value) {
-			encURL, err := urlGenerator.CreateURL(url_generator.Data{
-				RequestType: url_generator.File,
+			encURL, err := urlGenerator.CreateURL(urlgen.Data{
+				RequestType: urlgen.File,
 				URL:         value,
 			})
 			if err != nil {
@@ -212,8 +212,8 @@ func (s *Streamer) processProxyLinks(track *m3u8.Track) error {
 	}
 
 	if track.URI != nil && isURL(track.URI.String()) {
-		newURL, err := urlGenerator.CreateURL(url_generator.Data{
-			RequestType: url_generator.Stream,
+		newURL, err := urlGenerator.CreateURL(urlgen.Data{
+			RequestType: urlgen.Stream,
 			ChannelID:   track.Name,
 			URL:         track.URI.String(),
 		})

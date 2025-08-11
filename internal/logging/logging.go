@@ -139,6 +139,7 @@ func extractContextValues(ctx context.Context) []any {
 		constant.ContextSubscriptionName,
 		constant.ContextStreamID,
 		constant.ContextSemaphoreName,
+		constant.ContextChannelID,
 	}
 
 	var result []any

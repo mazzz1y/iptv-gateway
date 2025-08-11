@@ -1,4 +1,4 @@
-package ioutils
+package ioutil
 
 import (
 	"io"
@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	clientBufferSize = 64
+	bufferSize = 64
 )
 
 type AsyncWriter struct {
@@ -20,7 +20,7 @@ type AsyncWriter struct {
 func NewAsyncWriter(client io.Writer) *AsyncWriter {
 	cw := &AsyncWriter{
 		client:   client,
-		dataChan: make(chan []byte, clientBufferSize),
+		dataChan: make(chan []byte, bufferSize),
 		doneChan: make(chan struct{}),
 	}
 

@@ -4,15 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"github.com/Masterminds/sprig/v3"
 	"io"
 	"iptv-gateway/internal/logging"
 	"os"
 	"os/exec"
-	"syscall"
 	"text/template"
+
+	"github.com/Masterminds/sprig/v3"
 )
 
 const (
@@ -20,13 +19,13 @@ const (
 	bufferSize          = 64 * 1024
 )
 
-type CommandBuilder struct {
+type Streamer struct {
 	cmdTmpl  []*template.Template
 	envVars  []string
 	tmplVars map[string]any
 }
 
-func NewCommandBuilder(command []string, envVars map[string]string, tmplVars map[string]any) (*CommandBuilder, error) {
+func NewShellStreamer(command []string, envVars map[string]string, tmplVars map[string]any) (*Streamer, error) {
 	cmdTmpl := make([]*template.Template, 0, len(command))
 
 	for _, cmdPart := range command {
@@ -46,22 +45,22 @@ func NewCommandBuilder(command []string, envVars map[string]string, tmplVars map
 		environ = append(environ, key+"="+value)
 	}
 
-	return &CommandBuilder{
+	return &Streamer{
 		cmdTmpl:  cmdTmpl,
 		envVars:  environ,
 		tmplVars: tmplVars,
 	}, nil
 }
 
-func (c *CommandBuilder) WithTemplateVars(templateVars map[string]any) *CommandBuilder {
-	clone := &CommandBuilder{
-		cmdTmpl:  c.cmdTmpl,
-		envVars:  c.envVars,
+func (s *Streamer) WithTemplateVars(templateVars map[string]any) *Streamer {
+	clone := &Streamer{
+		cmdTmpl:  s.cmdTmpl,
+		envVars:  s.envVars,
 		tmplVars: make(map[string]any),
 	}
 
-	if c.tmplVars != nil {
-		for k, v := range c.tmplVars {
+	if s.tmplVars != nil {
+		for k, v := range s.tmplVars {
 			clone.tmplVars[k] = v
 		}
 	}
@@ -73,8 +72,8 @@ func (c *CommandBuilder) WithTemplateVars(templateVars map[string]any) *CommandB
 	return clone
 }
 
-func (c *CommandBuilder) Stream(ctx context.Context, w io.Writer) (int64, error) {
-	commandParts, err := c.renderCommand(c.tmplVars)
+func (s *Streamer) Stream(ctx context.Context, w io.Writer) (int64, error) {
+	commandParts, err := s.renderCommand(s.tmplVars)
 	if err != nil {
 		return 0, err
 	}
@@ -88,19 +87,13 @@ func (c *CommandBuilder) Stream(ctx context.Context, w io.Writer) (int64, error)
 		<-ctx.Done()
 		logging.Debug(ctx, "context canceled, stopping shell command")
 		if run.Process != nil {
-			run.Process.Signal(syscall.SIGTERM)
+			run.Process.Kill()
 		}
-
-		err := run.Wait()
-		if err != nil {
-			var exitErr *exec.ExitError
-			if errors.As(err, &exitErr) {
-				logging.Debug(ctx, "shell command exited", "code", exitErr.ExitCode())
-			}
-		}
+		run.Wait()
+		logging.Debug(ctx, "shell command exited")
 	}()
 
-	run.Env = c.envVars
+	run.Env = s.envVars
 	stdout, err := run.StdoutPipe()
 	if err != nil {
 		return 0, err
@@ -144,19 +137,19 @@ func (c *CommandBuilder) Stream(ctx context.Context, w io.Writer) (int64, error)
 	}
 }
 
-func (c *CommandBuilder) renderCommand(tmplVars map[string]any) ([]string, error) {
-	cmdLen := len(c.cmdTmpl)
+func (s *Streamer) renderCommand(tmplVars map[string]any) ([]string, error) {
+	cmdLen := len(s.cmdTmpl)
 
 	if cmdLen == 1 {
-		result, err := renderTemplate(c.cmdTmpl[0], tmplVars)
+		result, err := renderTemplate(s.cmdTmpl[0], tmplVars)
 		if err != nil {
 			return nil, err
 		}
-		return []string{"sh", "-c", result}, nil
+		return []string{"sh", "-s", result}, nil
 	}
 
 	command := make([]string, cmdLen)
-	for i, tmpl := range c.cmdTmpl {
+	for i, tmpl := range s.cmdTmpl {
 		result, err := renderTemplate(tmpl, tmplVars)
 		if err != nil {
 			return nil, err

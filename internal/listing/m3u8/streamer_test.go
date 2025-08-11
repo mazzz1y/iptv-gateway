@@ -7,9 +7,9 @@ import (
 	"io"
 	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/m3u8"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/url_generator"
+	"iptv-gateway/internal/parser/m3u8"
+	"iptv-gateway/internal/urlgen"
 	"net/url"
 	"regexp"
 	"strings"
@@ -48,7 +48,7 @@ type MockURLGenerator struct {
 	mock.Mock
 }
 
-func (m *MockURLGenerator) CreateURL(data url_generator.Data) (*url.URL, error) {
+func (m *MockURLGenerator) CreateURL(data urlgen.Data) (*url.URL, error) {
 	args := m.Called(data)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -56,12 +56,12 @@ func (m *MockURLGenerator) CreateURL(data url_generator.Data) (*url.URL, error) 
 	return args.Get(0).(*url.URL), args.Error(1)
 }
 
-func (m *MockURLGenerator) Decrypt(s string) (*url_generator.Data, error) {
+func (m *MockURLGenerator) Decrypt(s string) (*urlgen.Data, error) {
 	args := m.Called(s)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*url_generator.Data), args.Error(1)
+	return args.Get(0).(*urlgen.Data), args.Error(1)
 }
 
 func createTestSubscription(name string, playlists []string, excludes config.Excludes) (*manager.Subscription, error) {
@@ -136,7 +136,7 @@ http://example.com/movies1`
 
 	excludes := config.Excludes{
 		Attrs: map[string]config.RegexpArr{
-			m3u8.AttrGroupTitle: config.RegexpArr{regexpPattern},
+			m3u8.AttrGroupTitle: {regexpPattern},
 		},
 	}
 

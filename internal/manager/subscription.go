@@ -5,13 +5,13 @@ import (
 	"golang.org/x/sync/semaphore"
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/shell"
-	"iptv-gateway/internal/url_generator"
+	"iptv-gateway/internal/urlgen"
 	"net/url"
 )
 
 type URLGenerator interface {
-	CreateURL(data url_generator.Data) (*url.URL, error)
-	Decrypt(s string) (*url_generator.Data, error)
+	CreateURL(data urlgen.Data) (*url.URL, error)
+	Decrypt(s string) (*urlgen.Data, error)
 }
 
 type Subscription struct {
@@ -24,17 +24,17 @@ type Subscription struct {
 	proxyConfig   config.Proxy
 	excludeConfig config.Excludes
 
-	linkStreamer          *shell.CommandBuilder
-	rateLimitStreamer     *shell.CommandBuilder
-	upstreamErrorStreamer *shell.CommandBuilder
-	expiredLinkStreamer   *shell.CommandBuilder
+	linkStreamer          *shell.Streamer
+	rateLimitStreamer     *shell.Streamer
+	upstreamErrorStreamer *shell.Streamer
+	expiredLinkStreamer   *shell.Streamer
 }
 
 func NewSubscription(
 	name string, urlGen URLGenerator, playlists []string, epgs []string,
 	proxy config.Proxy, excludes config.Excludes, sem *semaphore.Weighted) (*Subscription, error) {
 
-	streamStreamer, err := shell.NewCommandBuilder(
+	streamStreamer, err := shell.NewShellStreamer(
 		proxy.Stream.Command,
 		proxy.Stream.EnvVars,
 		proxy.Stream.TemplateVars,
@@ -43,7 +43,7 @@ func NewSubscription(
 		return nil, fmt.Errorf("failed to create stream command: %w", err)
 	}
 
-	rateLimitStreamer, err := shell.NewCommandBuilder(
+	rateLimitStreamer, err := shell.NewShellStreamer(
 		proxy.Error.RateLimitExceeded.Command,
 		proxy.Error.RateLimitExceeded.EnvVars,
 		proxy.Error.RateLimitExceeded.TemplateVars,
@@ -52,7 +52,7 @@ func NewSubscription(
 		return nil, fmt.Errorf("failed to create rate limit command: %w", err)
 	}
 
-	upstreamErrorStreamer, err := shell.NewCommandBuilder(
+	upstreamErrorStreamer, err := shell.NewShellStreamer(
 		proxy.Error.UpstreamError.Command,
 		proxy.Error.UpstreamError.EnvVars,
 		proxy.Error.UpstreamError.TemplateVars,
@@ -61,7 +61,7 @@ func NewSubscription(
 		return nil, fmt.Errorf("failed to create upstream error command: %w", err)
 	}
 
-	expiredLinkStreamer, err := shell.NewCommandBuilder(
+	expiredLinkStreamer, err := shell.NewShellStreamer(
 		proxy.Error.LinkExpired.Command,
 		proxy.Error.LinkExpired.EnvVars,
 		proxy.Error.LinkExpired.TemplateVars,
@@ -112,18 +112,18 @@ func (s *Subscription) IsProxied() bool {
 	return s.proxyConfig.Enabled != nil && *s.proxyConfig.Enabled
 }
 
-func (s *Subscription) LinkStreamer(streamUrl string) *shell.CommandBuilder {
+func (s *Subscription) LinkStreamer(streamUrl string) *shell.Streamer {
 	return s.linkStreamer.WithTemplateVars(map[string]any{"url": streamUrl})
 }
 
-func (s *Subscription) LimitStreamer() *shell.CommandBuilder {
+func (s *Subscription) LimitStreamer() *shell.Streamer {
 	return s.rateLimitStreamer
 }
 
-func (s *Subscription) UpstreamErrorStreamer() *shell.CommandBuilder {
+func (s *Subscription) UpstreamErrorStreamer() *shell.Streamer {
 	return s.upstreamErrorStreamer
 }
 
-func (s *Subscription) ExpiredCommandStreamer() *shell.CommandBuilder {
+func (s *Subscription) ExpiredCommandStreamer() *shell.Streamer {
 	return s.expiredLinkStreamer
 }

@@ -1,4 +1,4 @@
-package video
+package demux
 
 import (
 	"io"

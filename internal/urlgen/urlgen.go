@@ -1,4 +1,4 @@
-package url_generator
+package urlgen
 
 import (
 	"bytes"

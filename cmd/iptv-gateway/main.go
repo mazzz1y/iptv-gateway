@@ -13,7 +13,7 @@ import (
 
 func main() {
 	ctx := context.TODO()
-	configPath := flag.String("config-dir", "./config", "path to configuration")
+	configPath := flag.String("config", "config.yaml", "path to configuration (file or dir)")
 	flag.Parse()
 
 	logging.Info(ctx, "starting iptv-gateway", "config_path", *configPath)

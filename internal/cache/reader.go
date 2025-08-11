@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"iptv-gateway/internal/constant"
-	"iptv-gateway/internal/ioutils"
+	"iptv-gateway/internal/ioutil"
 	"iptv-gateway/internal/logging"
 	"net/http"
 	"os"
@@ -252,7 +252,7 @@ func (r *Reader) newCachedReader() (io.ReadCloser, error) {
 	}
 
 	r.file = file
-	return ioutils.NewReaderWithCloser(gzipR, gzipR.Close), nil
+	return ioutil.NewReaderWithCloser(gzipR, gzipR.Close), nil
 }
 
 func (r *Reader) newDirectReader(ctx context.Context) (io.ReadCloser, error) {
@@ -280,7 +280,7 @@ func (r *Reader) newDirectReader(ctx context.Context) (io.ReadCloser, error) {
 			resp.Body.Close()
 			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 		}
-		return ioutils.NewReaderWithCloser(gzipReader, gzipReader.Close), nil
+		return ioutil.NewReaderWithCloser(gzipReader, gzipReader.Close), nil
 	} else {
 		return resp.Body, nil
 	}
@@ -313,7 +313,7 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 
 	var reader io.ReadCloser
 	if r.isGzippedContent(resp) {
-		sc := ioutils.NewCountReadCloser(resp.Body, &r.bytesDownload)
+		sc := ioutil.NewCountReadCloser(resp.Body, &r.bytesDownload)
 		tee := io.TeeReader(sc, r.file)
 		gzipReader, err := gzip.NewReader(tee)
 		if err != nil {
@@ -321,9 +321,9 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 			_ = sc.Close()
 			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 		}
-		reader = ioutils.NewReaderWithCloser(gzipReader, gzipReader.Close)
+		reader = ioutil.NewReaderWithCloser(gzipReader, gzipReader.Close)
 	} else {
-		sc := ioutils.NewCountReadCloser(resp.Body, &r.bytesDownload)
+		sc := ioutil.NewCountReadCloser(resp.Body, &r.bytesDownload)
 		gzipW, err := gzip.NewWriterLevel(r.file, constant.GzipLevel)
 		if err != nil {
 			_ = r.file.Close()
@@ -331,7 +331,7 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 			return nil, fmt.Errorf("failed to create gzip writer: %w", err)
 		}
 		r.writer = gzipW
-		reader = ioutils.NewReaderWithCloser(io.TeeReader(sc, gzipW), gzipW.Close)
+		reader = ioutil.NewReaderWithCloser(io.TeeReader(sc, gzipW), gzipW.Close)
 	}
 
 	return reader, nil

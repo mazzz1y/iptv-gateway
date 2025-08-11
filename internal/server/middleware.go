@@ -5,13 +5,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"github.com/gorilla/mux"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/url_generator"
+	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
@@ -80,7 +81,7 @@ func (s *Server) decryptProxyDataMiddleware(next http.Handler) http.Handler {
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
-				if errors.Is(err, url_generator.ErrExpiredURL) {
+				if errors.Is(err, urlgen.ErrExpiredURL) {
 					ctx := context.WithValue(r.Context(), constant.ContextSubscription, sub)
 					ctx = context.WithValue(ctx, constant.ContextSubscriptionName, sub.GetName())
 					sub.ExpiredCommandStreamer().Stream(ctx, w)

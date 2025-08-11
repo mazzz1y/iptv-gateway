@@ -1,4 +1,4 @@
-package url_generator
+package urlgen
 
 import (
 	"strings"
@@ -146,7 +146,7 @@ func TestGenerator_CreateURL(t *testing.T) {
 			}
 			token := parts[len(parts)-2]
 
-						decrypted, err := g.Decrypt(token)
+			decrypted, err := g.Decrypt(token)
 			if err != nil {
 				t.Errorf("failed to decrypt token: %v", err)
 				return
@@ -174,7 +174,7 @@ func TestGenerator_Decrypt(t *testing.T) {
 		t.Fatalf("Failed to create generator: %v", err)
 	}
 
-		validData := Data{
+	validData := Data{
 		RequestType: Stream,
 		URL:         "https://example.com/video",
 		Playlist:    "playlist1",
@@ -191,7 +191,7 @@ func TestGenerator_Decrypt(t *testing.T) {
 	parts := strings.Split(u.Path, "/")
 	validToken := parts[len(parts)-2]
 
-		expiredData := Data{
+	expiredData := Data{
 		RequestType: File,
 		URL:         "https://example.com/old",
 		Playlist:    "old-playlist",
@@ -289,7 +289,7 @@ func TestGenerator_CrossSecretDecryption(t *testing.T) {
 	parts := strings.Split(u.Path, "/")
 	token := parts[len(parts)-2]
 
-		_, err = g2.Decrypt(token)
+	_, err = g2.Decrypt(token)
 	if err == nil {
 		t.Error("expected error when decrypting with different secret")
 	}

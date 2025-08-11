@@ -8,11 +8,11 @@ import (
 	"io"
 	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/constant"
-	"iptv-gateway/internal/ioutils"
+	"iptv-gateway/internal/ioutil"
+	"iptv-gateway/internal/listing/common"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/streamer/common"
-	"iptv-gateway/internal/url_generator"
-	"iptv-gateway/internal/xmltv"
+	xmltv2 "iptv-gateway/internal/parser/xmltv"
+	"iptv-gateway/internal/urlgen"
 	"syscall"
 	"time"
 )
@@ -20,7 +20,7 @@ import (
 type xmltvDecoderFactory struct{}
 
 func (f *xmltvDecoderFactory) NewDecoder(reader *cache.Reader) common.Decoder {
-	return xmltv.NewDecoder(reader)
+	return xmltv2.NewDecoder(reader)
 }
 
 type Streamer struct {
@@ -28,7 +28,7 @@ type Streamer struct {
 	channels            map[string]bool
 	addedChannels       map[string]bool
 	addedProgrammes     map[string]bool
-	currentURLGenerator *url_generator.Generator
+	currentURLGenerator *urlgen.Generator
 }
 
 func NewStreamer(subscriptions []*manager.Subscription, httpClient common.HTTPClient, channels map[string]bool) *Streamer {
@@ -55,8 +55,8 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 		return 0, fmt.Errorf("no EPG sources found")
 	}
 
-	bytesCounter := ioutils.NewCountWriter(w)
-	encoder := xmltv.NewEncoder(bytesCounter)
+	bytesCounter := ioutil.NewCountWriter(w)
+	encoder := xmltv2.NewEncoder(bytesCounter)
 	defer encoder.Close()
 
 	s.PendingSubscriptions = s.Subscriptions
@@ -77,13 +77,13 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 		}
 
 		if s.CurrentSubscription != nil && s.CurrentSubscription.IsProxied() {
-			s.currentURLGenerator = s.CurrentSubscription.GetURLGenerator().(*url_generator.Generator)
+			s.currentURLGenerator = s.CurrentSubscription.GetURLGenerator().(*urlgen.Generator)
 		} else {
 			s.currentURLGenerator = nil
 		}
 
 		switch v := item.(type) {
-		case xmltv.Channel:
+		case xmltv2.Channel:
 			if !s.isChannelAllowed(v) {
 				continue
 			}
@@ -93,7 +93,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 				return bytesCounter.Count(), err
 			}
 
-		case xmltv.Programme:
+		case xmltv2.Programme:
 			if !s.isProgrammeAllowed(v) {
 				continue
 			}
@@ -117,7 +117,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	return count, nil
 }
 
-func (s *Streamer) isChannelAllowed(channel xmltv.Channel) bool {
+func (s *Streamer) isChannelAllowed(channel xmltv2.Channel) bool {
 	if s.addedChannels[channel.ID] {
 		return false
 	}
@@ -137,7 +137,7 @@ func (s *Streamer) isChannelAllowed(channel xmltv.Channel) bool {
 	return false
 }
 
-func (s *Streamer) isProgrammeAllowed(programme xmltv.Programme) bool {
+func (s *Streamer) isProgrammeAllowed(programme xmltv2.Programme) bool {
 	if !s.addedChannels[programme.Channel] {
 		return false
 	}
@@ -158,7 +158,7 @@ func (s *Streamer) isProgrammeAllowed(programme xmltv.Programme) bool {
 	return true
 }
 
-func (s *Streamer) processIcons(icons []xmltv.Icon) []xmltv.Icon {
+func (s *Streamer) processIcons(icons []xmltv2.Icon) []xmltv2.Icon {
 	if s.currentURLGenerator == nil || len(icons) == 0 {
 		return icons
 	}
@@ -175,11 +175,11 @@ func (s *Streamer) processIcons(icons []xmltv.Icon) []xmltv.Icon {
 		return icons
 	}
 
-	result := make([]xmltv.Icon, len(icons))
+	result := make([]xmltv2.Icon, len(icons))
 	copy(result, icons)
 
-	urlData := url_generator.Data{
-		RequestType: url_generator.File,
+	urlData := urlgen.Data{
+		RequestType: urlgen.File,
 	}
 
 	for i := range result {

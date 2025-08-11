@@ -3,10 +3,11 @@ package manager
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/semaphore"
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/url_generator"
+	"iptv-gateway/internal/urlgen"
+
+	"golang.org/x/sync/semaphore"
 )
 
 type Manager struct {
@@ -114,5 +115,5 @@ func (m *Manager) createURLGenerator(clientSecret, subName string) (URLGenerator
 	baseURL := fmt.Sprintf("%s/%s", m.config.PublicURL.String(), clientSecret)
 	secretKey := m.config.Secret + subName + clientSecret
 
-	return url_generator.NewGenerator(baseURL, secretKey)
+	return urlgen.NewGenerator(baseURL, secretKey)
 }
