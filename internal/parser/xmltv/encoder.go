@@ -1,10 +1,13 @@
 package xmltv
 
 import (
+	"bufio"
 	"encoding/xml"
 	"fmt"
 	"io"
 )
+
+const xmlEncoderBufferSize = 64 * 1024
 
 type Encoder interface {
 	Encode(item any) error
@@ -12,19 +15,24 @@ type Encoder interface {
 }
 
 type XMLEncoder struct {
-	writer        io.Writer
+	writer        *bufio.Writer
 	encoder       *xml.Encoder
 	headerWritten bool
 	footerWritten bool
 }
 
 func NewEncoder(w io.Writer) Encoder {
+	bufferedWriter := bufio.NewWriterSize(w, xmlEncoderBufferSize)
 	return &XMLEncoder{
-		writer:        w,
-		encoder:       xml.NewEncoder(w),
+		writer:        bufferedWriter,
+		encoder:       xml.NewEncoder(bufferedWriter),
 		headerWritten: false,
 		footerWritten: false,
 	}
+}
+
+func (e *XMLEncoder) encodeToken(token xml.Token) error {
+	return e.encoder.EncodeToken(token)
 }
 
 func (e *XMLEncoder) writeHeader() error {
@@ -32,14 +40,16 @@ func (e *XMLEncoder) writeHeader() error {
 		return nil
 	}
 
-	_, err := io.WriteString(e.writer,
-		"<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE tv SYSTEM \"xmltv.dtd\">\n")
-	if err != nil {
-		return err
+	tokens := []xml.Token{
+		xml.ProcInst{Target: "xml", Inst: []byte(`version="1.0" encoding="UTF-8"`)},
+		xml.Directive(`DOCTYPE tv SYSTEM "xmltv.dtd"`),
+		xml.StartElement{Name: xml.Name{Local: "tv"}},
 	}
 
-	if err := e.encoder.EncodeToken(xml.StartElement{Name: xml.Name{Local: "tv"}}); err != nil {
-		return err
+	for _, token := range tokens {
+		if err := e.encodeToken(token); err != nil {
+			return err
+		}
 	}
 
 	e.headerWritten = true
@@ -51,11 +61,15 @@ func (e *XMLEncoder) writeFooter() error {
 		return nil
 	}
 
-	if err := e.encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "tv"}}); err != nil {
+	if err := e.encodeToken(xml.EndElement{Name: xml.Name{Local: "tv"}}); err != nil {
 		return err
 	}
 
 	if err := e.encoder.Flush(); err != nil {
+		return err
+	}
+
+	if err := e.writer.Flush(); err != nil {
 		return err
 	}
 
@@ -70,20 +84,17 @@ func (e *XMLEncoder) Encode(item any) error {
 
 	switch v := item.(type) {
 	case Channel:
-		start := xml.StartElement{Name: xml.Name{Local: "channel"}}
-		if err := e.encoder.EncodeElement(v, start); err != nil {
-			return fmt.Errorf("error encoding channel: %w", err)
+		if err := e.encoder.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "channel"}}); err != nil {
+			return fmt.Errorf("encode channel: %w", err)
 		}
-		return nil
 	case Programme:
-		start := xml.StartElement{Name: xml.Name{Local: "programme"}}
-		if err := e.encoder.EncodeElement(v, start); err != nil {
-			return fmt.Errorf("error encoding programme: %w", err)
+		if err := e.encoder.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: "programme"}}); err != nil {
+			return fmt.Errorf("encode programme: %w", err)
 		}
-		return nil
 	default:
-		return fmt.Errorf("unsupported item type: %T", item)
+		return fmt.Errorf("unsupported type: %T", item)
 	}
+	return nil
 }
 
 func (e *XMLEncoder) Close() error {

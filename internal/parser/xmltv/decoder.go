@@ -1,33 +1,30 @@
 package xmltv
 
 import (
+	"bufio"
 	"encoding/xml"
 	"fmt"
 	"io"
 )
 
+const xmlDecoderBufferSize = 64 * 1024
+
 type Decoder interface {
 	Decode() (any, error)
-	Close() error
 }
 
 type XMLDecoder struct {
-	reader  io.ReadCloser
+	reader  io.Reader
 	decoder *xml.Decoder
 	done    bool
 }
 
 func NewDecoder(r io.Reader) Decoder {
-	var readCloser io.ReadCloser
-	if rc, ok := r.(io.ReadCloser); ok {
-		readCloser = rc
-	} else {
-		readCloser = io.NopCloser(r)
-	}
+	bufferedReader := bufio.NewReaderSize(r, xmlDecoderBufferSize)
 
 	return &XMLDecoder{
-		reader:  readCloser,
-		decoder: xml.NewDecoder(r),
+		reader:  bufferedReader,
+		decoder: xml.NewDecoder(bufferedReader),
 		done:    false,
 	}
 }
@@ -87,8 +84,4 @@ func (d *XMLDecoder) Decode() (any, error) {
 			return nil, io.EOF
 		}
 	}
-}
-
-func (d *XMLDecoder) Close() error {
-	return d.reader.Close()
 }

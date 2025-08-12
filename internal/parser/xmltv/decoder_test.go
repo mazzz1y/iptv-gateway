@@ -196,10 +196,3 @@ func TestXMLDecoder_Decode(t *testing.T) {
 		})
 	}
 }
-
-func TestXMLDecoder_Close(t *testing.T) {
-	r := io.NopCloser(strings.NewReader("<xml></xml>"))
-	decoder := NewDecoder(r).(*XMLDecoder)
-	err := decoder.Close()
-	assert.NoError(t, err)
-}

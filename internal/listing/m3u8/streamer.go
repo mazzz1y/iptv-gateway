@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/ioutil"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/manager"
@@ -17,13 +16,9 @@ import (
 	"syscall"
 )
 
-type HTTPClient interface {
-	NewReader(ctx context.Context, url string) (*cache.Reader, error)
-}
-
 type Streamer struct {
 	subscriptions   []*manager.Subscription
-	httpClient      HTTPClient
+	httpClient      listing.HTTPClient
 	epgLink         string
 	addedTrackIDs   map[string]bool
 	addedTrackNames map[string]bool
@@ -35,7 +30,7 @@ type trackWithSubscription struct {
 	subscription *manager.Subscription
 }
 
-func NewStreamer(subs []*manager.Subscription, epgLink string, httpClient HTTPClient) *Streamer {
+func NewStreamer(subs []*manager.Subscription, epgLink string, httpClient listing.HTTPClient) *Streamer {
 	return &Streamer{
 		subscriptions:   subs,
 		httpClient:      httpClient,
@@ -53,6 +48,9 @@ func (s *Streamer) initializeDecoders(ctx context.Context) ([]*decoderWrapper, e
 		for _, playlistURL := range playlists {
 			reader, err := s.httpClient.NewReader(ctx, playlistURL)
 			if err != nil {
+				for _, d := range decoders {
+					d.Close()
+				}
 				return nil, err
 			}
 
@@ -60,6 +58,7 @@ func (s *Streamer) initializeDecoders(ctx context.Context) ([]*decoderWrapper, e
 			decoders = append(decoders, &decoderWrapper{
 				decoder:      decoder,
 				subscription: sub,
+				reader:       reader,
 			})
 		}
 	}
@@ -83,7 +82,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 
 	defer func() {
 		for _, decoder := range decoders {
-			decoder.close()
+			decoder.Close()
 		}
 	}()
 
@@ -114,7 +113,7 @@ func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]bool, error) 
 
 	defer func() {
 		for _, decoder := range decoders {
-			decoder.close()
+			decoder.Close()
 		}
 	}()
 

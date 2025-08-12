@@ -1,24 +1,22 @@
 package m3u8
 
 import (
+	"io"
+	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/manager"
 )
 
-type Decoder interface {
-	Decode() (any, error)
-	Close() error
-}
-
 type decoderWrapper struct {
-	decoder      Decoder
+	decoder      listing.Decoder
 	subscription *manager.Subscription
+	reader       io.ReadCloser
 	done         bool
 	err          error
 }
 
-func (dw *decoderWrapper) close() error {
-	if dw.decoder != nil {
-		return dw.decoder.Close()
+func (d *decoderWrapper) Close() error {
+	if d.reader != nil {
+		return d.reader.Close()
 	}
 	return nil
 }

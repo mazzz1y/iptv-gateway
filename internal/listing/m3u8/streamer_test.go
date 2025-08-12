@@ -25,6 +25,8 @@ type MockHTTPClient struct {
 	mock.Mock
 }
 
+func (m *MockHTTPClient) Close() {}
+
 func (m *MockHTTPClient) NewReader(ctx context.Context, url string) (*cache.Reader, error) {
 	args := m.Called(ctx, url)
 	if args.Get(0) == nil {

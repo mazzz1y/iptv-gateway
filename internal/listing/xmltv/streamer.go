@@ -22,26 +22,6 @@ const (
 	DefaultProgrammeMapSize = 100000
 )
 
-type decoderState struct {
-	decoder         listing.Decoder
-	subscription    *manager.Subscription
-	channelsDone    bool
-	done            bool
-	err             error
-	bufferedItem    any
-	hasBufferedItem bool
-}
-
-func (ds *decoderState) nextItem() (any, error) {
-	if ds.hasBufferedItem {
-		item := ds.bufferedItem
-		ds.bufferedItem = nil
-		ds.hasBufferedItem = false
-		return item, nil
-	}
-	return ds.decoder.Decode()
-}
-
 type Streamer struct {
 	subscriptions       []*manager.Subscription
 	httpClient          listing.HTTPClient
@@ -86,9 +66,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 
 	defer func() {
 		for _, decoder := range decoders {
-			if decoder.decoder != nil {
-				decoder.decoder.Close()
-			}
+			decoder.Close()
 		}
 	}()
 
@@ -108,18 +86,21 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	return count, nil
 }
 
-func (s *Streamer) initializeDecoders(ctx context.Context) ([]*decoderState, error) {
-	var decoders []*decoderState
+func (s *Streamer) initializeDecoders(ctx context.Context) ([]*decoderWrapper, error) {
+	var decoders []*decoderWrapper
 
 	for _, sub := range s.subscriptions {
 		epgs := sub.GetEPGs()
 		for _, epgURL := range epgs {
 			reader, err := s.httpClient.NewReader(ctx, epgURL)
 			if err != nil {
+				for _, d := range decoders {
+					d.Close()
+				}
 				return nil, fmt.Errorf("failed to create xmltv reader: %v", err)
 			}
 			decoder := xmltv.NewDecoder(reader)
-			decoders = append(decoders, &decoderState{
+			decoders = append(decoders, &decoderWrapper{
 				decoder:      decoder,
 				subscription: sub,
 			})
@@ -129,11 +110,11 @@ func (s *Streamer) initializeDecoders(ctx context.Context) ([]*decoderState, err
 	return decoders, nil
 }
 
-func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderState, encoder xmltv.Encoder) error {
+func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapper, encoder xmltv.Encoder) error {
 	return listing.Process(
 		ctx,
 		decoders,
-		func(ctx context.Context, decoder *decoderState, output chan<- listing.Item, errChan chan<- error) {
+		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
 			if decoder.subscription.IsProxied() {
 				s.mu.Lock()
 				s.currentURLGenerator = decoder.subscription.GetURLGenerator().(*urlgen.Generator)
@@ -188,8 +169,8 @@ func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderState
 	)
 }
 
-func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderState, encoder xmltv.Encoder) error {
-	activeDecoders := make([]*decoderState, 0, len(decoders))
+func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderWrapper, encoder xmltv.Encoder) error {
+	activeDecoders := make([]*decoderWrapper, 0, len(decoders))
 	for _, decoder := range decoders {
 		if !decoder.done && decoder.err == nil {
 			activeDecoders = append(activeDecoders, decoder)
@@ -203,7 +184,7 @@ func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderSta
 	return listing.Process(
 		ctx,
 		activeDecoders,
-		func(ctx context.Context, decoder *decoderState, output chan<- listing.Item, errChan chan<- error) {
+		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
 			if decoder.subscription.IsProxied() {
 				s.mu.Lock()
 				s.currentURLGenerator = decoder.subscription.GetURLGenerator().(*urlgen.Generator)
