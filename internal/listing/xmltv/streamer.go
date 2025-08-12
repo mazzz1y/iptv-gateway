@@ -6,40 +6,60 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/ioutil"
-	"iptv-gateway/internal/listing/common"
+	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/manager"
-	xmltv2 "iptv-gateway/internal/parser/xmltv"
+	"iptv-gateway/internal/parser/xmltv"
 	"iptv-gateway/internal/urlgen"
+	"sync"
 	"syscall"
 	"time"
 )
 
-type xmltvDecoderFactory struct{}
+const (
+	DefaultChannelMapSize   = 10000
+	DefaultProgrammeMapSize = 100000
+)
 
-func (f *xmltvDecoderFactory) NewDecoder(reader *cache.Reader) common.Decoder {
-	return xmltv2.NewDecoder(reader)
+type decoderState struct {
+	decoder         listing.Decoder
+	subscription    *manager.Subscription
+	channelsDone    bool
+	done            bool
+	err             error
+	bufferedItem    any
+	hasBufferedItem bool
+}
+
+func (ds *decoderState) nextItem() (any, error) {
+	if ds.hasBufferedItem {
+		item := ds.bufferedItem
+		ds.bufferedItem = nil
+		ds.hasBufferedItem = false
+		return item, nil
+	}
+	return ds.decoder.Decode()
 }
 
 type Streamer struct {
-	*common.BaseStreamer
+	subscriptions       []*manager.Subscription
+	httpClient          listing.HTTPClient
 	channels            map[string]bool
 	addedChannels       map[string]bool
 	addedProgrammes     map[string]bool
 	currentURLGenerator *urlgen.Generator
+	mu                  sync.Mutex
 }
 
-func NewStreamer(subscriptions []*manager.Subscription, httpClient common.HTTPClient, channels map[string]bool) *Streamer {
-	decoderFactory := &xmltvDecoderFactory{}
-	baseStreamer := common.NewBaseStreamer(subscriptions, httpClient, decoderFactory)
-
+func NewStreamer(
+	subscriptions []*manager.Subscription, httpClient listing.HTTPClient, channels map[string]bool) *Streamer {
 	return &Streamer{
-		BaseStreamer:    baseStreamer,
+		subscriptions:   subscriptions,
+		httpClient:      httpClient,
 		channels:        channels,
-		addedChannels:   make(map[string]bool, 10000),
-		addedProgrammes: make(map[string]bool, 100000),
+		addedChannels:   make(map[string]bool, DefaultChannelMapSize),
+		addedProgrammes: make(map[string]bool, DefaultProgrammeMapSize),
 	}
 }
 
@@ -51,62 +71,33 @@ func (s *Streamer) WriteToGzip(ctx context.Context, w io.Writer) (int64, error) 
 }
 
 func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
-	if len(s.Subscriptions) == 0 {
+	if len(s.subscriptions) == 0 {
 		return 0, fmt.Errorf("no EPG sources found")
 	}
 
 	bytesCounter := ioutil.NewCountWriter(w)
-	encoder := xmltv2.NewEncoder(bytesCounter)
+	encoder := xmltv.NewEncoder(bytesCounter)
 	defer encoder.Close()
 
-	s.PendingSubscriptions = s.Subscriptions
-	s.CurrentDecoder = nil
-	s.Close()
-
-	getEPGs := func(sub *manager.Subscription) []string {
-		return sub.GetEPGs()
+	decoders, err := s.initializeDecoders(ctx)
+	if err != nil {
+		return bytesCounter.Count(), err
 	}
 
-	for {
-		item, err := s.NextItem(ctx, getEPGs)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return bytesCounter.Count(), err
-		}
-
-		if s.CurrentSubscription != nil && s.CurrentSubscription.IsProxied() {
-			s.currentURLGenerator = s.CurrentSubscription.GetURLGenerator().(*urlgen.Generator)
-		} else {
-			s.currentURLGenerator = nil
-		}
-
-		switch v := item.(type) {
-		case xmltv2.Channel:
-			if !s.isChannelAllowed(v) {
-				continue
-			}
-			v.Icons = s.processIcons(v.Icons)
-
-			if err := encoder.Encode(v); err != nil {
-				return bytesCounter.Count(), err
-			}
-
-		case xmltv2.Programme:
-			if !s.isProgrammeAllowed(v) {
-				continue
-			}
-			v.Icons = s.processIcons(v.Icons)
-
-			err := encoder.Encode(v)
-			if errors.Is(err, syscall.EPIPE) {
-				return bytesCounter.Count(), nil
-			}
-			if err != nil {
-				return bytesCounter.Count(), err
+	defer func() {
+		for _, decoder := range decoders {
+			if decoder.decoder != nil {
+				decoder.decoder.Close()
 			}
 		}
+	}()
+
+	if err := s.processChannels(ctx, decoders, encoder); err != nil {
+		return bytesCounter.Count(), err
+	}
+
+	if err := s.processProgrammes(ctx, decoders, encoder); err != nil {
+		return bytesCounter.Count(), err
 	}
 
 	count := bytesCounter.Count()
@@ -117,7 +108,156 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	return count, nil
 }
 
-func (s *Streamer) isChannelAllowed(channel xmltv2.Channel) bool {
+func (s *Streamer) initializeDecoders(ctx context.Context) ([]*decoderState, error) {
+	var decoders []*decoderState
+
+	for _, sub := range s.subscriptions {
+		epgs := sub.GetEPGs()
+		for _, epgURL := range epgs {
+			reader, err := s.httpClient.NewReader(ctx, epgURL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create xmltv reader: %v", err)
+			}
+			decoder := xmltv.NewDecoder(reader)
+			decoders = append(decoders, &decoderState{
+				decoder:      decoder,
+				subscription: sub,
+			})
+		}
+	}
+
+	return decoders, nil
+}
+
+func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderState, encoder xmltv.Encoder) error {
+	return listing.Process(
+		ctx,
+		decoders,
+		func(ctx context.Context, decoder *decoderState, output chan<- listing.Item, errChan chan<- error) {
+			if decoder.subscription.IsProxied() {
+				s.mu.Lock()
+				s.currentURLGenerator = decoder.subscription.GetURLGenerator().(*urlgen.Generator)
+				s.mu.Unlock()
+			}
+
+			for {
+				select {
+				case <-ctx.Done():
+					errChan <- ctx.Err()
+					return
+				default:
+				}
+
+				item, err := decoder.nextItem()
+				if err == io.EOF {
+					decoder.done = true
+					return
+				}
+				if err != nil {
+					errChan <- err
+					return
+				}
+
+				switch v := item.(type) {
+				case xmltv.Channel:
+					output <- v
+
+				case xmltv.Programme:
+					decoder.channelsDone = true
+					decoder.bufferedItem = v
+					decoder.hasBufferedItem = true
+					return
+				}
+			}
+		},
+		func(item listing.Item) error {
+			channel := item.(xmltv.Channel)
+
+			if !s.isChannelAllowed(channel) {
+				return nil
+			}
+
+			s.mu.Lock()
+			if s.currentURLGenerator != nil {
+				channel.Icons = s.processIcons(channel.Icons)
+			}
+			s.mu.Unlock()
+
+			return encoder.Encode(channel)
+		},
+	)
+}
+
+func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderState, encoder xmltv.Encoder) error {
+	activeDecoders := make([]*decoderState, 0, len(decoders))
+	for _, decoder := range decoders {
+		if !decoder.done && decoder.err == nil {
+			activeDecoders = append(activeDecoders, decoder)
+		}
+	}
+
+	if len(activeDecoders) == 0 {
+		return nil
+	}
+
+	return listing.Process(
+		ctx,
+		activeDecoders,
+		func(ctx context.Context, decoder *decoderState, output chan<- listing.Item, errChan chan<- error) {
+			if decoder.subscription.IsProxied() {
+				s.mu.Lock()
+				s.currentURLGenerator = decoder.subscription.GetURLGenerator().(*urlgen.Generator)
+				s.mu.Unlock()
+			}
+
+			for {
+				select {
+				case <-ctx.Done():
+					errChan <- ctx.Err()
+					return
+				default:
+				}
+
+				item, err := decoder.nextItem()
+				if err == io.EOF {
+					return
+				}
+				if err != nil {
+					errChan <- err
+					return
+				}
+
+				if programme, ok := item.(xmltv.Programme); ok {
+					output <- programme
+				}
+			}
+		},
+		func(item listing.Item) error {
+			programme := item.(xmltv.Programme)
+
+			if !s.isProgrammeAllowed(programme) {
+				return nil
+			}
+
+			s.mu.Lock()
+			if s.currentURLGenerator != nil {
+				programme.Icons = s.processIcons(programme.Icons)
+			}
+			s.mu.Unlock()
+
+			err := encoder.Encode(programme)
+			if errors.Is(err, syscall.EPIPE) {
+				return nil
+			}
+			return err
+		},
+	)
+}
+
+func (s *Streamer) isChannelAllowed(channel xmltv.Channel) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.addedChannels[channel.ID] {
 		return false
 	}
@@ -137,7 +277,10 @@ func (s *Streamer) isChannelAllowed(channel xmltv2.Channel) bool {
 	return false
 }
 
-func (s *Streamer) isProgrammeAllowed(programme xmltv2.Programme) bool {
+func (s *Streamer) isProgrammeAllowed(programme xmltv.Programme) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if !s.addedChannels[programme.Channel] {
 		return false
 	}
@@ -158,7 +301,7 @@ func (s *Streamer) isProgrammeAllowed(programme xmltv2.Programme) bool {
 	return true
 }
 
-func (s *Streamer) processIcons(icons []xmltv2.Icon) []xmltv2.Icon {
+func (s *Streamer) processIcons(icons []xmltv.Icon) []xmltv.Icon {
 	if s.currentURLGenerator == nil || len(icons) == 0 {
 		return icons
 	}
@@ -175,7 +318,7 @@ func (s *Streamer) processIcons(icons []xmltv2.Icon) []xmltv2.Icon {
 		return icons
 	}
 
-	result := make([]xmltv2.Icon, len(icons))
+	result := make([]xmltv.Icon, len(icons))
 	copy(result, icons)
 
 	urlData := urlgen.Data{

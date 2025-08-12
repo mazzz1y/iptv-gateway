@@ -7,89 +7,88 @@ import (
 	"io"
 	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/ioutil"
-	"iptv-gateway/internal/listing/common"
+	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/manager"
-	m3u9 "iptv-gateway/internal/parser/m3u8"
+	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
 	"strings"
+	"sync"
 	"syscall"
 )
 
-type m3u8DecoderFactory struct{}
-
-func (f *m3u8DecoderFactory) NewDecoder(reader *cache.Reader) common.Decoder {
-	return m3u9.NewDecoder(reader)
+type HTTPClient interface {
+	NewReader(ctx context.Context, url string) (*cache.Reader, error)
 }
 
 type Streamer struct {
-	*common.BaseStreamer
+	subscriptions   []*manager.Subscription
+	httpClient      HTTPClient
 	epgLink         string
 	addedTrackIDs   map[string]bool
 	addedTrackNames map[string]bool
+	mu              sync.Mutex
 }
 
-func NewStreamer(subs []*manager.Subscription, epgLink string, httpClient common.HTTPClient) *Streamer {
-	decoderFactory := &m3u8DecoderFactory{}
-	baseStreamer := common.NewBaseStreamer(subs, httpClient, decoderFactory)
+type trackWithSubscription struct {
+	track        *m3u8.Track
+	subscription *manager.Subscription
+}
 
+func NewStreamer(subs []*manager.Subscription, epgLink string, httpClient HTTPClient) *Streamer {
 	return &Streamer{
-		BaseStreamer:    baseStreamer,
+		subscriptions:   subs,
+		httpClient:      httpClient,
 		epgLink:         epgLink,
 		addedTrackIDs:   make(map[string]bool),
 		addedTrackNames: make(map[string]bool),
 	}
 }
 
+func (s *Streamer) initializeDecoders(ctx context.Context) ([]*decoderWrapper, error) {
+	var decoders []*decoderWrapper
+
+	for _, sub := range s.subscriptions {
+		playlists := sub.GetPlaylists()
+		for _, playlistURL := range playlists {
+			reader, err := s.httpClient.NewReader(ctx, playlistURL)
+			if err != nil {
+				return nil, err
+			}
+
+			decoder := m3u8.NewDecoder(reader)
+			decoders = append(decoders, &decoderWrapper{
+				decoder:      decoder,
+				subscription: sub,
+			})
+		}
+	}
+
+	return decoders, nil
+}
+
 func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
-	if len(s.Subscriptions) == 0 {
+	if len(s.subscriptions) == 0 {
 		return 0, fmt.Errorf("no subscriptions found")
 	}
 
 	bytesCounter := ioutil.NewCountWriter(w)
-	encoder := m3u9.NewEncoder(bytesCounter, map[string]string{"x-tvg-url": s.epgLink})
+	encoder := m3u8.NewEncoder(bytesCounter, map[string]string{"x-tvg-url": s.epgLink})
 	defer encoder.Close()
 
-	s.PendingSubscriptions = s.Subscriptions
-	s.CurrentDecoder = nil
-	s.Close()
-
-	getPlaylists := func(sub *manager.Subscription) []string {
-		return sub.GetPlaylists()
+	decoders, err := s.initializeDecoders(ctx)
+	if err != nil {
+		return bytesCounter.Count(), err
 	}
 
-	for {
-		item, err := s.NextItem(ctx, getPlaylists)
-
-		if err == io.EOF {
-			break
+	defer func() {
+		for _, decoder := range decoders {
+			decoder.close()
 		}
-		if err != nil {
-			return bytesCounter.Count(), err
-		}
+	}()
 
-		if track, ok := item.(*m3u9.Track); ok {
-			if s.isDuplicate(track) {
-				continue
-			}
-
-			if s.isExcluded(track) {
-				continue
-			}
-
-			if s.CurrentSubscription.IsProxied() {
-				if err := s.processProxyLinks(track); err != nil {
-					return bytesCounter.Count(), err
-				}
-			}
-			err := encoder.Encode(track)
-			if errors.Is(err, syscall.EPIPE) {
-				return bytesCounter.Count(), nil
-			}
-			if err != nil {
-				return bytesCounter.Count(), err
-			}
-		}
+	if err := s.processTracks(ctx, decoders, encoder); err != nil {
+		return bytesCounter.Count(), err
 	}
 
 	count := bytesCounter.Count()
@@ -101,34 +100,69 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 }
 
 func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]bool, error) {
-	if len(s.Subscriptions) == 0 {
+	if len(s.subscriptions) == 0 {
 		return nil, fmt.Errorf("no subscriptions found")
 	}
 
 	channels := make(map[string]bool)
-	s.PendingSubscriptions = s.Subscriptions
-	s.CurrentDecoder = nil
-	s.Close()
+	channelsMu := sync.Mutex{}
 
-	getPlaylists := func(sub *manager.Subscription) []string {
-		return sub.GetPlaylists()
+	decoders, err := s.initializeDecoders(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	for {
-		item, err := s.NextItem(ctx, getPlaylists)
-		if err == io.EOF {
-			break
+	defer func() {
+		for _, decoder := range decoders {
+			decoder.close()
 		}
-		if err != nil {
-			return nil, err
-		}
+	}()
 
-		if track, ok := item.(*m3u9.Track); ok {
-			if id, hasID := track.Attrs[m3u9.AttrTvgID]; hasID && id != "" {
+	err = listing.Process(
+		ctx,
+		decoders,
+		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
+			for {
+				select {
+				case <-ctx.Done():
+					errChan <- ctx.Err()
+					return
+				default:
+				}
+
+				item, err := decoder.decoder.Decode()
+				if err == io.EOF {
+					decoder.done = true
+					return
+				}
+				if err != nil {
+					errChan <- err
+					return
+				}
+
+				if track, ok := item.(*m3u8.Track); ok {
+					output <- trackWithSubscription{
+						track:        track,
+						subscription: decoder.subscription,
+					}
+				}
+			}
+		},
+		func(item listing.Item) error {
+			trackSub := item.(trackWithSubscription)
+			channelsMu.Lock()
+			defer channelsMu.Unlock()
+
+			if id, hasID := trackSub.track.Attrs[m3u8.AttrTvgID]; hasID && id != "" {
 				channels[id] = true
 			}
-			channels[track.Name] = true
-		}
+			channels[trackSub.track.Name] = true
+			return nil
+		},
+	)
+
+	if err != nil {
+		return nil, err
 	}
 
 	if len(channels) == 0 {
@@ -138,20 +172,78 @@ func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]bool, error) 
 	return channels, nil
 }
 
-func (s *Streamer) isExcluded(track *m3u9.Track) bool {
-	filters := s.CurrentSubscription.GetExcludes()
+func (s *Streamer) processTracks(ctx context.Context, decoders []*decoderWrapper, encoder m3u8.Encoder) error {
+	return listing.Process(
+		ctx,
+		decoders,
+		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
+			for {
+				select {
+				case <-ctx.Done():
+					errChan <- ctx.Err()
+					return
+				default:
+				}
 
-	if len(filters.Tags) == 0 && len(filters.Attrs) == 0 && len(filters.ChannelName) == 0 {
+				item, err := decoder.decoder.Decode()
+				if err == io.EOF {
+					decoder.done = true
+					return
+				}
+				if err != nil {
+					errChan <- err
+					return
+				}
+
+				if track, ok := item.(*m3u8.Track); ok {
+					output <- trackWithSubscription{
+						track:        track,
+						subscription: decoder.subscription,
+					}
+				}
+			}
+		},
+		func(item listing.Item) error {
+			trackSub := item.(trackWithSubscription)
+
+			if s.isDuplicate(trackSub.track) {
+				return nil
+			}
+
+			if s.isExcluded(trackSub.track, trackSub.subscription) {
+				return nil
+			}
+
+			if trackSub.subscription.IsProxied() {
+				urlGenerator := trackSub.subscription.GetURLGenerator().(*urlgen.Generator)
+				if err := s.processProxyLinks(trackSub.track, urlGenerator); err != nil {
+					return err
+				}
+			}
+
+			err := encoder.Encode(trackSub.track)
+			if errors.Is(err, syscall.EPIPE) {
+				return nil
+			}
+			return err
+		},
+	)
+}
+
+func (s *Streamer) isExcluded(track *m3u8.Track, subscription *manager.Subscription) bool {
+	excludes := subscription.GetExcludes()
+
+	if len(excludes.Tags) == 0 && len(excludes.Attrs) == 0 && len(excludes.ChannelName) == 0 {
 		return false
 	}
 
-	for _, pattern := range filters.ChannelName {
+	for _, pattern := range excludes.ChannelName {
 		if pattern.MatchString(track.Name) {
 			return true
 		}
 	}
 
-	for attrKey, patterns := range filters.Attrs {
+	for attrKey, patterns := range excludes.Attrs {
 		attrValue, exists := track.Attrs[attrKey]
 		if exists {
 			for _, pattern := range patterns {
@@ -162,7 +254,7 @@ func (s *Streamer) isExcluded(track *m3u9.Track) bool {
 		}
 	}
 
-	for tagKey, patterns := range filters.Tags {
+	for tagKey, patterns := range excludes.Tags {
 		tagValue, exists := track.Tags[tagKey]
 		if exists {
 			for _, pattern := range patterns {
@@ -176,8 +268,11 @@ func (s *Streamer) isExcluded(track *m3u9.Track) bool {
 	return false
 }
 
-func (s *Streamer) isDuplicate(track *m3u9.Track) bool {
-	id, hasID := track.Attrs[m3u9.AttrTvgID]
+func (s *Streamer) isDuplicate(track *m3u8.Track) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, hasID := track.Attrs[m3u8.AttrTvgID]
 	trackName := strings.ToLower(track.Name)
 
 	if hasID && id != "" {
@@ -195,9 +290,7 @@ func (s *Streamer) isDuplicate(track *m3u9.Track) bool {
 	return false
 }
 
-func (s *Streamer) processProxyLinks(track *m3u9.Track) error {
-	urlGenerator := s.CurrentSubscription.GetURLGenerator().(*urlgen.Generator)
-
+func (s *Streamer) processProxyLinks(track *m3u8.Track, urlGenerator *urlgen.Generator) error {
 	for key, value := range track.Attrs {
 		if isURL(value) {
 			encURL, err := urlGenerator.CreateURL(urlgen.Data{

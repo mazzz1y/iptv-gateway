@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"errors"
 	"io"
 	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/parser/xmltv"
 	"strings"
 	"testing"
 
@@ -72,9 +70,6 @@ func TestNewStreamer(t *testing.T) {
 
 	streamer := NewStreamer(subscriptions, httpClient, channels)
 	assert.NotNil(t, streamer)
-	assert.Equal(t, subscriptions, streamer.Subscriptions)
-	assert.Equal(t, httpClient, streamer.HTTPClient)
-	assert.Equal(t, subscriptions, streamer.PendingSubscriptions)
 	assert.Equal(t, channels, streamer.channels)
 	assert.NotNil(t, streamer.addedChannels)
 	assert.NotNil(t, streamer.addedProgrammes)
@@ -159,50 +154,6 @@ func TestStreamer_WriteToGzip(t *testing.T) {
 	assert.Contains(t, strings.ToLower(result), "<channel id=\"channel1\">")
 }
 
-func TestStreamer_Close(t *testing.T) {
-	streamer := NewStreamer([]*manager.Subscription{}, &MockHTTPClient{}, nil)
-
-	err := streamer.Close()
-	assert.NoError(t, err)
-
-	mockDecoder := new(MockDecoder)
-
-	streamer.CurrentDecoder = mockDecoder
-	err = streamer.Close()
-	assert.NoError(t, err)
-	assert.True(t, mockDecoder.closed)
-}
-
-func TestStreamer_nextItem(t *testing.T) {
-	ctx := context.Background()
-	streamer := NewStreamer([]*manager.Subscription{}, &MockHTTPClient{}, nil)
-	streamer.PendingSubscriptions = []*manager.Subscription{}
-	streamer.CurrentDecoder = nil
-
-	getEPGs := func(sub *manager.Subscription) []string {
-		return sub.GetEPGs()
-	}
-
-	item, err := streamer.NextItem(ctx, getEPGs)
-	assert.Nil(t, item)
-	assert.Equal(t, io.EOF, err)
-
-	httpClient := new(MockHTTPClient)
-	sub, err := createTestSubscription("test-subscription", []string{"http://example.com/epg.xml"})
-	require.NoError(t, err)
-
-	httpClient.On("NewReader", mock.Anything, "http://example.com/epg.xml").Return(
-		createMockReader(nil, ""),
-		errors.New("read error"),
-	)
-
-	streamer = NewStreamer([]*manager.Subscription{sub}, httpClient, nil)
-	item, err = streamer.NextItem(ctx, getEPGs)
-	assert.Nil(t, item)
-	assert.Error(t, err)
-	assert.Equal(t, "read error", err.Error())
-}
-
 func TestStreamerWithMultipleEPGSources(t *testing.T) {
 	ctx := context.Background()
 	httpClient := new(MockHTTPClient)
@@ -269,70 +220,6 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 	assert.Contains(t, output, "<title>Afternoon Show</title>")
 	assert.Contains(t, output, "http://example.com/icon2.png")
 
-	httpClient.AssertExpectations(t)
-}
-
-func TestStreamerWithOneFailingEPGSource(t *testing.T) {
-	ctx := context.Background()
-	httpClient := new(MockHTTPClient)
-
-	xmlContent := `<?xml version="1.0" encoding="UTF-8"?>
-<tv>
-  <channel id="channel1">
-	<display-name>Channel 1</display-name>
-  </channel>
-  <programme start="20230101120000 +0000" channel="channel1">
-	<title>Test Show</title>
-  </programme>
-</tv>`
-
-	mockReader := createMockReader(io.NopCloser(strings.NewReader(xmlContent)), "")
-
-	httpClient.On("NewReader", mock.Anything, "http://example.com/epg1.xml").Return(mockReader, nil)
-	httpClient.On("NewReader", mock.Anything, "http://example.com/epg2.xml").Return(
-		&cache.Reader{}, io.ErrUnexpectedEOF,
-	)
-
-	sub, err := createTestSubscription(
-		"test-subscription",
-		[]string{
-			"http://example.com/epg1.xml",
-			"http://example.com/epg2.xml",
-		},
-	)
-	require.NoError(t, err)
-
-	channels := map[string]bool{"channel1": true}
-	streamer := NewStreamer([]*manager.Subscription{sub}, httpClient, channels)
-
-	getEPGs := func(sub *manager.Subscription) []string {
-		return sub.GetEPGs()
-	}
-
-	for {
-		item, err := streamer.NextItem(ctx, getEPGs)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			assert.Equal(t, io.ErrUnexpectedEOF, err)
-			break
-		}
-
-		switch v := item.(type) {
-		case xmltv.Channel:
-			if streamer.isChannelAllowed(v) {
-				assert.Contains(t, v.ID, "channel1")
-			}
-		case xmltv.Programme:
-			if streamer.isProgrammeAllowed(v) {
-				assert.Contains(t, v.Channel, "channel1")
-			}
-		}
-	}
-
-	httpClient.AssertCalled(t, "NewReader", mock.Anything, "http://example.com/epg1.xml")
-	httpClient.AssertCalled(t, "NewReader", mock.Anything, "http://example.com/epg2.xml")
 	httpClient.AssertExpectations(t)
 }
 
