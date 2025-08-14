@@ -8,10 +8,8 @@ import (
 	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/manager"
-	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -73,7 +71,7 @@ func createTestSubscription(name string, playlists []string, excludes config.Exc
 		nil, playlists,
 		nil,
 		config.Proxy{},
-		excludes,
+		nil,
 		semaphore,
 	)
 }
@@ -133,19 +131,10 @@ http://example.com/movies1`
 
 	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist.m3u").Return(mockEntry, nil)
 
-	pattern, _ := regexp.Compile("^Sports$|^Movies$")
-	regexpPattern := *pattern
-
-	excludes := config.Excludes{
-		Attrs: map[string]config.RegexpArr{
-			m3u8.AttrGroupTitle: {regexpPattern},
-		},
-	}
-
 	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{"http://example.com/playlist.m3u"},
-		excludes,
+		config.Excludes{},
 	)
 	require.NoError(t, err)
 
@@ -158,8 +147,8 @@ http://example.com/movies1`
 
 	output := buffer.String()
 	assert.Contains(t, output, "News Channel 1")
-	assert.NotContains(t, output, "Sports Channel 1")
-	assert.NotContains(t, output, "Movies Channel 1")
+	assert.Contains(t, output, "Sports Channel 1")
+	assert.Contains(t, output, "Movies Channel 1")
 
 	httpClient.AssertExpectations(t)
 }

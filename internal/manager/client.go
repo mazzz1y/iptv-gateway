@@ -2,8 +2,9 @@ package manager
 
 import (
 	"fmt"
-	"golang.org/x/sync/semaphore"
 	"iptv-gateway/internal/config"
+
+	"golang.org/x/sync/semaphore"
 )
 
 type Client struct {
@@ -12,7 +13,7 @@ type Client struct {
 	subscriptions []*Subscription
 	presets       []config.Preset
 	proxy         config.Proxy
-	excludes      config.Excludes
+	rules         []config.RuleAction
 	epgLink       string
 	secret        string
 }
@@ -39,19 +40,19 @@ func NewClient(clientConfig config.Client, presets []config.Preset, publicUrl st
 
 func (c *Client) AddSubscription(
 	conf config.Subscription, urlGen URLGenerator,
-	serverExcludes config.Excludes, serverProxy config.Proxy,
+	serverRules []config.RuleAction, serverProxy config.Proxy,
 	sem *semaphore.Weighted) error {
 
 	proxy := mergeProxies(serverProxy, conf.Proxy)
-	exclude := mergeExcludes(serverExcludes, conf.Excludes)
+	mergedRules := mergeRules(serverRules, conf.Rules)
 
 	for _, preset := range c.presets {
 		proxy = mergeProxies(proxy, preset.Proxy)
-		exclude = mergeExcludes(exclude, preset.Excludes)
+		mergedRules = mergeRules(mergedRules, preset.Rules)
 	}
 
 	proxy = mergeProxies(proxy, c.proxy)
-	exclude = mergeExcludes(exclude, c.excludes)
+	mergedRules = mergeRules(mergedRules, c.rules)
 
 	sub, err := NewSubscription(
 		conf.Name,
@@ -59,7 +60,7 @@ func (c *Client) AddSubscription(
 		conf.Playlist,
 		conf.EPG,
 		proxy,
-		exclude,
+		mergedRules,
 		sem,
 	)
 

@@ -201,36 +201,11 @@ proxy:
 listen_addr: ":8080"
 public_url: "http://example.com"
 secret: "test-secret"
-excludes:
-  tags:
-    group-title: ["Sports", "News"]
-  attrs:
-    tvg-id: ["sport.*"]
-  channel_name: ["BBC.*", "CNN"]
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				if len(cfg.Excludes.Tags["group-title"]) != 2 {
-					t.Fatalf("expected 2 group-title filters, got %d", len(cfg.Excludes.Tags["group-title"]))
-				}
-				if cfg.Excludes.Tags["group-title"][0].String() != "Sports" ||
-					cfg.Excludes.Tags["group-title"][1].String() != "News" {
-					t.Errorf("incorrect group-title filters: %v", cfg.Excludes.Tags["group-title"])
-				}
-
-				if len(cfg.Excludes.Attrs["tvg-id"]) != 1 {
-					t.Fatalf("expected 1 tvg-id filter, got %d", len(cfg.Excludes.Attrs["tvg-id"]))
-				}
-				if cfg.Excludes.Attrs["tvg-id"][0].String() != "sport.*" {
-					t.Errorf("incorrect tvg-id filter: %v", cfg.Excludes.Attrs["tvg-id"])
-				}
-
-				if len(cfg.Excludes.ChannelName) != 2 {
-					t.Fatalf("expected 2 channel_name filters, got %d", len(cfg.Excludes.ChannelName))
-				}
-				if cfg.Excludes.ChannelName[0].String() != "BBC.*" ||
-					cfg.Excludes.ChannelName[1].String() != "CNN" {
-					t.Errorf("incorrect channel_name filters: %v", cfg.Excludes.ChannelName)
+				if cfg.ListenAddr != ":8080" {
+					t.Errorf("expected ListenAddr to be ':8080', got '%s'", cfg.ListenAddr)
 				}
 			},
 		},
@@ -253,12 +228,7 @@ excludes:
 			expectError:   true,
 			validate:      nil,
 		},
-		{
-			name:          "invalid regex in filter",
-			configContent: "listen_addr: \":8080\"\npublic_url: \"http://example.com\"\nsecret: \"test-secret\"\nexcludes:\n  channel_name: [\"[*\", \"CNN\"]",
-			expectError:   true,
-			validate:      nil,
-		},
+
 	}
 
 	for _, tt := range tests {

@@ -26,7 +26,7 @@ docker run -d -p 8080:8080 \
 ```
 
 ```yaml
-# Proxy, Excludes, and Concurrent Streams can be set at the global, subscription, or user level.
+# Proxy, Rules, and Concurrent Streams can be set at the global, subscription, or user level.
 # Users can use the following links:
 # - http://localhost:8080/{secret}/playlist.m3u8
 # - http://localhost:8080/{secret}/epg.xml.gz
@@ -43,15 +43,15 @@ proxy:
   enabled: true
   concurrency: 4
 
-excludes:
-  attrs:
-    tvg-group: ^(?i)xxx$
 
 presets:
   - name: children
-    excludes:
-      attrs:
-        tvg-group: ^(?i)adult$
+    rules:
+      - remove_channel: { }
+        when:
+          - attr:
+              name: "tvg-group"
+              value: "adult"
 
 subscriptions:
   - name: english
@@ -70,9 +70,12 @@ clients:
   - name: device1
     secret: secret1
     subscriptions: french
-    excludes:
-      attrs:
-        tvg-language: ^english$
+    rules:
+      - remove_channel: {}
+        when:
+          - attr:
+              name: "tvg-language"
+              value: "^english$"
     channel_name: "Some-Channel"
   - name: device2
     secret: secret2
@@ -101,16 +104,42 @@ proxy:
         message: "Unable to play stream. Please try again later or contact administrator."
 ```
 
-### Excludes format
+### Rules format
 
 ```yaml
-excludes:
-  tags:
-    EXTGRP: [ "^Sports$", "^Movies$" ]
-  attrs:
-    tvg-group: [ "^News$" ]
-    tvg-language: [ "^english$" ]
-  channel_name:
-    - "^Test Channel 1$"
-    - "^Another Channel$"
+rules:
+  - remove_channel: {}
+    when:
+      - "name": ".*Test.*"
+
+  - remove_field:
+      - type: "attr"
+        name: "tvg-logo"
+
+  - set_field:
+      - type: "attr"
+        name: "original-name"
+        template: "{{ .Channel.Name }}"
+
+      - type: "name"
+        template: "{{ .Channel.Name | title }}"
+
+      - type: "tag"
+        name: "EXTGRP"
+        template: "{{ index .Channel.Attrs \"tvg_group\" | upper }}"
+    when:
+      - attr:
+          name: "tvg-group"
+          value: [ "entertainment" ]
+
+  - set_field:
+      - type: "attr"
+        name: "display-name"
+        template: |
+          {{- if index .Channel.Tags "EXTGRP" | eq "4K" -}}
+            🎬 {{ .Channel.Name | title }}
+          {{- else -}}
+            📺 {{ .Channel.Name | title }}
+          {{- end -}}
+
 ```

@@ -53,15 +53,15 @@ func (m *MockDecoder) Close() error {
 }
 
 func createTestSubscription(name string, epgs []string) (*manager.Subscription, error) {
-	semaphore := semaphore.NewWeighted(1)
+	sem := semaphore.NewWeighted(1)
 	return manager.NewSubscription(
 		name,
 		nil,
 		nil,
 		epgs,
 		config.Proxy{},
-		config.Excludes{},
-		semaphore,
+		[]config.RuleAction{},
+		sem,
 	)
 }
 

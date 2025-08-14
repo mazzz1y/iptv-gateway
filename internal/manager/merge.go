@@ -4,47 +4,14 @@ import (
 	"iptv-gateway/internal/config"
 )
 
-func mergeExcludes(filters ...config.Excludes) config.Excludes {
-	result := config.Excludes{
-		Tags:        make(map[string]config.RegexpArr),
-		Attrs:       make(map[string]config.RegexpArr),
-		ChannelName: make(config.RegexpArr, 0),
-	}
+func mergeRules(transforms ...[]config.RuleAction) []config.RuleAction {
+	result := make([]config.RuleAction, 0)
 
-	for _, filter := range filters {
-		mergeTagFilters(result.Tags, filter.Tags)
-		mergeAttrFilters(result.Attrs, filter.Attrs)
-
-		if len(filter.ChannelName) > 0 {
-			result.ChannelName = append(result.ChannelName, filter.ChannelName...)
-		}
+	for _, transform := range transforms {
+		result = append(result, transform...)
 	}
 
 	return result
-}
-
-func mergeTagFilters(result, source map[string]config.RegexpArr) {
-	for key, value := range source {
-		if existingArr, exists := result[key]; exists {
-			result[key] = append(existingArr, value...)
-		} else {
-			regexps := make(config.RegexpArr, len(value))
-			copy(regexps, value)
-			result[key] = regexps
-		}
-	}
-}
-
-func mergeAttrFilters(result, source map[string]config.RegexpArr) {
-	for key, value := range source {
-		if existingArr, exists := result[key]; exists {
-			result[key] = append(existingArr, value...)
-		} else {
-			regexps := make(config.RegexpArr, len(value))
-			copy(regexps, value)
-			result[key] = regexps
-		}
-	}
 }
 
 func mergeProxies(proxies ...config.Proxy) config.Proxy {

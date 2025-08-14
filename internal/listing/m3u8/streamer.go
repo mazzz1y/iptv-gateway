@@ -209,7 +209,7 @@ func (s *Streamer) processTracks(ctx context.Context, decoders []*decoderWrapper
 				return nil
 			}
 
-			if s.isExcluded(trackSub.track, trackSub.subscription) {
+			if shouldSkip := s.applyRules(trackSub.track, trackSub.subscription); shouldSkip {
 				return nil
 			}
 
@@ -229,42 +229,9 @@ func (s *Streamer) processTracks(ctx context.Context, decoders []*decoderWrapper
 	)
 }
 
-func (s *Streamer) isExcluded(track *m3u8.Track, subscription *manager.Subscription) bool {
-	excludes := subscription.GetExcludes()
-
-	if len(excludes.Tags) == 0 && len(excludes.Attrs) == 0 && len(excludes.ChannelName) == 0 {
-		return false
-	}
-
-	for _, pattern := range excludes.ChannelName {
-		if pattern.MatchString(track.Name) {
-			return true
-		}
-	}
-
-	for attrKey, patterns := range excludes.Attrs {
-		attrValue, exists := track.Attrs[attrKey]
-		if exists {
-			for _, pattern := range patterns {
-				if pattern.MatchString(attrValue) {
-					return true
-				}
-			}
-		}
-	}
-
-	for tagKey, patterns := range excludes.Tags {
-		tagValue, exists := track.Tags[tagKey]
-		if exists {
-			for _, pattern := range patterns {
-				if pattern.MatchString(tagValue) {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
+func (s *Streamer) applyRules(track *m3u8.Track, subscription *manager.Subscription) bool {
+	rul := subscription.GetRulesEngine()
+	return rul.Process(track)
 }
 
 func (s *Streamer) isDuplicate(track *m3u8.Track) bool {

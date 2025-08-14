@@ -2,11 +2,13 @@ package manager
 
 import (
 	"fmt"
-	"golang.org/x/sync/semaphore"
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/rules"
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
+
+	"golang.org/x/sync/semaphore"
 )
 
 type URLGenerator interface {
@@ -19,10 +21,11 @@ type Subscription struct {
 	playlists []string
 	epgs      []string
 
-	urlGenerator  URLGenerator
-	semaphore     *semaphore.Weighted
-	proxyConfig   config.Proxy
-	excludeConfig config.Excludes
+	urlGenerator URLGenerator
+	semaphore    *semaphore.Weighted
+	rulesEngine  *rules.Engine
+
+	proxyConfig config.Proxy
 
 	linkStreamer          *shell.Streamer
 	rateLimitStreamer     *shell.Streamer
@@ -32,7 +35,7 @@ type Subscription struct {
 
 func NewSubscription(
 	name string, urlGen URLGenerator, playlists []string, epgs []string,
-	proxy config.Proxy, excludes config.Excludes, sem *semaphore.Weighted) (*Subscription, error) {
+	proxy config.Proxy, r []config.RuleAction, sem *semaphore.Weighted) (*Subscription, error) {
 
 	streamStreamer, err := shell.NewShellStreamer(
 		proxy.Stream.Command,
@@ -77,7 +80,7 @@ func NewSubscription(
 		epgs:                  epgs,
 		semaphore:             sem,
 		proxyConfig:           proxy,
-		excludeConfig:         excludes,
+		rulesEngine:           rules.NewRulesEngine(r),
 		linkStreamer:          streamStreamer,
 		rateLimitStreamer:     rateLimitStreamer,
 		upstreamErrorStreamer: upstreamErrorStreamer,
@@ -100,8 +103,8 @@ func (s *Subscription) GetEPGs() []string {
 func (s *Subscription) GetURLGenerator() URLGenerator {
 	return s.urlGenerator
 }
-func (s *Subscription) GetExcludes() config.Excludes {
-	return s.excludeConfig
+func (s *Subscription) GetRulesEngine() *rules.Engine {
+	return s.rulesEngine
 }
 
 func (s *Subscription) GetSemaphore() *semaphore.Weighted {

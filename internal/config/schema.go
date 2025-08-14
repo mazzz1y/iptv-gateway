@@ -2,11 +2,12 @@ package config
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"net/url"
 	"regexp"
 	"strconv"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -18,7 +19,7 @@ type Config struct {
 	Proxy         Proxy          `yaml:"proxy"`
 	Clients       []Client       `yaml:"clients"`
 	Subscriptions []Subscription `yaml:"subscriptions"`
-	Excludes      Excludes       `yaml:"excludes,omitempty"`
+	Rules         []RuleAction   `yaml:"rules,omitempty"`
 	Presets       []Preset       `yaml:"presets,omitempty"`
 }
 
@@ -30,20 +31,20 @@ type CacheConfig struct {
 type TTL time.Duration
 
 type Client struct {
-	Name          string      `yaml:"name"`
-	Secret        string      `yaml:"secret"`
-	Subscriptions StringOrArr `yaml:"subscriptions"`
-	Preset        StringOrArr `yaml:"presets,omitempty"`
-	Proxy         Proxy       `yaml:"proxy,omitempty"`
-	Excludes      Excludes    `yaml:"excludes,omitempty"`
+	Name          string       `yaml:"name"`
+	Secret        string       `yaml:"secret"`
+	Subscriptions StringOrArr  `yaml:"subscriptions"`
+	Preset        StringOrArr  `yaml:"presets,omitempty"`
+	Proxy         Proxy        `yaml:"proxy,omitempty"`
+	Rules         []RuleAction `yaml:"rules,omitempty"`
 }
 
 type Subscription struct {
-	Name     string      `yaml:"name"`
-	Playlist StringOrArr `yaml:"playlist"`
-	EPG      StringOrArr `yaml:"epg"`
-	Proxy    Proxy       `yaml:"proxy"`
-	Excludes Excludes    `yaml:"excludes,omitempty"`
+	Name     string       `yaml:"name"`
+	Playlist StringOrArr  `yaml:"playlist"`
+	EPG      StringOrArr  `yaml:"epg"`
+	Proxy    Proxy        `yaml:"proxy"`
+	Rules    []RuleAction `yaml:"rules,omitempty"`
 }
 
 func (s Subscription) GetName() string {
@@ -88,9 +89,9 @@ type Handler struct {
 }
 
 type Preset struct {
-	Name     string   `yaml:"name"`
-	Proxy    Proxy    `yaml:"proxy,omitempty"`
-	Excludes Excludes `yaml:"excludes,omitempty"`
+	Name  string       `yaml:"name"`
+	Proxy Proxy        `yaml:"proxy,omitempty"`
+	Rules []RuleAction `yaml:"rules,omitempty"`
 }
 
 func (p Preset) GetName() string {
