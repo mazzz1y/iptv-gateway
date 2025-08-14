@@ -78,16 +78,16 @@ listen_addr: ":8080"
 public_url: "http://example.com"
 secret: "test-secret"
 clients:
-  - name: "client1"
+  client1:
     secret: "manager-secret"
     subscriptions:
       - "sub1"
       - "sub2"
 subscriptions:
-  - name: "sub1"
+  sub1:
     playlist: "http://example.com/playlist.m3u"
     epg: "http://example.com/epg.xml"
-  - name: "sub2"
+  sub2:
     playlist: 
       - "http://example.com/playlist1.m3u"
       - "http://example.com/playlist2.m3u"
@@ -100,48 +100,51 @@ subscriptions:
 				if len(cfg.Clients) != 1 {
 					t.Fatalf("expected 1 manager, got %d", len(cfg.Clients))
 				}
-				if cfg.Clients[0].Name != "client1" {
-					t.Errorf("expected manager name to be 'client1', got '%s'", cfg.Clients[0].Name)
+				client1, exists := cfg.Clients["client1"]
+				if !exists {
+					t.Fatalf("expected client 'client1' to exist")
 				}
-				if cfg.Clients[0].Secret != "manager-secret" {
-					t.Errorf("expected manager secret to be 'manager-secret', got '%s'", cfg.Clients[0].Secret)
+				if client1.Secret != "manager-secret" {
+					t.Errorf("expected manager secret to be 'manager-secret', got '%s'", client1.Secret)
 				}
-				if len(cfg.Clients[0].Subscriptions) != 2 {
-					t.Fatalf("expected 2 manager subscriptions, got %d", len(cfg.Clients[0].Subscriptions))
+				if len(client1.Subscriptions) != 2 {
+					t.Fatalf("expected 2 manager subscriptions, got %d", len(client1.Subscriptions))
 				}
-				if cfg.Clients[0].Subscriptions[0] != "sub1" || cfg.Clients[0].Subscriptions[1] != "sub2" {
-					t.Errorf("incorrect manager subscriptions: %v", cfg.Clients[0].Subscriptions)
+				if client1.Subscriptions[0] != "sub1" || client1.Subscriptions[1] != "sub2" {
+					t.Errorf("incorrect manager subscriptions: %v", client1.Subscriptions)
 				}
 
 				if len(cfg.Subscriptions) != 2 {
 					t.Fatalf("expected 2 subscriptions, got %d", len(cfg.Subscriptions))
 				}
-				if cfg.Subscriptions[0].Name != "sub1" {
-					t.Errorf("expected subscription name to be 'sub1', got '%s'", cfg.Subscriptions[0].Name)
+				sub1, exists := cfg.Subscriptions["sub1"]
+				if !exists {
+					t.Fatalf("expected subscription 'sub1' to exist")
 				}
-				if len(cfg.Subscriptions[0].Playlist) != 1 || cfg.Subscriptions[0].Playlist[0] != "http://example.com/playlist.m3u" {
-					t.Errorf("incorrect playlist URL: %v", cfg.Subscriptions[0].Playlist)
+				if len(sub1.Playlist) != 1 || sub1.Playlist[0] != "http://example.com/playlist.m3u" {
+					t.Errorf("incorrect playlist URL: %v", sub1.Playlist)
 				}
-				if len(cfg.Subscriptions[0].EPG) != 1 || cfg.Subscriptions[0].EPG[0] != "http://example.com/epg.xml" {
-					t.Errorf("incorrect EPG URL: %v", cfg.Subscriptions[0].EPG)
+				if len(sub1.EPG) != 1 || sub1.EPG[0] != "http://example.com/epg.xml" {
+					t.Errorf("incorrect EPG URL: %v", sub1.EPG)
 				}
 
-				if cfg.Subscriptions[1].Name != "sub2" {
-					t.Errorf("expected subscription name to be 'sub2', got '%s'", cfg.Subscriptions[1].Name)
+				sub2, exists := cfg.Subscriptions["sub2"]
+				if !exists {
+					t.Fatalf("expected subscription 'sub2' to exist")
 				}
-				if len(cfg.Subscriptions[1].Playlist) != 2 {
-					t.Fatalf("expected 2 playlist URLs, got %d", len(cfg.Subscriptions[1].Playlist))
+				if len(sub2.Playlist) != 2 {
+					t.Fatalf("expected 2 playlist URLs, got %d", len(sub2.Playlist))
 				}
-				if cfg.Subscriptions[1].Playlist[0] != "http://example.com/playlist1.m3u" ||
-					cfg.Subscriptions[1].Playlist[1] != "http://example.com/playlist2.m3u" {
-					t.Errorf("incorrect playlist URLs: %v", cfg.Subscriptions[1].Playlist)
+				if sub2.Playlist[0] != "http://example.com/playlist1.m3u" ||
+					sub2.Playlist[1] != "http://example.com/playlist2.m3u" {
+					t.Errorf("incorrect playlist URLs: %v", sub2.Playlist)
 				}
-				if len(cfg.Subscriptions[1].EPG) != 2 {
-					t.Fatalf("expected 2 EPG URLs, got %d", len(cfg.Subscriptions[1].EPG))
+				if len(sub2.EPG) != 2 {
+					t.Fatalf("expected 2 EPG URLs, got %d", len(sub2.EPG))
 				}
-				if cfg.Subscriptions[1].EPG[0] != "http://example.com/epg1.xml" ||
-					cfg.Subscriptions[1].EPG[1] != "http://example.com/epg2.xml" {
-					t.Errorf("incorrect EPG URLs: %v", cfg.Subscriptions[1].EPG)
+				if sub2.EPG[0] != "http://example.com/epg1.xml" ||
+					sub2.EPG[1] != "http://example.com/epg2.xml" {
+					t.Errorf("incorrect EPG URLs: %v", sub2.EPG)
 				}
 			},
 		},

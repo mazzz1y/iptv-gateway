@@ -32,55 +32,51 @@ docker run -d -p 8080:8080 \
 # - http://localhost:8080/{secret}/epg.xml.gz
 # - http://localhost:8080/{secret}/epg.xml
 
-
 listen_addr: ":8080"
 public_url: "http://localhost:8080"
-
-secret: secret # Secret used for encrypting proxy links
+secret: secret
 
 proxy:
-  # Enable ffmpeg remuxing globally
   enabled: true
   concurrency: 4
 
-
 presets:
-  - name: children
+  children:
     rules:
-      - remove_channel: { }
+      - remove_channel: {}
         when:
           - attr:
               name: "tvg-group"
               value: "adult"
 
 subscriptions:
-  - name: english
-    playlist: http://example.com/english.m3u8 # Both playlist and epg can be arrays of links; they will be merged
+  english:
+    playlist: http://example.com/english.m3u8
     epg: http://example.com/en.xml.gz
     proxy:
       concurrency: 2
 
-  - name: french
+  french:
     playlist: https://example.com/french.m3u
     epg: http://example.com/fr.xml.gz
     proxy:
       concurrency: 3
 
 clients:
-  - name: device1
+  device1:
     secret: secret1
     subscriptions: french
     rules:
-      - remove_channel: {}
+      - remove_channel: true
         when:
           - attr:
               name: "tvg-language"
               value: "^english$"
-    channel_name: "Some-Channel"
-  - name: device2
+
+  device2:
     secret: secret2
-    preset: children
-    subscriptions: [ "english", "french" ] # Both subscriptions will be merged
+    presets: children
+    subscriptions: [ "english", "french" ]
 ```
 
 ### Custom streaming settings
@@ -91,20 +87,24 @@ proxy:
     command: [ "ffmpeg", "-i", "{{.url}}", "-c", "copy", "-f", "mpegts", "pipe:1" ]
     env_vars:
       http_proxy: http://192.168.1.1:1080
+
   error:
     command: [ "...", "{{.message}}", "..." ]
+
     rate_limit_exceeded:
       template_vars:
         message: "Rate limit exceeded. Please try again later."
+
     link_expired:
       template_vars:
         message: "Link has expired. Please refresh your playlist."
+
     upstream_error:
       template_vars:
         message: "Unable to play stream. Please try again later or contact administrator."
 ```
 
-### Rules format
+### Rules syntax
 
 ```yaml
 rules:
@@ -113,33 +113,32 @@ rules:
       - "name": ".*Test.*"
 
   - remove_field:
-      - type: "attr"
-        name: "tvg-logo"
+      - attr:
+          name: "tvg-logo"
 
   - set_field:
-      - type: "attr"
-        name: "original-name"
-        template: "{{ .Channel.Name }}"
+      - attr:
+          name: "original-name"
+          template: "{{ .Channel.Name }}"
 
-      - type: "name"
-        template: "{{ .Channel.Name | title }}"
+      - name:
+          template: "{{ .Channel.Name | title }}"
 
-      - type: "tag"
-        name: "EXTGRP"
-        template: "{{ index .Channel.Attrs \"tvg_group\" | upper }}"
+      - tag:
+          name: "EXTGRP"
+          template: "{{ index .Channel.Attrs \"tvg_group\" | upper }}"
     when:
       - attr:
           name: "tvg-group"
           value: [ "entertainment" ]
 
   - set_field:
-      - type: "attr"
-        name: "display-name"
-        template: |
-          {{- if index .Channel.Tags "EXTGRP" | eq "4K" -}}
-            🎬 {{ .Channel.Name | title }}
-          {{- else -}}
-            📺 {{ .Channel.Name | title }}
-          {{- end -}}
-
+      - attr:
+          name: "display-name"
+          template: |
+            {{- if index .Channel.Tags "EXTGRP" | eq "4K" -}}
+              🎬 {{ .Channel.Name | title }}
+            {{- else -}}
+              📺 {{ .Channel.Name | title }}
+            {{- end -}}
 ```

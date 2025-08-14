@@ -18,7 +18,7 @@ type Client struct {
 	secret        string
 }
 
-func NewClient(clientConfig config.Client, presets []config.Preset, publicUrl string) (*Client, error) {
+func NewClient(name string, clientConfig config.Client, presets []config.Preset, publicUrl string) (*Client, error) {
 	if clientConfig.Secret == "" {
 		return nil, fmt.Errorf("client secret cannot be empty")
 	}
@@ -29,7 +29,7 @@ func NewClient(clientConfig config.Client, presets []config.Preset, publicUrl st
 	}
 
 	return &Client{
-		name:      clientConfig.Name,
+		name:      name,
 		semaphore: sem,
 		presets:   presets,
 		proxy:     clientConfig.Proxy,
@@ -39,7 +39,7 @@ func NewClient(clientConfig config.Client, presets []config.Preset, publicUrl st
 }
 
 func (c *Client) AddSubscription(
-	conf config.Subscription, urlGen URLGenerator,
+	name string, conf config.Subscription, urlGen URLGenerator,
 	serverRules []config.RuleAction, serverProxy config.Proxy,
 	sem *semaphore.Weighted) error {
 
@@ -55,7 +55,7 @@ func (c *Client) AddSubscription(
 	mergedRules = mergeRules(mergedRules, c.rules)
 
 	sub, err := NewSubscription(
-		conf.Name,
+		name,
 		urlGen,
 		conf.Playlist,
 		conf.EPG,

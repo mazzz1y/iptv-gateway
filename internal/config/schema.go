@@ -11,16 +11,16 @@ import (
 )
 
 type Config struct {
-	ListenAddr    string         `yaml:"listen_addr"`
-	PublicURL     PublicURL      `yaml:"public_url"`
-	LogLevel      string         `yaml:"log_level"`
-	Secret        string         `yaml:"secret"`
-	Cache         CacheConfig    `yaml:"cache"`
-	Proxy         Proxy          `yaml:"proxy"`
-	Clients       []Client       `yaml:"clients"`
-	Subscriptions []Subscription `yaml:"subscriptions"`
-	Rules         []RuleAction   `yaml:"rules,omitempty"`
-	Presets       []Preset       `yaml:"presets,omitempty"`
+	ListenAddr    string                  `yaml:"listen_addr"`
+	PublicURL     PublicURL               `yaml:"public_url"`
+	LogLevel      string                  `yaml:"log_level"`
+	Secret        string                  `yaml:"secret"`
+	Cache         CacheConfig             `yaml:"cache"`
+	Proxy         Proxy                   `yaml:"proxy"`
+	Clients       map[string]Client       `yaml:"clients"`
+	Subscriptions map[string]Subscription `yaml:"subscriptions"`
+	Rules         []RuleAction            `yaml:"rules,omitempty"`
+	Presets       map[string]Preset       `yaml:"presets,omitempty"`
 }
 
 type CacheConfig struct {
@@ -31,7 +31,6 @@ type CacheConfig struct {
 type TTL time.Duration
 
 type Client struct {
-	Name          string       `yaml:"name"`
 	Secret        string       `yaml:"secret"`
 	Subscriptions StringOrArr  `yaml:"subscriptions"`
 	Preset        StringOrArr  `yaml:"presets,omitempty"`
@@ -40,15 +39,10 @@ type Client struct {
 }
 
 type Subscription struct {
-	Name     string       `yaml:"name"`
 	Playlist StringOrArr  `yaml:"playlist"`
 	EPG      StringOrArr  `yaml:"epg"`
 	Proxy    Proxy        `yaml:"proxy"`
 	Rules    []RuleAction `yaml:"rules,omitempty"`
-}
-
-func (s Subscription) GetName() string {
-	return s.Name
 }
 
 type Excludes struct {
@@ -89,13 +83,8 @@ type Handler struct {
 }
 
 type Preset struct {
-	Name  string       `yaml:"name"`
 	Proxy Proxy        `yaml:"proxy,omitempty"`
 	Rules []RuleAction `yaml:"rules,omitempty"`
-}
-
-func (p Preset) GetName() string {
-	return p.Name
 }
 
 type RegexpArr []regexp.Regexp

@@ -23,7 +23,7 @@ type FieldSpec struct {
 }
 
 type SetFieldSpec struct {
-	Type     string             `yaml:"type"`
+	Type     string             `yaml:"-"`
 	Name     string             `yaml:"name,omitempty"`
 	Template *template.Template `yaml:"-"`
 }
@@ -47,37 +47,50 @@ type TagCondition struct {
 }
 
 func (sfs *SetFieldSpec) UnmarshalYAML(value *yaml.Node) error {
-	type plainSpec struct {
-		Type     string `yaml:"type"`
-		Name     string `yaml:"name"`
-		Template string `yaml:"template"`
+	if value.Kind != yaml.MappingNode {
+		return fmt.Errorf("set_field spec must be a mapping")
 	}
 
-	var spec plainSpec
-	if err := value.Decode(&spec); err != nil {
-		return err
+	for i := 0; i < len(value.Content); i += 2 {
+		keyNode := value.Content[i]
+		valueNode := value.Content[i+1]
+
+		if keyNode.Value == "" {
+			continue
+		}
+
+		fieldType := keyNode.Value
+
+		type fieldContent struct {
+			Name     string `yaml:"name"`
+			Template string `yaml:"template"`
+		}
+
+		var content fieldContent
+		if err := valueNode.Decode(&content); err != nil {
+			return fmt.Errorf("failed to decode %s field content: %w", fieldType, err)
+		}
+
+		if fieldType != "name" && content.Name == "" {
+			return fmt.Errorf("field 'name' is required for set_field action with type '%s'", fieldType)
+		}
+		if content.Template == "" {
+			return fmt.Errorf("field 'template' is required for set_field action")
+		}
+
+		tmpl, err := template.New(fieldType + ":" + content.Name).Funcs(sprig.TxtFuncMap()).Parse(content.Template)
+		if err != nil {
+			return fmt.Errorf("failed to parse template: %w", err)
+		}
+
+		sfs.Type = fieldType
+		sfs.Name = content.Name
+		sfs.Template = tmpl
+
+		return nil
 	}
 
-	if spec.Type == "" {
-		return fmt.Errorf("field 'type' is required for set_field action")
-	}
-	if spec.Type != "name" && spec.Name == "" {
-		return fmt.Errorf("field 'name' is required for set_field action with type '%s'", spec.Type)
-	}
-	if spec.Template == "" {
-		return fmt.Errorf("field 'template' is required for set_field action")
-	}
-
-	tmpl, err := template.New(spec.Type + ":" + spec.Name).Funcs(sprig.TxtFuncMap()).Parse(spec.Template)
-	if err != nil {
-		return fmt.Errorf("failed to parse template: %w", err)
-	}
-
-	sfs.Type = spec.Type
-	sfs.Name = spec.Name
-	sfs.Template = tmpl
-
-	return nil
+	return fmt.Errorf("no field type found in set_field spec")
 }
 
 func (fs *FieldSpec) UnmarshalYAML(value *yaml.Node) error {
