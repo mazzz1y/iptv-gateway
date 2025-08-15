@@ -3,30 +3,35 @@ package rules
 import (
 	"bytes"
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/listing/m3u8/channel"
+	"iptv-gateway/internal/listing/m3u8/rules/actions"
 	"iptv-gateway/internal/parser/m3u8"
-	"regexp"
 )
 
 type Engine struct {
 	rules []config.RuleAction
 }
 
-func NewRulesEngine(rules []config.RuleAction) *Engine {
-	return &Engine{
-		rules: rules,
-	}
+func NewEngine(rules []config.RuleAction) *Engine {
+	return &Engine{rules: rules}
 }
 
-func (e *Engine) Process(track *m3u8.Track) bool {
+func (e *Engine) ProcessTrack(track *m3u8.Track) bool {
 	for _, action := range e.rules {
-		if shouldSkip := e.applyAction(track, action); shouldSkip {
+		if shouldSkip := e.applyTrackAction(track, action); shouldSkip {
 			return true
 		}
 	}
 	return false
 }
 
-func (e *Engine) applyAction(track *m3u8.Track, action config.RuleAction) bool {
+func (e *Engine) ProcessRegistry(global *channel.Registry, sub *channel.Registry) {
+	for _, action := range e.rules {
+		e.applyRegistryAction(global, sub, action)
+	}
+}
+
+func (e *Engine) applyTrackAction(track *m3u8.Track, action config.RuleAction) bool {
 	if !e.matchesConditions(track, action.When) {
 		return false
 	}
@@ -44,6 +49,15 @@ func (e *Engine) applyAction(track *m3u8.Track, action config.RuleAction) bool {
 	}
 
 	return false
+}
+
+func (e *Engine) applyRegistryAction(global *channel.Registry, sub *channel.Registry, action config.RuleAction) {
+	if action.RemoveChannelDups != nil {
+		for _, dupRule := range *action.RemoveChannelDups {
+			rule := actions.NewRemoveDuplicatesRule(dupRule.Patterns)
+			rule.Apply(sub, global)
+		}
+	}
 }
 
 func (e *Engine) matchesConditions(track *m3u8.Track, conditions []config.Condition) bool {
@@ -112,7 +126,7 @@ func (e *Engine) matchesCondition(track *m3u8.Track, condition config.Condition)
 	return true
 }
 
-func (e *Engine) matchesRegexps(value string, regexps []regexp.Regexp) bool {
+func (e *Engine) matchesRegexps(value string, regexps config.RegexpArr) bool {
 	for _, re := range regexps {
 		if re.MatchString(value) {
 			return true

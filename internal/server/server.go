@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"iptv-gateway/internal/cache"
+	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/demux"
 	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/manager"
 	"net/http"
 	"time"
 
@@ -17,7 +17,7 @@ import (
 type Server struct {
 	router  *mux.Router
 	server  *http.Server
-	manager *manager.Manager
+	manager *client.Manager
 	cache   *cache.Cache
 
 	demux *demux.Demuxer
@@ -27,7 +27,7 @@ type Server struct {
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
-	m, err := manager.NewManager(cfg)
+	m, err := client.NewManager(cfg)
 	if err != nil {
 		return nil, err
 	}

@@ -2,13 +2,13 @@ package xmltv
 
 import (
 	"io"
+	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/listing"
-	"iptv-gateway/internal/manager"
 )
 
 type decoderWrapper struct {
 	decoder         listing.Decoder
-	subscription    *manager.Subscription
+	subscription    *client.Subscription
 	reader          io.ReadCloser
 	channelsDone    bool
 	done            bool

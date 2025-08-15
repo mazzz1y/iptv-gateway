@@ -6,8 +6,8 @@ import (
 	"context"
 	"io"
 	"iptv-gateway/internal/cache"
+	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/manager"
 	"strings"
 	"testing"
 
@@ -52,9 +52,9 @@ func (m *MockDecoder) Close() error {
 	return nil
 }
 
-func createTestSubscription(name string, epgs []string) (*manager.Subscription, error) {
+func createTestSubscription(name string, epgs []string) (*client.Subscription, error) {
 	sem := semaphore.NewWeighted(1)
-	return manager.NewSubscription(
+	return client.NewSubscription(
 		name,
 		nil,
 		nil,
@@ -66,7 +66,7 @@ func createTestSubscription(name string, epgs []string) (*manager.Subscription, 
 }
 
 func TestNewStreamer(t *testing.T) {
-	var subscriptions []*manager.Subscription
+	var subscriptions []*client.Subscription
 	httpClient := &MockHTTPClient{}
 	channels := map[string]bool{"channel1": true}
 
@@ -79,7 +79,7 @@ func TestNewStreamer(t *testing.T) {
 
 func TestStreamer_WriteTo(t *testing.T) {
 	ctx := context.Background()
-	streamer := NewStreamer([]*manager.Subscription{}, &MockHTTPClient{}, nil)
+	streamer := NewStreamer([]*client.Subscription{}, &MockHTTPClient{}, nil)
 	buf := bytes.NewBuffer(nil)
 	_, err := streamer.WriteTo(ctx, buf)
 	assert.Error(t, err)
@@ -109,7 +109,7 @@ func TestStreamer_WriteTo(t *testing.T) {
 	)
 
 	channels := map[string]bool{"channel1": true}
-	streamer = NewStreamer([]*manager.Subscription{sub}, httpClient, channels)
+	streamer = NewStreamer([]*client.Subscription{sub}, httpClient, channels)
 	buf = bytes.NewBuffer(nil)
 	_, err = streamer.WriteTo(ctx, buf)
 	require.NoError(t, err)
@@ -140,7 +140,7 @@ func TestStreamer_WriteToGzip(t *testing.T) {
 	)
 
 	channels := map[string]bool{"channel1": true}
-	streamer := NewStreamer([]*manager.Subscription{sub}, httpClient, channels)
+	streamer := NewStreamer([]*client.Subscription{sub}, httpClient, channels)
 	buf := bytes.NewBuffer(nil)
 	_, err = streamer.WriteToGzip(ctx, buf)
 	require.NoError(t, err)
@@ -204,7 +204,7 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 		"channel2": true,
 	}
 
-	streamer := NewStreamer([]*manager.Subscription{sub}, httpClient, channels)
+	streamer := NewStreamer([]*client.Subscription{sub}, httpClient, channels)
 
 	buffer := &bytes.Buffer{}
 
@@ -266,7 +266,7 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
 		"movies1": true,
 	}
 
-	streamer := NewStreamer([]*manager.Subscription{sub1, sub2}, httpClient, channels)
+	streamer := NewStreamer([]*client.Subscription{sub1, sub2}, httpClient, channels)
 
 	buffer := &bytes.Buffer{}
 
@@ -308,7 +308,7 @@ func TestStreamerEmptyEPGSubscription(t *testing.T) {
 
 	channels := map[string]bool{"test1": true}
 
-	streamer := NewStreamer([]*manager.Subscription{emptySub, validSub}, httpClient, channels)
+	streamer := NewStreamer([]*client.Subscription{emptySub, validSub}, httpClient, channels)
 
 	buffer := &bytes.Buffer{}
 	_, err = streamer.WriteTo(ctx, buffer)

@@ -7,24 +7,24 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/demux"
 	"iptv-gateway/internal/listing/m3u8"
 	"iptv-gateway/internal/listing/xmltv"
 	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/manager"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"time"
 )
 
 const (
-	streamContentType = "demux/mp2t"
+	streamContentType = "video/mp2t"
 )
 
 func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	c := ctx.Value(constant.ContextClient).(*manager.Client)
+	c := ctx.Value(constant.ContextClient).(*client.Client)
 
 	logging.Debug(ctx, "playlist request")
 
@@ -125,7 +125,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error) {
-	c := ctx.Value(constant.ContextClient).(*manager.Client)
+	c := ctx.Value(constant.ContextClient).(*client.Client)
 
 	m3u8Streamer := m3u8.NewStreamer(c.GetSubscriptions(), "", s.cache)
 	channels, err := m3u8Streamer.GetAllChannels(ctx)
@@ -140,7 +140,7 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	logging.Debug(ctx, "proxying stream")
 
-	sub := ctx.Value(constant.ContextSubscription).(*manager.Subscription)
+	subscription := ctx.Value(constant.ContextSubscription).(*client.Subscription)
 	data := ctx.Value(constant.ContextStreamData).(*urlgen.Data)
 	ctx = context.WithValue(ctx, constant.ContextChannelID, data.ChannelID)
 
@@ -155,12 +155,12 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 
 	if !s.acquireSemaphores(ctx) {
 		logging.Error(ctx, errors.New("failed to acquire semaphores"), "")
-		sub.LimitStreamer().Stream(ctx, w)
+		subscription.LimitStreamer().Stream(ctx, w)
 		return
 	}
 	defer s.releaseSemaphores(ctx)
 
-	streamSource := sub.LinkStreamer(url)
+	streamSource := subscription.LinkStreamer(url)
 	if streamSource == nil {
 		logging.Error(ctx, errors.New("failed to create stream source"), "")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -171,13 +171,13 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		Context:   ctx,
 		StreamKey: streamKey,
 		Streamer:  streamSource,
-		Semaphore: sub.GetSemaphore(),
+		Semaphore: subscription.GetSemaphore(),
 	}
 
 	reader, err := s.demux.GetReader(demuxReq)
 	if errors.Is(err, demux.ErrSubscriptionSemaphore) {
 		logging.Error(ctx, err, "failed to get stream")
-		sub.LimitStreamer().Stream(ctx, w)
+		subscription.LimitStreamer().Stream(ctx, w)
 		return
 	}
 	if err != nil {
@@ -192,7 +192,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 
 	if err == nil && written == 0 {
 		logging.Error(ctx, errors.New("no data written to response"), "")
-		sub.UpstreamErrorStreamer().Stream(ctx, w)
+		subscription.UpstreamErrorStreamer().Stream(ctx, w)
 	}
 
 	if err != nil && !errors.Is(err, io.ErrClosedPipe) {

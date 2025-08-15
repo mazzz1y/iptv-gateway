@@ -1,13 +1,13 @@
 package rules_test
 
 import (
+	"iptv-gateway/internal/listing/m3u8/rules"
 	"regexp"
 	"testing"
 	"text/template"
 
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/parser/m3u8"
-	"iptv-gateway/internal/rules"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/stretchr/testify/assert"
@@ -93,8 +93,8 @@ func TestRulesEngine_RemoveField(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewRulesEngine(tt.rules)
-			result := rulesEngine.Process(tt.track)
+			rulesEngine := rules.NewEngine(tt.rules)
+			result := rulesEngine.ProcessTrack(tt.track)
 
 			assert.Equal(t, tt.shouldRemove, result)
 			if !tt.shouldRemove && tt.expectedTrack != nil {
@@ -202,8 +202,8 @@ func TestRulesEngine_SetField_MoveEquivalents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewRulesEngine(tt.rules)
-			result := rulesEngine.Process(tt.track)
+			rulesEngine := rules.NewEngine(tt.rules)
+			result := rulesEngine.ProcessTrack(tt.track)
 
 			assert.False(t, result)
 			assert.Equal(t, tt.expectedTrack, tt.track)
@@ -318,8 +318,8 @@ func TestRulesEngine_SetField_ReplaceEquivalents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewRulesEngine(tt.rules)
-			result := rulesEngine.Process(tt.track)
+			rulesEngine := rules.NewEngine(tt.rules)
+			result := rulesEngine.ProcessTrack(tt.track)
 
 			assert.False(t, result)
 			assert.Equal(t, tt.expectedTrack, tt.track)
@@ -403,8 +403,8 @@ func TestRulesEngine_SetField_CopyEquivalents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewRulesEngine(tt.rules)
-			result := rulesEngine.Process(tt.track)
+			rulesEngine := rules.NewEngine(tt.rules)
+			result := rulesEngine.ProcessTrack(tt.track)
 
 			assert.False(t, result)
 			assert.Equal(t, tt.expectedTrack, tt.track)
@@ -463,8 +463,8 @@ func TestRulesEngine_RemoveChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewRulesEngine(tt.rules)
-			result := rulesEngine.Process(tt.track)
+			rulesEngine := rules.NewEngine(tt.rules)
+			result := rulesEngine.ProcessTrack(tt.track)
 			assert.Equal(t, tt.shouldRemove, result)
 		})
 	}

@@ -9,13 +9,18 @@ import (
 )
 
 type RuleAction struct {
-	When          []Condition        `yaml:"when,omitempty"`
-	RemoveChannel *RemoveChannelRule `yaml:"remove_channel,omitempty"`
-	RemoveField   []FieldSpec        `yaml:"remove_field,omitempty"`
-	SetField      []SetFieldSpec     `yaml:"set_field,omitempty"`
+	When              []Condition            `yaml:"when,omitempty"`
+	RemoveChannel     *RemoveChannelRule     `yaml:"remove_channel,omitempty"`
+	RemoveChannelDups *RemoveChannelDupsRule `yaml:"remove_channel_dups,omitempty"`
+	RemoveField       []FieldSpec            `yaml:"remove_field,omitempty"`
+	SetField          []SetFieldSpec         `yaml:"set_field,omitempty"`
 }
 
 type RemoveChannelRule struct{}
+
+type RemoveChannelDupsRule []struct {
+	Patterns []string `yaml:"patterns"`
+}
 
 type FieldSpec struct {
 	Type string `yaml:"type"`

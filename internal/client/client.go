@@ -1,4 +1,4 @@
-package manager
+package client
 
 import (
 	"fmt"
@@ -54,7 +54,7 @@ func (c *Client) AddSubscription(
 	proxy = mergeProxies(proxy, c.proxy)
 	mergedRules = mergeRules(mergedRules, c.rules)
 
-	sub, err := NewSubscription(
+	subscription, err := NewSubscription(
 		name,
 		urlGen,
 		conf.Playlist,
@@ -68,7 +68,7 @@ func (c *Client) AddSubscription(
 		return err
 	}
 
-	c.subscriptions = append(c.subscriptions, sub)
+	c.subscriptions = append(c.subscriptions, subscription)
 	return nil
 }
 

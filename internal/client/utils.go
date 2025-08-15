@@ -1,4 +1,4 @@
-package manager
+package client
 
 type Named interface {
 	GetName() string

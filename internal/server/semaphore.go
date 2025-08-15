@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"errors"
+	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/constant"
-	"iptv-gateway/internal/manager"
 	"iptv-gateway/internal/utils"
 
 	"golang.org/x/sync/errgroup"
@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Server) acquireSemaphores(ctx context.Context) bool {
-	c, _ := ctx.Value(constant.ContextClient).(*manager.Client)
+	c, _ := ctx.Value(constant.ContextClient).(*client.Client)
 
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -37,7 +37,7 @@ func (s *Server) acquireSemaphores(ctx context.Context) bool {
 }
 
 func (s *Server) releaseSemaphores(ctx context.Context) {
-	c, _ := ctx.Value(constant.ContextClient).(*manager.Client)
+	c, _ := ctx.Value(constant.ContextClient).(*client.Client)
 
 	if managerSem := s.manager.GetSemaphore(); managerSem != nil {
 		managerSem.Release(1)

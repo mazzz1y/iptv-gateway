@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/ioutil"
 	"iptv-gateway/internal/listing"
-	"iptv-gateway/internal/manager"
 	"iptv-gateway/internal/parser/xmltv"
 	"iptv-gateway/internal/urlgen"
 	"sync"
@@ -23,7 +23,7 @@ const (
 )
 
 type Streamer struct {
-	subscriptions       []*manager.Subscription
+	subscriptions       []*client.Subscription
 	httpClient          listing.HTTPClient
 	channels            map[string]bool
 	addedChannels       map[string]bool
@@ -33,7 +33,7 @@ type Streamer struct {
 }
 
 func NewStreamer(
-	subscriptions []*manager.Subscription, httpClient listing.HTTPClient, channels map[string]bool) *Streamer {
+	subscriptions []*client.Subscription, httpClient listing.HTTPClient, channels map[string]bool) *Streamer {
 	return &Streamer{
 		subscriptions:   subscriptions,
 		httpClient:      httpClient,
@@ -59,7 +59,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	encoder := xmltv.NewEncoder(bytesCounter)
 	defer encoder.Close()
 
-	decoders, err := s.initializeDecoders(ctx)
+	decoders, err := s.initDecoders(ctx)
 	if err != nil {
 		return bytesCounter.Count(), err
 	}
@@ -86,7 +86,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	return count, nil
 }
 
-func (s *Streamer) initializeDecoders(ctx context.Context) ([]*decoderWrapper, error) {
+func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) {
 	var decoders []*decoderWrapper
 
 	for _, sub := range s.subscriptions {

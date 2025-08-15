@@ -5,9 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/manager"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"time"
@@ -68,7 +68,7 @@ func (s *Server) decryptProxyDataMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		c, _ := r.Context().Value(constant.ContextClient).(*manager.Client)
+		c, _ := r.Context().Value(constant.ContextClient).(*client.Client)
 
 		for _, sub := range c.GetSubscriptions() {
 			urlGen := sub.GetURLGenerator()

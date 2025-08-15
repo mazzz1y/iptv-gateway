@@ -78,7 +78,7 @@ type Credits struct {
 	Directors    []string `xml:"director,omitempty"    json:"directors,omitempty"`
 	Actors       []Actor  `xml:"actor,omitempty"       json:"actors,omitempty"`
 	Writers      []string `xml:"writer,omitempty"      json:"writers,omitempty"`
-	Adapters     []string `xml:"adapter,omitempty"     json:"adapters,omitempty"`
+	Screenwriters []string `xml:"adapter,omitempty"     json:"screenwriters,omitempty"`
 	Producers    []string `xml:"producer,omitempty"    json:"producers,omitempty"`
 	Composers    []string `xml:"composer,omitempty"    json:"composers,omitempty"`
 	Editors      []string `xml:"editor,omitempty"      json:"editors,omitempty"`

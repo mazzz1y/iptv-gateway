@@ -1,9 +1,10 @@
-package manager
+package client
 
 import (
 	"fmt"
 	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/rules"
+	"iptv-gateway/internal/listing/m3u8/channel"
+	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
@@ -31,6 +32,8 @@ type Subscription struct {
 	rateLimitStreamer     *shell.Streamer
 	upstreamErrorStreamer *shell.Streamer
 	expiredLinkStreamer   *shell.Streamer
+
+	channels []*channel.Channel
 }
 
 func NewSubscription(
@@ -80,11 +83,12 @@ func NewSubscription(
 		epgs:                  epgs,
 		semaphore:             sem,
 		proxyConfig:           proxy,
-		rulesEngine:           rules.NewRulesEngine(r),
+		rulesEngine:           rules.NewEngine(r),
 		linkStreamer:          streamStreamer,
 		rateLimitStreamer:     rateLimitStreamer,
 		upstreamErrorStreamer: upstreamErrorStreamer,
 		expiredLinkStreamer:   expiredLinkStreamer,
+		channels:              make([]*channel.Channel, 0),
 	}, nil
 }
 
@@ -129,4 +133,27 @@ func (s *Subscription) UpstreamErrorStreamer() *shell.Streamer {
 
 func (s *Subscription) ExpiredCommandStreamer() *shell.Streamer {
 	return s.expiredLinkStreamer
+}
+
+func (s *Subscription) AddChannel(ch *channel.Channel) {
+	s.channels = append(s.channels, ch)
+}
+
+func (s *Subscription) ClearChannels() {
+	s.channels = s.channels[:0]
+}
+
+func (s *Subscription) ApplyRules(globalStore *channel.Registry) {
+	if len(s.channels) == 0 {
+		return
+	}
+
+	if s.rulesEngine != nil {
+		subscriptionStore := channel.NewRegistry()
+		for _, ch := range s.channels {
+			subscriptionStore.Add(ch)
+		}
+
+		s.rulesEngine.ProcessRegistry(subscriptionStore, globalStore)
+	}
 }

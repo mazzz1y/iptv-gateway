@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 	"iptv-gateway/internal/cache"
+	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/manager"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
 	"strings"
@@ -64,9 +64,9 @@ func (m *MockURLGenerator) Decrypt(s string) (*urlgen.Data, error) {
 	return args.Get(0).(*urlgen.Data), args.Error(1)
 }
 
-func createTestSubscription(name string, playlists []string, excludes config.Excludes) (*manager.Subscription, error) {
+func createTestSubscription(name string, playlists []string, excludes config.Excludes) (*client.Subscription, error) {
 	semaphore := semaphore.NewWeighted(1)
-	return manager.NewSubscription(
+	return client.NewSubscription(
 		name,
 		nil, playlists,
 		nil,
@@ -97,7 +97,7 @@ http://example.com/stream2`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -138,7 +138,7 @@ http://example.com/movies1`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -174,7 +174,7 @@ http://example.com/stream1_duplicate`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -208,7 +208,7 @@ func TestStreamerErrorHandling(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -251,7 +251,7 @@ http://example.com/sports1`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*manager.Subscription{sub1, sub2}, "http://example.com/epg.xml", httpClient)
+	streamer := NewStreamer([]*client.Subscription{sub1, sub2}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -297,7 +297,7 @@ http://example.com/music1`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -345,7 +345,7 @@ http://example.com/news1`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*manager.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -368,12 +368,12 @@ func TestStreamerEmptySubscription(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*manager.Subscription{emptySub}, "http://example.com/epg.xml", httpClient)
+	streamer := NewStreamer([]*client.Subscription{emptySub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 	_, err = streamer.WriteTo(ctx, buffer)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no data in subscriptions")
+	assert.Contains(t, err.Error(), "no channels found in subscriptions")
 
 	httpClient.AssertExpectations(t)
 }

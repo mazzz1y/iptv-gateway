@@ -1,4 +1,4 @@
-package manager
+package client
 
 import (
 	"context"
@@ -68,22 +68,22 @@ func (m *Manager) initClients() error {
 			presets = append(presets, preset)
 		}
 
-		client, err := NewClient(clientName, clientConf, presets, m.config.PublicURL.String())
+		clientInstance, err := NewClient(clientName, clientConf, presets, m.config.PublicURL.String())
 		if err != nil {
 			return fmt.Errorf("failed to initialize client %s: %w", clientName, err)
 		}
 
-		if err := m.addSubscriptionsToClient(client, clientName, clientConf); err != nil {
+		if err := m.addSubscriptionsToClient(clientInstance, clientName, clientConf); err != nil {
 			return fmt.Errorf("failed to add subscriptions for client %s: %w", clientName, err)
 		}
 
-		m.clients = append(m.clients, client)
+		m.clients = append(m.clients, clientInstance)
 		logging.Debug(context.TODO(), "client initialized", "name", clientName)
 	}
 	return nil
 }
 
-func (m *Manager) addSubscriptionsToClient(client *Client, clientName string, clientConf config.Client) error {
+func (m *Manager) addSubscriptionsToClient(clientInstance *Client, clientName string, clientConf config.Client) error {
 	if len(clientConf.Subscriptions) == 0 {
 		return fmt.Errorf("no subscriptions specified for %s", clientName)
 	}
@@ -99,7 +99,7 @@ func (m *Manager) addSubscriptionsToClient(client *Client, clientName string, cl
 			return fmt.Errorf("failed to create URL generator: %w", err)
 		}
 
-		err = client.AddSubscription(
+		err = clientInstance.AddSubscription(
 			subName, subConf, urlGen,
 			m.config.Rules, m.config.Proxy,
 			m.subSemaphores[subName])
@@ -111,7 +111,7 @@ func (m *Manager) addSubscriptionsToClient(client *Client, clientName string, cl
 	return nil
 }
 
-func (m *Manager) createURLGenerator(clientSecret, subName string) (URLGenerator, error) {
+func (m *Manager) createURLGenerator(clientSecret, subName string) (*urlgen.Generator, error) {
 	baseURL := fmt.Sprintf("%s/%s", m.config.PublicURL.String(), clientSecret)
 	secretKey := m.config.Secret + subName + clientSecret
 
