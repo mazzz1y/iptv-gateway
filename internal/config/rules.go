@@ -40,6 +40,7 @@ type Condition struct {
 	Tag  *TagCondition       `yaml:"tag,omitempty"`
 	And  []Condition         `yaml:"and,omitempty"`
 	Or   []Condition         `yaml:"or,omitempty"`
+	Not  []Condition         `yaml:"not,omitempty"`
 }
 
 type AttributeCondition struct {
@@ -115,5 +116,5 @@ func (fs *FieldSpec) UnmarshalYAML(value *yaml.Node) error {
 }
 
 func (c *Condition) IsEmpty() bool {
-	return len(c.Name) == 0 && c.Attr == nil && c.Tag == nil && len(c.And) == 0 && len(c.Or) == 0
+	return len(c.Name) == 0 && c.Attr == nil && c.Tag == nil && len(c.And) == 0 && len(c.Or) == 0 && len(c.Not) == 0
 }

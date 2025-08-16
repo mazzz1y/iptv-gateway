@@ -469,3 +469,135 @@ func TestRulesEngine_RemoveChannel(t *testing.T) {
 		})
 	}
 }
+
+func TestRulesEngine_NotCondition(t *testing.T) {
+	tests := []struct {
+		name         string
+		rules        []config.RuleAction
+		track        *m3u8.Track
+		shouldRemove bool
+	}{
+		{
+			name: "remove channel with not condition - should match",
+			rules: []config.RuleAction{
+				{
+					When: []config.Condition{
+						{
+							Not: []config.Condition{
+								{
+									Attr: &config.AttributeCondition{
+										Name:  "tvg-group",
+										Value: config.RegexpArr{regexp.MustCompile("^allowed$")},
+									},
+								},
+							},
+						},
+					},
+					RemoveChannel: &config.RemoveChannelRule{},
+				},
+			},
+			track: &m3u8.Track{
+				Name: "Test Channel",
+				Attrs: map[string]string{
+					"tvg-group": "blocked",
+				},
+			},
+			shouldRemove: true,
+		},
+		{
+			name: "keep channel with not condition - should not match",
+			rules: []config.RuleAction{
+				{
+					When: []config.Condition{
+						{
+							Not: []config.Condition{
+								{
+									Attr: &config.AttributeCondition{
+										Name:  "tvg-group",
+										Value: config.RegexpArr{regexp.MustCompile("^allowed$")},
+									},
+								},
+							},
+						},
+					},
+					RemoveChannel: &config.RemoveChannelRule{},
+				},
+			},
+			track: &m3u8.Track{
+				Name: "Test Channel",
+				Attrs: map[string]string{
+					"tvg-group": "allowed",
+				},
+			},
+			shouldRemove: false,
+		},
+		{
+			name: "remove channel with multiple not conditions - all must be false",
+			rules: []config.RuleAction{
+				{
+					When: []config.Condition{
+						{
+							Not: []config.Condition{
+								{
+									Name: config.RegexpArr{regexp.MustCompile("^Premium.*")},
+								},
+								{
+									Attr: &config.AttributeCondition{
+										Name:  "tvg-group",
+										Value: config.RegexpArr{regexp.MustCompile("^vip$")},
+									},
+								},
+							},
+						},
+					},
+					RemoveChannel: &config.RemoveChannelRule{},
+				},
+			},
+			track: &m3u8.Track{
+				Name: "Regular Channel",
+				Attrs: map[string]string{
+					"tvg-group": "normal",
+				},
+			},
+			shouldRemove: true,
+		},
+		{
+			name: "keep channel with multiple not conditions - one matches",
+			rules: []config.RuleAction{
+				{
+					When: []config.Condition{
+						{
+							Not: []config.Condition{
+								{
+									Name: config.RegexpArr{regexp.MustCompile("^Premium.*")},
+								},
+								{
+									Attr: &config.AttributeCondition{
+										Name:  "tvg-group",
+										Value: config.RegexpArr{regexp.MustCompile("^vip$")},
+									},
+								},
+							},
+						},
+					},
+					RemoveChannel: &config.RemoveChannelRule{},
+				},
+			},
+			track: &m3u8.Track{
+				Name: "Premium Channel",
+				Attrs: map[string]string{
+					"tvg-group": "normal",
+				},
+			},
+			shouldRemove: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rulesEngine := rules.NewEngine(tt.rules)
+			result := rulesEngine.ProcessTrack(tt.track)
+			assert.Equal(t, tt.shouldRemove, result)
+		})
+	}
+}

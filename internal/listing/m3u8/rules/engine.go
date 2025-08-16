@@ -123,6 +123,14 @@ func (e *Engine) matchesCondition(track *m3u8.Track, condition config.Condition)
 		return false
 	}
 
+	if len(condition.Not) > 0 {
+		for _, subCondition := range condition.Not {
+			if e.matchesCondition(track, subCondition) {
+				return false
+			}
+		}
+	}
+
 	return true
 }
 
