@@ -19,7 +19,8 @@ type RuleAction struct {
 type RemoveChannelRule struct{}
 
 type RemoveChannelDupsRule []struct {
-	Patterns []string `yaml:"patterns"`
+	Patterns    []string `yaml:"patterns"`
+	TrimPattern bool     `yaml:"trim_pattern"`
 }
 
 type FieldSpec struct {

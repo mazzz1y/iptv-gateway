@@ -54,7 +54,7 @@ func (e *Engine) applyTrackAction(track *m3u8.Track, action config.RuleAction) b
 func (e *Engine) applyRegistryAction(global *channel.Registry, sub *channel.Registry, action config.RuleAction) {
 	if action.RemoveChannelDups != nil {
 		for _, dupRule := range *action.RemoveChannelDups {
-			rule := actions.NewRemoveDuplicatesRule(dupRule.Patterns)
+			rule := actions.NewRemoveDuplicatesRule(dupRule.Patterns, dupRule.TrimPattern)
 			rule.Apply(sub, global)
 		}
 	}

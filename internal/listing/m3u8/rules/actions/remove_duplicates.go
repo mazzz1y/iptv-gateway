@@ -7,19 +7,21 @@ import (
 )
 
 type RemoveDuplicatesRule struct {
-	patterns []string
-	regexps  []*regexp.Regexp
+	patterns    []string
+	regexps     []*regexp.Regexp
+	trimPattern bool
 }
 
-func NewRemoveDuplicatesRule(patterns []string) *RemoveDuplicatesRule {
+func NewRemoveDuplicatesRule(patterns []string, trimPattern bool) *RemoveDuplicatesRule {
 	regexps := make([]*regexp.Regexp, len(patterns))
 	for i, pattern := range patterns {
 		regexps[i] = regexp.MustCompile(pattern)
 	}
 
 	return &RemoveDuplicatesRule{
-		patterns: patterns,
-		regexps:  regexps,
+		patterns:    patterns,
+		regexps:     regexps,
+		trimPattern: trimPattern,
 	}
 }
 
@@ -77,7 +79,9 @@ func (r *RemoveDuplicatesRule) processDuplicateGroups(globalGroupedByBaseName ma
 			for _, ch := range subscriptionChannelsInGroup {
 				if ch == bestChannel {
 					bestFromSubscription = true
-					ch.Track().Name = baseName
+					if r.trimPattern {
+						ch.Track().Name = baseName
+					}
 					break
 				}
 			}
