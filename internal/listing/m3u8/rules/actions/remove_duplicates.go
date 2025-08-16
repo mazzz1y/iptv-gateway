@@ -7,20 +7,13 @@ import (
 )
 
 type RemoveDuplicatesRule struct {
-	patterns    []string
-	regexps     []*regexp.Regexp
+	patterns    []*regexp.Regexp
 	trimPattern bool
 }
 
-func NewRemoveDuplicatesRule(patterns []string, trimPattern bool) *RemoveDuplicatesRule {
-	regexps := make([]*regexp.Regexp, len(patterns))
-	for i, pattern := range patterns {
-		regexps[i] = regexp.MustCompile(pattern)
-	}
-
+func NewRemoveDuplicatesRule(patterns []*regexp.Regexp, trimPattern bool) *RemoveDuplicatesRule {
 	return &RemoveDuplicatesRule{
 		patterns:    patterns,
-		regexps:     regexps,
 		trimPattern: trimPattern,
 	}
 }
@@ -37,14 +30,14 @@ func (r *RemoveDuplicatesRule) Apply(global *channel.Registry, sub *channel.Regi
 }
 
 func (r *RemoveDuplicatesRule) extractBaseName(name string) string {
-	for _, regex := range r.regexps {
+	for _, regex := range r.patterns {
 		name = regex.ReplaceAllString(name, "")
 	}
 	return strings.TrimSpace(name)
 }
 
 func (r *RemoveDuplicatesRule) selectBestChannel(channels []*channel.Channel) *channel.Channel {
-	for _, regex := range r.regexps {
+	for _, regex := range r.patterns {
 		for _, ch := range channels {
 			if regex.MatchString(ch.Name()) {
 				return ch

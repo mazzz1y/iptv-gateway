@@ -87,7 +87,7 @@ type Preset struct {
 	Rules []RuleAction `yaml:"rules,omitempty"`
 }
 
-type RegexpArr []regexp.Regexp
+type RegexpArr []*regexp.Regexp
 
 func (r *RegexpArr) UnmarshalYAML(value *yaml.Node) error {
 	patterns, err := unmarshalStringOrArray(value)
@@ -98,13 +98,13 @@ func (r *RegexpArr) UnmarshalYAML(value *yaml.Node) error {
 		return nil
 	}
 
-	regexps := make([]regexp.Regexp, 0, len(patterns))
+	regexps := make([]*regexp.Regexp, 0, len(patterns))
 	for _, pattern := range patterns {
 		compiled, err := regexp.Compile(pattern)
 		if err != nil {
 			return fmt.Errorf("invalid regex pattern '%s': %w", pattern, err)
 		}
-		regexps = append(regexps, *compiled)
+		regexps = append(regexps, compiled)
 	}
 
 	*r = regexps
