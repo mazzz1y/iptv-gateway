@@ -84,11 +84,16 @@ func (m *Manager) initClients() error {
 }
 
 func (m *Manager) addSubscriptionsToClient(clientInstance *Client, clientName string, clientConf config.Client) error {
-	if len(clientConf.Subscriptions) == 0 {
+	clientSubs := clientConf.Subscriptions
+	for _, preset := range clientInstance.presets {
+		clientSubs = append(clientSubs, preset.Subscriptions...)
+	}
+
+	if len(clientSubs) == 0 {
 		return fmt.Errorf("no subscriptions specified for %s", clientName)
 	}
 
-	for _, subName := range clientConf.Subscriptions {
+	for _, subName := range clientSubs {
 		subConf, found := m.config.Subscriptions[subName]
 		if !found {
 			return fmt.Errorf("subscription '%s' for client '%s' is not defined in config", subName, clientName)

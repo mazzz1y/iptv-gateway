@@ -83,8 +83,9 @@ type Handler struct {
 }
 
 type Preset struct {
-	Proxy Proxy        `yaml:"proxy,omitempty"`
-	Rules []RuleAction `yaml:"rules,omitempty"`
+	Proxy         Proxy        `yaml:"proxy,omitempty"`
+	Rules         []RuleAction `yaml:"rules,omitempty"`
+	Subscriptions StringOrArr  `yaml:"subscriptions"`
 }
 
 type RegexpArr []*regexp.Regexp

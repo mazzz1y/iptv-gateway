@@ -34,7 +34,7 @@ func TestRulesEngine_RemoveField(t *testing.T) {
 						{
 							Attr: &config.AttributeCondition{
 								Name:  "tvg-group",
-								Value: config.RegexpArr{*regexp.MustCompile("^unwanted$")},
+								Value: config.RegexpArr{regexp.MustCompile("^unwanted$")},
 							},
 						},
 					},
@@ -55,7 +55,7 @@ func TestRulesEngine_RemoveField(t *testing.T) {
 						{
 							Attr: &config.AttributeCondition{
 								Name:  "tvg-group",
-								Value: config.RegexpArr{*regexp.MustCompile("^test$")},
+								Value: config.RegexpArr{regexp.MustCompile("^test$")},
 							},
 						},
 					},
@@ -119,7 +119,7 @@ func TestRulesEngine_SetField_MoveEquivalents(t *testing.T) {
 						{
 							Attr: &config.AttributeCondition{
 								Name:  "tvg-group",
-								Value: config.RegexpArr{*regexp.MustCompile("^music$")},
+								Value: config.RegexpArr{regexp.MustCompile("^music$")},
 							},
 						},
 					},
@@ -168,7 +168,7 @@ func TestRulesEngine_SetField_MoveEquivalents(t *testing.T) {
 						{
 							Tag: &config.TagCondition{
 								Name:  "EXTGRP",
-								Value: config.RegexpArr{*regexp.MustCompile(".*")},
+								Value: config.RegexpArr{regexp.MustCompile(".*")},
 							},
 						},
 					},
@@ -226,7 +226,7 @@ func TestRulesEngine_SetField_ReplaceEquivalents(t *testing.T) {
 						{
 							Attr: &config.AttributeCondition{
 								Name:  "tvg-group",
-								Value: config.RegexpArr{*regexp.MustCompile("^music$")},
+								Value: config.RegexpArr{regexp.MustCompile("^music$")},
 							},
 						},
 					},
@@ -262,7 +262,7 @@ func TestRulesEngine_SetField_ReplaceEquivalents(t *testing.T) {
 						{
 							Tag: &config.TagCondition{
 								Name:  "EXTGRP",
-								Value: config.RegexpArr{*regexp.MustCompile(".*")},
+								Value: config.RegexpArr{regexp.MustCompile(".*")},
 							},
 						},
 					},
@@ -342,7 +342,7 @@ func TestRulesEngine_SetField_CopyEquivalents(t *testing.T) {
 						{
 							Attr: &config.AttributeCondition{
 								Name:  "tvg-group",
-								Value: config.RegexpArr{*regexp.MustCompile("^important$")},
+								Value: config.RegexpArr{regexp.MustCompile("^important$")},
 							},
 						},
 					},
@@ -377,7 +377,7 @@ func TestRulesEngine_SetField_CopyEquivalents(t *testing.T) {
 				{
 					When: []config.Condition{
 						{
-							Name: config.RegexpArr{*regexp.MustCompile(".*Channel.*")},
+							Name: config.RegexpArr{regexp.MustCompile(".*Channel.*")},
 						},
 					},
 					SetField: []config.SetFieldSpec{
@@ -427,7 +427,7 @@ func TestRulesEngine_RemoveChannel(t *testing.T) {
 						{
 							Attr: &config.AttributeCondition{
 								Name:  "tvg-group",
-								Value: config.RegexpArr{*regexp.MustCompile("^blocked$")},
+								Value: config.RegexpArr{regexp.MustCompile("^blocked$")},
 							},
 						},
 					},
@@ -448,7 +448,7 @@ func TestRulesEngine_RemoveChannel(t *testing.T) {
 				{
 					When: []config.Condition{
 						{
-							Name: config.RegexpArr{*regexp.MustCompile("^Other$")},
+							Name: config.RegexpArr{regexp.MustCompile("^Other$")},
 						},
 					},
 					RemoveChannel: &config.RemoveChannelRule{},
