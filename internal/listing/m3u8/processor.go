@@ -3,7 +3,7 @@ package m3u8
 import (
 	"fmt"
 	"iptv-gateway/internal/client"
-	"iptv-gateway/internal/listing/m3u8/channel"
+	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
@@ -24,12 +24,18 @@ func NewProcessor() *Processor {
 	}
 }
 
-func (p *Processor) Process(registry *channel.Registry) error {
-	p.applyRegistryRules(registry)
+func (p *Processor) Process(
+	store *rules.Store, rulesProcessor *rules.Processor, subscriptions []*client.Subscription) ([]*rules.Channel, error) {
+	rulesProcessor.Process(store)
 
-	filteredChannels := make([]*channel.Channel, 0, registry.Len())
+	subscriptionMap := make(map[rules.Subscription]*client.Subscription)
+	for _, sub := range subscriptions {
+		subscriptionMap[sub] = sub
+	}
 
-	for _, ch := range registry.All() {
+	filteredChannels := make([]*rules.Channel, 0, store.Len())
+
+	for _, ch := range store.All() {
 		track := ch.Track()
 
 		if track.IsRemoved {
@@ -40,22 +46,18 @@ func (p *Processor) Process(registry *channel.Registry) error {
 			continue
 		}
 
-		if shouldSkip := ch.RulesEngine().ProcessTrack(track); shouldSkip {
-			continue
-		}
-
-		if ch.Subscription().IsProxied() {
-			if err := p.processProxyLinks(track, ch.URLGenerator()); err != nil {
-				return err
+		if sub, exists := subscriptionMap[ch.Subscription()]; exists {
+			if ch.Subscription().IsProxied() {
+				if err := p.processProxyLinks(track, sub.GetURLGenerator()); err != nil {
+					return nil, err
+				}
 			}
 		}
 
 		filteredChannels = append(filteredChannels, ch)
 	}
 
-	p.replaceRegistryChannels(registry, filteredChannels)
-
-	return nil
+	return filteredChannels, nil
 }
 
 func (p *Processor) isDuplicate(track *m3u8.Track) bool {
@@ -80,7 +82,7 @@ func (p *Processor) isDuplicate(track *m3u8.Track) bool {
 	return false
 }
 
-func (p *Processor) processProxyLinks(track *m3u8.Track, urlGenerator channel.URLGenerator) error {
+func (p *Processor) processProxyLinks(track *m3u8.Track, urlGenerator rules.URLGenerator) error {
 	for key, value := range track.Attrs {
 		if isURL(value) {
 			encURL, err := urlGenerator.CreateURL(urlgen.Data{
@@ -107,30 +109,6 @@ func (p *Processor) processProxyLinks(track *m3u8.Track, urlGenerator channel.UR
 	}
 
 	return nil
-}
-
-func (p *Processor) replaceRegistryChannels(registry *channel.Registry, channels []*channel.Channel) {
-	registry.Clear()
-	for _, ch := range channels {
-		registry.Add(ch)
-	}
-}
-
-func (p *Processor) applyRegistryRules(registry *channel.Registry) {
-	subscriptions := make(map[*client.Subscription][]*channel.Channel)
-
-	for _, ch := range registry.All() {
-		sub := ch.Subscription().(*client.Subscription)
-		subscriptions[sub] = append(subscriptions[sub], ch)
-	}
-
-	for sub, channels := range subscriptions {
-		sub.ClearChannels()
-		for _, ch := range channels {
-			sub.AddChannel(ch)
-		}
-		sub.ApplyRules(registry)
-	}
 }
 
 func isURL(str string) bool {

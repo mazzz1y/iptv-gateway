@@ -3,8 +3,6 @@ package client
 import (
 	"fmt"
 	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/listing/m3u8/channel"
-	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
@@ -24,7 +22,7 @@ type Subscription struct {
 
 	urlGenerator URLGenerator
 	semaphore    *semaphore.Weighted
-	rulesEngine  *rules.Engine
+	rules        []config.RuleAction
 
 	proxyConfig config.Proxy
 
@@ -32,8 +30,6 @@ type Subscription struct {
 	rateLimitStreamer     *shell.Streamer
 	upstreamErrorStreamer *shell.Streamer
 	expiredLinkStreamer   *shell.Streamer
-
-	channels []*channel.Channel
 }
 
 func NewSubscription(
@@ -83,12 +79,11 @@ func NewSubscription(
 		epgs:                  epgs,
 		semaphore:             sem,
 		proxyConfig:           proxy,
-		rulesEngine:           rules.NewEngine(r),
+		rules:                 r,
 		linkStreamer:          streamStreamer,
 		rateLimitStreamer:     rateLimitStreamer,
 		upstreamErrorStreamer: upstreamErrorStreamer,
 		expiredLinkStreamer:   expiredLinkStreamer,
-		channels:              make([]*channel.Channel, 0),
 	}, nil
 }
 
@@ -107,8 +102,8 @@ func (s *Subscription) GetEPGs() []string {
 func (s *Subscription) GetURLGenerator() URLGenerator {
 	return s.urlGenerator
 }
-func (s *Subscription) GetRulesEngine() *rules.Engine {
-	return s.rulesEngine
+func (s *Subscription) GetRules() []config.RuleAction {
+	return s.rules
 }
 
 func (s *Subscription) GetSemaphore() *semaphore.Weighted {
@@ -133,27 +128,4 @@ func (s *Subscription) UpstreamErrorStreamer() *shell.Streamer {
 
 func (s *Subscription) ExpiredCommandStreamer() *shell.Streamer {
 	return s.expiredLinkStreamer
-}
-
-func (s *Subscription) AddChannel(ch *channel.Channel) {
-	s.channels = append(s.channels, ch)
-}
-
-func (s *Subscription) ClearChannels() {
-	s.channels = s.channels[:0]
-}
-
-func (s *Subscription) ApplyRules(globalStore *channel.Registry) {
-	if len(s.channels) == 0 {
-		return
-	}
-
-	if s.rulesEngine != nil {
-		subscriptionStore := channel.NewRegistry()
-		for _, ch := range s.channels {
-			subscriptionStore.Add(ch)
-		}
-
-		s.rulesEngine.ProcessRegistry(subscriptionStore, globalStore)
-	}
 }

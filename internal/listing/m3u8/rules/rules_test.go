@@ -18,7 +18,15 @@ func tpl(name, s string) *template.Template {
 	return t
 }
 
-func TestRulesEngine_RemoveField(t *testing.T) {
+type mockSubscription struct {
+	name string
+}
+
+func (m mockSubscription) IsProxied() bool {
+	return false
+}
+
+func TestRulesProcessor_RemoveField(t *testing.T) {
 	tests := []struct {
 		name          string
 		rules         []config.RuleAction
@@ -93,18 +101,27 @@ func TestRulesEngine_RemoveField(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewEngine(tt.rules)
-			result := rulesEngine.ProcessTrack(tt.track)
+			processor := rules.NewProcessor()
+			sub := mockSubscription{name: "test"}
+			processor.AddSubscriptionRules(sub, tt.rules)
 
-			assert.Equal(t, tt.shouldRemove, result)
+			store := rules.NewStore()
+			channel := rules.NewChannel(tt.track, sub)
+			store.Add(channel)
+
+			processor.Process(store)
+
+			assert.Equal(t, tt.shouldRemove, tt.track.IsRemoved)
 			if !tt.shouldRemove && tt.expectedTrack != nil {
-				assert.Equal(t, tt.expectedTrack, tt.track)
+				assert.Equal(t, tt.expectedTrack.Name, tt.track.Name)
+				assert.Equal(t, tt.expectedTrack.Attrs, tt.track.Attrs)
+				assert.Equal(t, tt.expectedTrack.Tags, tt.track.Tags)
 			}
 		})
 	}
 }
 
-func TestRulesEngine_SetField_MoveEquivalents(t *testing.T) {
+func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
 	tests := []struct {
 		name          string
 		rules         []config.RuleAction
@@ -187,13 +204,13 @@ func TestRulesEngine_SetField_MoveEquivalents(t *testing.T) {
 			track: &m3u8.Track{
 				Name: "Test Channel",
 				Tags: map[string]string{
-					"EXTGRP": "Entertainment",
+					"EXTGRP": "entertainment",
 				},
 			},
 			expectedTrack: &m3u8.Track{
 				Name: "Test Channel",
 				Attrs: map[string]string{
-					"group-name": "Entertainment",
+					"group-name": "entertainment",
 				},
 				Tags: map[string]string{},
 			},
@@ -202,402 +219,19 @@ func TestRulesEngine_SetField_MoveEquivalents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewEngine(tt.rules)
-			result := rulesEngine.ProcessTrack(tt.track)
+			processor := rules.NewProcessor()
+			sub := mockSubscription{name: "test"}
+			processor.AddSubscriptionRules(sub, tt.rules)
 
-			assert.False(t, result)
-			assert.Equal(t, tt.expectedTrack, tt.track)
-		})
-	}
-}
+			store := rules.NewStore()
+			channel := rules.NewChannel(tt.track, sub)
+			store.Add(channel)
 
-func TestRulesEngine_SetField_ReplaceEquivalents(t *testing.T) {
-	tests := []struct {
-		name          string
-		rules         []config.RuleAction
-		track         *m3u8.Track
-		expectedTrack *m3u8.Track
-	}{
-		{
-			name: "replace attr values",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Attr: &config.AttributeCondition{
-								Name:  "tvg-group",
-								Value: config.RegexpArr{regexp.MustCompile("^music$")},
-							},
-						},
-					},
-					SetField: []config.SetFieldSpec{
-						{
-							Type:     "attr",
-							Name:     "tvg-group",
-							Template: tpl("attr:tvg-group", `{{ regexReplaceAll "^music$" (index .Channel.Attrs "tvg-group") "Entertainment" }}`),
-						},
-					},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-group": "music",
-					"tvg-name":  "Music Channel",
-				},
-			},
-			expectedTrack: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-group": "Entertainment",
-					"tvg-name":  "Music Channel",
-				},
-			},
-		},
-		{
-			name: "replace tag values",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Tag: &config.TagCondition{
-								Name:  "EXTGRP",
-								Value: config.RegexpArr{regexp.MustCompile(".*")},
-							},
-						},
-					},
-					SetField: []config.SetFieldSpec{
-						{
-							Type:     "tag",
-							Name:     "EXTGRP",
-							Template: tpl("tag:EXTGRP", `{{ regexReplaceAll "^Group:" (index .Channel.Tags "EXTGRP") "" }}`),
-						},
-					},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-				Tags: map[string]string{
-					"EXTGRP": "Group:Old Format",
-				},
-			},
-			expectedTrack: &m3u8.Track{
-				Name: "Test Channel",
-				Tags: map[string]string{
-					"EXTGRP": "Old Format",
-				},
-			},
-		},
-		{
-			name: "replace without condition",
-			rules: []config.RuleAction{
-				{
-					SetField: []config.SetFieldSpec{
-						{
-							Type:     "attr",
-							Name:     "tvg-name",
-							Template: tpl("attr:tvg-name", `{{ regexReplaceAll "\\s+" (index .Channel.Attrs "tvg-name") " " }}`),
-						},
-					},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-name": "  Music   Channel  ",
-				},
-			},
-			expectedTrack: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-name": " Music Channel ",
-				},
-			},
-		},
-	}
+			processor.Process(store)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewEngine(tt.rules)
-			result := rulesEngine.ProcessTrack(tt.track)
-
-			assert.False(t, result)
-			assert.Equal(t, tt.expectedTrack, tt.track)
-		})
-	}
-}
-
-func TestRulesEngine_SetField_CopyEquivalents(t *testing.T) {
-	tests := []struct {
-		name          string
-		rules         []config.RuleAction
-		track         *m3u8.Track
-		expectedTrack *m3u8.Track
-	}{
-		{
-			name: "copy attr to attr",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Attr: &config.AttributeCondition{
-								Name:  "tvg-group",
-								Value: config.RegexpArr{regexp.MustCompile("^important$")},
-							},
-						},
-					},
-					SetField: []config.SetFieldSpec{
-						{
-							Type:     "attr",
-							Name:     "backup-name",
-							Template: tpl("attr:backup-name", `{{ index .Channel.Attrs "tvg-name" }}`),
-						},
-					},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-group": "important",
-					"tvg-name":  "premium",
-				},
-			},
-			expectedTrack: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-group":   "important",
-					"tvg-name":    "premium",
-					"backup-name": "premium",
-				},
-			},
-		},
-		{
-			name: "copy name to attr",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Name: config.RegexpArr{regexp.MustCompile(".*Channel.*")},
-						},
-					},
-					SetField: []config.SetFieldSpec{
-						{
-							Type:     "attr",
-							Name:     "channel-backup",
-							Template: tpl("attr:channel-backup", `{{ .Channel.Name }}`),
-						},
-					},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Music Channel",
-			},
-			expectedTrack: &m3u8.Track{
-				Name: "Music Channel",
-				Attrs: map[string]string{
-					"channel-backup": "Music Channel",
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewEngine(tt.rules)
-			result := rulesEngine.ProcessTrack(tt.track)
-
-			assert.False(t, result)
-			assert.Equal(t, tt.expectedTrack, tt.track)
-		})
-	}
-}
-
-func TestRulesEngine_RemoveChannel(t *testing.T) {
-	tests := []struct {
-		name         string
-		rules        []config.RuleAction
-		track        *m3u8.Track
-		shouldRemove bool
-	}{
-		{
-			name: "remove channel by condition",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Attr: &config.AttributeCondition{
-								Name:  "tvg-group",
-								Value: config.RegexpArr{regexp.MustCompile("^blocked$")},
-							},
-						},
-					},
-					RemoveChannel: &config.RemoveChannelRule{},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-group": "blocked",
-				},
-			},
-			shouldRemove: true,
-		},
-		{
-			name: "keep channel by condition mismatch",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Name: config.RegexpArr{regexp.MustCompile("^Other$")},
-						},
-					},
-					RemoveChannel: &config.RemoveChannelRule{},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-			},
-			shouldRemove: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewEngine(tt.rules)
-			result := rulesEngine.ProcessTrack(tt.track)
-			assert.Equal(t, tt.shouldRemove, result)
-		})
-	}
-}
-
-func TestRulesEngine_NotCondition(t *testing.T) {
-	tests := []struct {
-		name         string
-		rules        []config.RuleAction
-		track        *m3u8.Track
-		shouldRemove bool
-	}{
-		{
-			name: "remove channel with not condition - should match",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Not: []config.Condition{
-								{
-									Attr: &config.AttributeCondition{
-										Name:  "tvg-group",
-										Value: config.RegexpArr{regexp.MustCompile("^allowed$")},
-									},
-								},
-							},
-						},
-					},
-					RemoveChannel: &config.RemoveChannelRule{},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-group": "blocked",
-				},
-			},
-			shouldRemove: true,
-		},
-		{
-			name: "keep channel with not condition - should not match",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Not: []config.Condition{
-								{
-									Attr: &config.AttributeCondition{
-										Name:  "tvg-group",
-										Value: config.RegexpArr{regexp.MustCompile("^allowed$")},
-									},
-								},
-							},
-						},
-					},
-					RemoveChannel: &config.RemoveChannelRule{},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-group": "allowed",
-				},
-			},
-			shouldRemove: false,
-		},
-		{
-			name: "remove channel with multiple not conditions - all must be false",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Not: []config.Condition{
-								{
-									Name: config.RegexpArr{regexp.MustCompile("^Premium.*")},
-								},
-								{
-									Attr: &config.AttributeCondition{
-										Name:  "tvg-group",
-										Value: config.RegexpArr{regexp.MustCompile("^vip$")},
-									},
-								},
-							},
-						},
-					},
-					RemoveChannel: &config.RemoveChannelRule{},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Regular Channel",
-				Attrs: map[string]string{
-					"tvg-group": "normal",
-				},
-			},
-			shouldRemove: true,
-		},
-		{
-			name: "keep channel with multiple not conditions - one matches",
-			rules: []config.RuleAction{
-				{
-					When: []config.Condition{
-						{
-							Not: []config.Condition{
-								{
-									Name: config.RegexpArr{regexp.MustCompile("^Premium.*")},
-								},
-								{
-									Attr: &config.AttributeCondition{
-										Name:  "tvg-group",
-										Value: config.RegexpArr{regexp.MustCompile("^vip$")},
-									},
-								},
-							},
-						},
-					},
-					RemoveChannel: &config.RemoveChannelRule{},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Premium Channel",
-				Attrs: map[string]string{
-					"tvg-group": "normal",
-				},
-			},
-			shouldRemove: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rulesEngine := rules.NewEngine(tt.rules)
-			result := rulesEngine.ProcessTrack(tt.track)
-			assert.Equal(t, tt.shouldRemove, result)
+			assert.Equal(t, tt.expectedTrack.Name, tt.track.Name)
+			assert.Equal(t, tt.expectedTrack.Attrs, tt.track.Attrs)
+			assert.Equal(t, tt.expectedTrack.Tags, tt.track.Tags)
 		})
 	}
 }

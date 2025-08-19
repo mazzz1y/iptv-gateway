@@ -204,13 +204,13 @@ func (r *Reader) isModifiedSince(lastModified time.Time) bool {
 }
 
 func (r *Reader) checkCacheStatus() status {
-	metaInfo, err := os.Stat(r.MetaPath)
+	_, err := os.Stat(r.MetaPath)
 	if err != nil {
 		return statusNotFound
 	}
 
-	fileInfo, err := os.Stat(r.FilePath)
-	if err != nil || metaInfo.ModTime().Before(fileInfo.ModTime()) {
+	_, err = os.Stat(r.FilePath)
+	if err != nil {
 		return statusNotFound
 	}
 
@@ -224,13 +224,19 @@ func (r *Reader) checkCacheStatus() status {
 	cachedAt := time.Unix(meta.CachedAt, 0)
 	expires := time.Unix(meta.Expires, 0)
 
-	if !expires.IsZero() && expires.After(time.Now()) {
+	if !expires.IsZero() && expires.Before(time.Now()) {
+		return statusExpired
+	}
+
+	if !expires.IsZero() {
 		return statusValid
 	}
 
 	if r.ttl > 0 && time.Since(cachedAt) > r.ttl {
 		if !r.isModifiedSince(lastModified) {
-			r.SaveMetadata()
+			if err := r.SaveMetadata(); err != nil {
+				return statusExpired
+			}
 			return statusValid
 		}
 		return statusExpired

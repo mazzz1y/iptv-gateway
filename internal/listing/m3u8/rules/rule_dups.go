@@ -1,7 +1,6 @@
-package actions
+package rules
 
 import (
-	"iptv-gateway/internal/listing/m3u8/channel"
 	"regexp"
 	"strings"
 )
@@ -18,8 +17,8 @@ func NewRemoveDuplicatesRule(patterns []*regexp.Regexp, trimPattern bool) *Remov
 	}
 }
 
-func (r *RemoveDuplicatesRule) Apply(global *channel.Registry, sub *channel.Registry) {
-	globalGroupedByBaseName := make(map[string][]*channel.Channel)
+func (r *RemoveDuplicatesRule) Apply(global *Store, sub *Store) {
+	globalGroupedByBaseName := make(map[string][]*Channel)
 
 	for _, ch := range global.All() {
 		baseName := r.extractBaseName(ch.Name())
@@ -36,7 +35,7 @@ func (r *RemoveDuplicatesRule) extractBaseName(name string) string {
 	return strings.TrimSpace(name)
 }
 
-func (r *RemoveDuplicatesRule) selectBestChannel(channels []*channel.Channel) *channel.Channel {
+func (r *RemoveDuplicatesRule) selectBestChannel(channels []*Channel) *Channel {
 	for _, regex := range r.patterns {
 		for _, ch := range channels {
 			if regex.MatchString(ch.Name()) {
@@ -47,8 +46,8 @@ func (r *RemoveDuplicatesRule) selectBestChannel(channels []*channel.Channel) *c
 	return channels[0]
 }
 
-func (r *RemoveDuplicatesRule) processDuplicateGroups(globalGroupedByBaseName map[string][]*channel.Channel, subscriptionStore *channel.Registry) {
-	subscriptionChannels := make(map[*channel.Channel]bool)
+func (r *RemoveDuplicatesRule) processDuplicateGroups(globalGroupedByBaseName map[string][]*Channel, subscriptionStore *Store) {
+	subscriptionChannels := make(map[*Channel]bool)
 	for _, ch := range subscriptionStore.All() {
 		subscriptionChannels[ch] = true
 	}
@@ -60,7 +59,7 @@ func (r *RemoveDuplicatesRule) processDuplicateGroups(globalGroupedByBaseName ma
 
 		bestChannel := r.selectBestChannel(globalChannels)
 
-		subscriptionChannelsInGroup := make([]*channel.Channel, 0)
+		subscriptionChannelsInGroup := make([]*Channel, 0)
 		for _, ch := range globalChannels {
 			if subscriptionChannels[ch] {
 				subscriptionChannelsInGroup = append(subscriptionChannelsInGroup, ch)
