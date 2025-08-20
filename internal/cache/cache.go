@@ -2,7 +2,10 @@ package cache
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"iptv-gateway/internal/logging"
 	"net/http"
 	"os"
@@ -24,19 +27,95 @@ func NewCache(cacheDir string, ttl time.Duration) (*Cache, error) {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	doneCh := make(chan struct{})
-
 	cache := &Cache{
-		httpClient:    NewHTTPClient(),
 		dir:           cacheDir,
 		ttl:           ttl,
 		cleanupTicker: time.NewTicker(24 * time.Hour),
-		doneCh:        doneCh,
+		doneCh:        make(chan struct{}),
+		httpClient:    newDirectHTTPClient(),
 	}
 
 	go cache.cleanupRoutine(cacheDir, ttl)
 
 	return cache, nil
+}
+
+func (c *Cache) NewCachedHTTPClient() *http.Client {
+	return &http.Client{
+		Transport: &cachingTransport{cache: c},
+		Timeout:   10 * time.Minute,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			return nil
+		},
+	}
+}
+
+func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
+	hash := sha256.Sum256([]byte(url))
+	name := hex.EncodeToString(hash[:16])
+	reader := &Reader{
+		URL:      url,
+		Name:     name,
+		FilePath: filepath.Join(c.dir, name+fileExtension),
+		MetaPath: filepath.Join(c.dir, name+metaExtension),
+		client:   c.httpClient,
+		ttl:      c.ttl,
+	}
+
+	s := reader.checkCacheStatus()
+
+	var err error
+	var readCloser io.ReadCloser
+
+	switch s {
+	case statusValid:
+		readCloser, err = reader.newCachedReader()
+		if err == nil {
+			reader.ReadCloser = readCloser
+		}
+
+	case statusExpired, statusNotFound:
+		readCloser, err = reader.newCachingReader(ctx)
+		if err == nil {
+			reader.ReadCloser = readCloser
+		}
+
+	default:
+		readCloser, err = reader.newDirectReader(ctx)
+		if err == nil {
+			reader.ReadCloser = readCloser
+		}
+	}
+
+	logging.Debug(ctx, "file access", "cache", formatCacheStatus(s), "url", logging.SanitizeURL(url))
+
+	return reader, err
+}
+
+func (c *Cache) Close() {
+	if c.cleanupTicker != nil {
+		c.cleanupTicker.Stop()
+	}
+
+	if c.doneCh != nil {
+		close(c.doneCh)
+	}
+}
+
+func newDirectHTTPClient() *http.Client {
+	return &http.Client{
+		Transport: http.DefaultTransport,
+		Timeout:   10 * time.Minute,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			return nil
+		},
+	}
 }
 
 func (c *Cache) removeEntry(name string) error {
@@ -113,24 +192,10 @@ func (c *Cache) cleanExpired(cacheDir string, ttl time.Duration) error {
 			orphanedRemoved++
 		}
 	}
-
 	args := []any{"total_files", len(allFiles), "expired", expiredRemoved}
-	if orphanedRemoved > 0 {
-		args = append(args, "orphaned", orphanedRemoved)
-	}
 	logging.Info(context.Background(), "cache cleanup", args...)
 
 	return nil
-}
-
-func (c *Cache) Close() {
-	if c.cleanupTicker != nil {
-		c.cleanupTicker.Stop()
-	}
-
-	if c.doneCh != nil {
-		close(c.doneCh)
-	}
 }
 
 func (c *Cache) cleanupRoutine(cacheDir string, ttl time.Duration) {

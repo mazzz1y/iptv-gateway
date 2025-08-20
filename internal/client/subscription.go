@@ -6,12 +6,13 @@ import (
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
+	"time"
 
 	"golang.org/x/sync/semaphore"
 )
 
 type URLGenerator interface {
-	CreateURL(data urlgen.Data) (*url.URL, error)
+	CreateURL(data urlgen.Data, ttl time.Duration) (*url.URL, error)
 	Decrypt(s string) (*urlgen.Data, error)
 }
 

@@ -5,11 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/urlgen"
-	"net/url"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -23,48 +21,15 @@ type MockHTTPClient struct {
 	mock.Mock
 }
 
-func (m *MockHTTPClient) Close() {}
-
-func (m *MockHTTPClient) NewReader(ctx context.Context, url string) (*cache.Reader, error) {
-	args := m.Called(ctx, url)
+func (m *MockHTTPClient) Get(url string) (*http.Response, error) {
+	args := m.Called(url)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*cache.Reader), args.Error(1)
+	return args.Get(0).(*http.Response), args.Error(1)
 }
 
-func createMockReader(reader io.Reader) *cache.Reader {
-	r := &cache.Reader{
-		URL:        "test://example.com",
-		Name:       "test",
-		FilePath:   "test.gz",
-		MetaPath:   "test.meta",
-		ReadCloser: io.NopCloser(reader),
-	}
-	return r
-}
-
-type MockURLGenerator struct {
-	mock.Mock
-}
-
-func (m *MockURLGenerator) CreateURL(data urlgen.Data) (*url.URL, error) {
-	args := m.Called(data)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*url.URL), args.Error(1)
-}
-
-func (m *MockURLGenerator) Decrypt(s string) (*urlgen.Data, error) {
-	args := m.Called(s)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*urlgen.Data), args.Error(1)
-}
-
-func createTestSubscription(name string, playlists []string, excludes config.Excludes) (*client.Subscription, error) {
+func createTestSubscription(name string, playlists []string) (*client.Subscription, error) {
 	semaphore := semaphore.NewWeighted(1)
 	return client.NewSubscription(
 		name,
@@ -86,14 +51,16 @@ http://example.com/stream1
 #EXTINF:0 tvg-id="test2" tvg-name="Test Channel 2", Test Channel 2
 http://example.com/stream2`
 
-	mockEntry := createMockReader(bytes.NewReader([]byte(sampleM3U)))
+	response := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U))),
+	}
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist.m3u").Return(mockEntry, nil)
+	httpClient.On("Get", "http://example.com/playlist.m3u").Return(response, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{"http://example.com/playlist.m3u"},
-		config.Excludes{},
 	)
 	require.NoError(t, err)
 
@@ -127,14 +94,16 @@ http://example.com/sports1
 #EXTINF:-1 tvg-id="movies1" tvg-name="Movies Channel 1" group-title="Movies", Movies Channel 1
 http://example.com/movies1`
 
-	mockEntry := createMockReader(bytes.NewReader([]byte(sampleM3U)))
+	response := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U))),
+	}
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist.m3u").Return(mockEntry, nil)
+	httpClient.On("Get", "http://example.com/playlist.m3u").Return(response, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{"http://example.com/playlist.m3u"},
-		config.Excludes{},
 	)
 	require.NoError(t, err)
 
@@ -163,14 +132,16 @@ http://example.com/stream1
 #EXTINF:-1 tvg-id="test2" tvg-name="Test Channel 1", Test Channel 1
 http://example.com/stream1_duplicate`
 
-	mockEntry := createMockReader(bytes.NewReader([]byte(sampleM3U)))
+	response := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U))),
+	}
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist.m3u").Return(mockEntry, nil)
+	httpClient.On("Get", "http://example.com/playlist.m3u").Return(response, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{"http://example.com/playlist.m3u"},
-		config.Excludes{},
 	)
 	require.NoError(t, err)
 
@@ -199,12 +170,11 @@ func TestStreamerErrorHandling(t *testing.T) {
 	ctx := context.Background()
 	httpClient := new(MockHTTPClient)
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist.m3u").Return(nil, fmt.Errorf("connection failed"))
+	httpClient.On("Get", "http://example.com/playlist.m3u").Return(nil, fmt.Errorf("connection failed"))
 
 	sub, err := createTestSubscription(
 		"test-subscription",
 		[]string{"http://example.com/playlist.m3u"},
-		config.Excludes{},
 	)
 	require.NoError(t, err)
 
@@ -231,23 +201,27 @@ http://example.com/news1`
 #EXTINF:-1 tvg-id="sports1" group-title="Sports", Sports Channel 1
 http://example.com/sports1`
 
-	mockEntry1 := createMockReader(bytes.NewReader([]byte(sampleM3U1)))
-	mockEntry2 := createMockReader(bytes.NewReader([]byte(sampleM3U2)))
+	response1 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U1))),
+	}
+	response2 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U2))),
+	}
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist1.m3u").Return(mockEntry1, nil)
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist2.m3u").Return(mockEntry2, nil)
+	httpClient.On("Get", "http://example.com/playlist1.m3u").Return(response1, nil)
+	httpClient.On("Get", "http://example.com/playlist2.m3u").Return(response2, nil)
 
 	sub1, err := createTestSubscription(
 		"subscription1",
 		[]string{"http://example.com/playlist1.m3u"},
-		config.Excludes{},
 	)
 	require.NoError(t, err)
 
 	sub2, err := createTestSubscription(
 		"subscription2",
 		[]string{"http://example.com/playlist2.m3u"},
-		config.Excludes{},
 	)
 	require.NoError(t, err)
 
@@ -281,11 +255,17 @@ http://example.com/movies1
 #EXTINF:-1 tvg-id="music1" tvg-name="Music Channel 1" group-title="Music", Music Channel 1
 http://example.com/music1`
 
-	mockEntry1 := createMockReader(bytes.NewReader([]byte(sampleM3U1)))
-	mockEntry2 := createMockReader(bytes.NewReader([]byte(sampleM3U2)))
+	response1 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U1))),
+	}
+	response2 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U2))),
+	}
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist1.m3u").Return(mockEntry1, nil)
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist2.m3u").Return(mockEntry2, nil)
+	httpClient.On("Get", "http://example.com/playlist1.m3u").Return(response1, nil)
+	httpClient.On("Get", "http://example.com/playlist2.m3u").Return(response2, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
@@ -293,7 +273,6 @@ http://example.com/music1`
 			"http://example.com/playlist1.m3u",
 			"http://example.com/playlist2.m3u",
 		},
-		config.Excludes{},
 	)
 	require.NoError(t, err)
 
@@ -330,10 +309,13 @@ func TestStreamerWithOneFailingSource(t *testing.T) {
 #EXTINF:-1 tvg-id="news1" tvg-name="News Channel 1" group-title="News", News Channel 1
 http://example.com/news1`
 
-	mockEntry := createMockReader(bytes.NewReader([]byte(sampleM3U)))
+	response := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U))),
+	}
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist1.m3u").Return(mockEntry, nil)
-	httpClient.On("NewReader", mock.Anything, "http://example.com/playlist2.m3u").Return(nil, io.ErrUnexpectedEOF)
+	httpClient.On("Get", "http://example.com/playlist1.m3u").Return(response, nil)
+	httpClient.On("Get", "http://example.com/playlist2.m3u").Return(nil, io.ErrUnexpectedEOF)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
@@ -341,7 +323,6 @@ http://example.com/news1`
 			"http://example.com/playlist1.m3u",
 			"http://example.com/playlist2.m3u",
 		},
-		config.Excludes{},
 	)
 	require.NoError(t, err)
 
@@ -353,7 +334,7 @@ http://example.com/news1`
 	require.Error(t, err)
 	assert.Equal(t, io.ErrUnexpectedEOF, err)
 
-	httpClient.AssertCalled(t, "NewReader", mock.Anything, "http://example.com/playlist1.m3u")
+	httpClient.AssertCalled(t, "Get", "http://example.com/playlist1.m3u")
 	httpClient.AssertExpectations(t)
 }
 
@@ -364,7 +345,6 @@ func TestStreamerEmptySubscription(t *testing.T) {
 	emptySub, err := createTestSubscription(
 		"empty-subscription",
 		[]string{},
-		config.Excludes{},
 	)
 	require.NoError(t, err)
 

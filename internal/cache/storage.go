@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+var cachingHeaders = []string{
+	"Cache-Control", "Expires", "Last-Modified", "ETag",
+	"Age", "Vary", "Content-Type",
+}
+
 func ReadMetadata(metaPath string) (Metadata, error) {
 	metaFile, err := os.Open(metaPath)
 	if err != nil {
@@ -31,6 +36,8 @@ func (r *Reader) SaveMetadata() error {
 
 	var lastModified time.Time
 	var expires time.Time
+	headers := make(map[string]string)
+
 	if r.res != nil {
 		if lm := r.res.Header.Get("Last-Modified"); lm != "" {
 			lastModified, _ = time.Parse(time.RFC1123, lm)
@@ -41,6 +48,12 @@ func (r *Reader) SaveMetadata() error {
 		if r.contentType == "" {
 			r.contentType = r.res.Header.Get("Content-Type")
 		}
+
+		for _, header := range cachingHeaders {
+			if value := r.res.Header.Get(header); value != "" {
+				headers[header] = value
+			}
+		}
 	}
 
 	return json.NewEncoder(metaFile).Encode(Metadata{
@@ -48,6 +61,7 @@ func (r *Reader) SaveMetadata() error {
 		CachedAt:     time.Now().Unix(),
 		ContentType:  r.contentType,
 		Expires:      expires.Unix(),
+		Headers:      headers,
 	})
 }
 

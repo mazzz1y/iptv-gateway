@@ -1,6 +1,7 @@
 package urlgen
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -53,6 +54,7 @@ func TestGenerator_CreateURL(t *testing.T) {
 	tests := []struct {
 		name    string
 		data    Data
+		ttl     time.Duration
 		wantExt string
 		wantErr bool
 	}{
@@ -64,6 +66,7 @@ func TestGenerator_CreateURL(t *testing.T) {
 				Playlist:    "playlist1",
 				ChannelID:   "channel1",
 			},
+			ttl:     time.Hour,
 			wantExt: ".ts",
 			wantErr: false,
 		},
@@ -75,6 +78,7 @@ func TestGenerator_CreateURL(t *testing.T) {
 				Playlist:    "playlist2",
 				ChannelID:   "channel2",
 			},
+			ttl:     time.Hour,
 			wantExt: ".mp4",
 			wantErr: false,
 		},
@@ -86,6 +90,7 @@ func TestGenerator_CreateURL(t *testing.T) {
 				Playlist:    "playlist3",
 				ChannelID:   "channel3",
 			},
+			ttl:     time.Hour,
 			wantExt: ".file",
 			wantErr: false,
 		},
@@ -97,18 +102,19 @@ func TestGenerator_CreateURL(t *testing.T) {
 				Playlist:    "playlist4",
 				ChannelID:   "channel4",
 			},
+			ttl:     time.Hour,
 			wantExt: ".mp4",
 			wantErr: false,
 		},
 		{
-			name: "with custom created time",
+			name: "stream request with additional fields",
 			data: Data{
 				RequestType: Stream,
 				URL:         "https://stream.example.com/video",
 				Playlist:    "playlist5",
 				ChannelID:   "channel5",
-				Created:     time.Now().Add(-time.Hour),
 			},
+			ttl:     time.Hour,
 			wantExt: ".ts",
 			wantErr: false,
 		},
@@ -116,7 +122,7 @@ func TestGenerator_CreateURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u, err := g.CreateURL(tt.data)
+			u, err := g.CreateURL(tt.data, tt.ttl)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -138,7 +144,6 @@ func TestGenerator_CreateURL(t *testing.T) {
 				t.Errorf("createURL() url doesn't end with expected extension: got %v, want %v", u.Path, "/f"+tt.wantExt)
 			}
 
-			// Extract token from URL
 			parts := strings.Split(u.Path, "/")
 			if len(parts) < 2 {
 				t.Error("createURL() invalid url format")
@@ -179,32 +184,15 @@ func TestGenerator_Decrypt(t *testing.T) {
 		URL:         "https://example.com/video",
 		Playlist:    "playlist1",
 		ChannelID:   "channel1",
-		Created:     time.Now(),
 	}
 
-	u, err := g.CreateURL(validData)
+	u, err := g.CreateURL(validData, time.Hour)
 	if err != nil {
 		t.Fatalf("Failed to create URL: %v", err)
 	}
 
-	// Extract token from URL
 	parts := strings.Split(u.Path, "/")
 	validToken := parts[len(parts)-2]
-
-	expiredData := Data{
-		RequestType: File,
-		URL:         "https://example.com/old",
-		Playlist:    "old-playlist",
-		ChannelID:   "old-channel",
-		Created:     time.Now().Add(-32 * 24 * time.Hour), // 32 days ago
-	}
-
-	expiredURL, err := g.CreateURL(expiredData)
-	if err != nil {
-		t.Fatalf("failed to create expired url: %v", err)
-	}
-	expiredParts := strings.Split(expiredURL.Path, "/")
-	expiredToken := expiredParts[len(expiredParts)-2]
 
 	tests := []struct {
 		name    string
@@ -232,12 +220,6 @@ func TestGenerator_Decrypt(t *testing.T) {
 			token:   "dG9v",
 			wantErr: true,
 			errMsg:  "invalid token",
-		},
-		{
-			name:    "expired token",
-			token:   expiredToken,
-			wantErr: true,
-			errMsg:  "expired URL",
 		},
 		{
 			name:    "tampered token",
@@ -281,7 +263,7 @@ func TestGenerator_CrossSecretDecryption(t *testing.T) {
 		ChannelID:   "channel1",
 	}
 
-	u, err := g1.CreateURL(data)
+	u, err := g1.CreateURL(data, time.Hour)
 	if err != nil {
 		t.Fatalf("Failed to create URL: %v", err)
 	}
@@ -292,6 +274,173 @@ func TestGenerator_CrossSecretDecryption(t *testing.T) {
 	_, err = g2.Decrypt(token)
 	if err == nil {
 		t.Error("expected error when decrypting with different secret")
+	}
+}
+
+func TestGenerator_LinkExpiration(t *testing.T) {
+	g, err := NewGenerator("https://example.com", "test-secret")
+	if err != nil {
+		t.Fatalf("Failed to create generator: %v", err)
+	}
+
+	data := Data{
+		RequestType: Stream,
+		URL:         "https://example.com/video",
+		Playlist:    "playlist1",
+		ChannelID:   "channel1",
+	}
+
+	tests := []struct {
+		name    string
+		ttl     time.Duration
+		wantErr bool
+	}{
+		{
+			name:    "valid TTL - 1 hour",
+			ttl:     time.Hour,
+			wantErr: false,
+		},
+		{
+			name:    "valid TTL - 5 minutes",
+			ttl:     5 * time.Minute,
+			wantErr: false,
+		},
+		{
+			name:    "valid TTL - 24 hours",
+			ttl:     24 * time.Hour,
+			wantErr: false,
+		},
+		{
+			name:    "zero TTL (no expiration)",
+			ttl:     0,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u, err := g.CreateURL(data, tt.ttl)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && u == nil {
+				t.Error("CreateURL() returned nil url")
+			}
+		})
+	}
+}
+
+func TestGenerator_ExpiredLinkDecryption(t *testing.T) {
+	g, err := NewGenerator("https://example.com", "test-secret")
+	if err != nil {
+		t.Fatalf("Failed to create generator: %v", err)
+	}
+
+	data := Data{
+		RequestType: Stream,
+		URL:         "https://example.com/video",
+		Playlist:    "playlist1",
+		ChannelID:   "channel1",
+	}
+
+	u, err := g.CreateURL(data, time.Millisecond)
+	if err != nil {
+		t.Fatalf("Failed to create URL: %v", err)
+	}
+
+	parts := strings.Split(u.Path, "/")
+	token := parts[len(parts)-2]
+
+	time.Sleep(10 * time.Millisecond)
+
+	_, err = g.Decrypt(token)
+	if err == nil {
+		t.Error("expected error when decrypting expired token")
+	}
+
+	if !errors.Is(err, ErrExpiredURL) {
+		t.Errorf("expected ErrExpiredURL, got %v", err)
+	}
+}
+
+func TestGenerator_ExpiredLinkEdgeCases(t *testing.T) {
+	g, err := NewGenerator("https://example.com", "test-secret")
+	if err != nil {
+		t.Fatalf("Failed to create generator: %v", err)
+	}
+
+	data := Data{
+		RequestType: Stream,
+		URL:         "https://example.com/video",
+		Playlist:    "playlist1",
+		ChannelID:   "channel1",
+	}
+
+	tests := []struct {
+		name        string
+		ttl         time.Duration
+		sleepTime   time.Duration
+		expectError bool
+		errorType   error
+	}{
+		{
+			name:        "valid token - no sleep",
+			ttl:         time.Second,
+			sleepTime:   0,
+			expectError: false,
+			errorType:   nil,
+		},
+		{
+			name:        "expired token",
+			ttl:         10 * time.Millisecond,
+			sleepTime:   50 * time.Millisecond,
+			expectError: true,
+			errorType:   ErrExpiredURL,
+		},
+		{
+			name:        "zero TTL - no expiration",
+			ttl:         0,
+			sleepTime:   100 * time.Millisecond,
+			expectError: false,
+			errorType:   nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u, err := g.CreateURL(data, tt.ttl)
+			if err != nil {
+				t.Fatalf("Failed to create URL: %v", err)
+			}
+
+			parts := strings.Split(u.Path, "/")
+			token := parts[len(parts)-2]
+
+			if tt.sleepTime > 0 {
+				time.Sleep(tt.sleepTime)
+			}
+
+			decryptedData, err := g.Decrypt(token)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+					return
+				}
+				if tt.errorType != nil && !errors.Is(err, tt.errorType) {
+					t.Errorf("expected error %v, got %v", tt.errorType, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+					return
+				}
+				if decryptedData == nil {
+					t.Error("expected decrypted data but got nil")
+				}
+			}
+		})
 	}
 }
 
@@ -339,57 +488,5 @@ func TestDetermineExtension(t *testing.T) {
 				t.Errorf("determineExtension() = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-func BenchmarkGenerator_CreateURL(b *testing.B) {
-	g, err := NewGenerator("https://example.com", "test-secret")
-	if err != nil {
-		b.Fatalf("Failed to create generator: %v", err)
-	}
-
-	data := Data{
-		RequestType: Stream,
-		URL:         "https://example.com/video",
-		Playlist:    "playlist1",
-		ChannelID:   "channel1",
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := g.CreateURL(data)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkGenerator_Decrypt(b *testing.B) {
-	g, err := NewGenerator("https://example.com", "test-secret")
-	if err != nil {
-		b.Fatalf("Failed to create generator: %v", err)
-	}
-
-	data := Data{
-		RequestType: Stream,
-		URL:         "https://example.com/video",
-		Playlist:    "playlist1",
-		ChannelID:   "channel1",
-	}
-
-	u, err := g.CreateURL(data)
-	if err != nil {
-		b.Fatalf("Failed to create URL: %v", err)
-	}
-
-	parts := strings.Split(u.Path, "/")
-	token := parts[len(parts)-2]
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := g.Decrypt(token)
-		if err != nil {
-			b.Fatal(err)
-		}
 	}
 }

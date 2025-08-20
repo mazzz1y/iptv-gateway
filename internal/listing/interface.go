@@ -1,13 +1,11 @@
 package listing
 
 import (
-	"context"
-	"iptv-gateway/internal/cache"
+	"net/http"
 )
 
 type HTTPClient interface {
-	NewReader(ctx context.Context, url string) (*cache.Reader, error)
-	Close()
+	Get(url string) (*http.Response, error)
 }
 
 type Decoder interface {

@@ -4,6 +4,7 @@ import (
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
+	"time"
 )
 
 type Subscription interface {
@@ -11,7 +12,7 @@ type Subscription interface {
 }
 
 type URLGenerator interface {
-	CreateURL(data urlgen.Data) (*url.URL, error)
+	CreateURL(data urlgen.Data, ttl time.Duration) (*url.URL, error)
 }
 
 type Channel struct {

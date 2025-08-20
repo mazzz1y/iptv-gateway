@@ -92,17 +92,18 @@ func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) 
 	for _, sub := range s.subscriptions {
 		epgs := sub.GetEPGs()
 		for _, epgURL := range epgs {
-			reader, err := s.httpClient.NewReader(ctx, epgURL)
+			resp, err := s.httpClient.Get(epgURL)
 			if err != nil {
 				for _, d := range decoders {
 					d.Close()
 				}
 				return nil, fmt.Errorf("failed to create xmltv reader: %v", err)
 			}
-			decoder := xmltv.NewDecoder(reader)
+			decoder := xmltv.NewDecoder(resp.Body)
 			decoders = append(decoders, &decoderWrapper{
 				decoder:      decoder,
 				subscription: sub,
+				reader:       resp.Body,
 			})
 		}
 	}
@@ -312,7 +313,7 @@ func (s *Streamer) processIcons(icons []xmltv.Icon) []xmltv.Icon {
 		}
 
 		urlData.URL = result[i].Source
-		link, err := s.currentURLGenerator.CreateURL(urlData)
+		link, err := s.currentURLGenerator.CreateURL(urlData, 0)
 		if err != nil {
 			continue
 		}

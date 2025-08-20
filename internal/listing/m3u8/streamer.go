@@ -71,7 +71,7 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
 
 	store := rules.NewStore()
 
-	decoders, err := s.initDecoders(ctx)
+	decoders, err := s.initDecoders()
 	if err != nil {
 		return nil, err
 	}
@@ -127,13 +127,13 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
 	return store, nil
 }
 
-func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) {
+func (s *Streamer) initDecoders() ([]*decoderWrapper, error) {
 	var decoders []*decoderWrapper
 
 	for _, sub := range s.subscriptions {
 		playlists := sub.GetPlaylists()
 		for _, playlistURL := range playlists {
-			reader, err := s.httpClient.NewReader(ctx, playlistURL)
+			resp, err := s.httpClient.Get(playlistURL)
 			if err != nil {
 				for _, d := range decoders {
 					d.Close()
@@ -141,11 +141,11 @@ func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) 
 				return nil, err
 			}
 
-			decoder := m3u8.NewDecoder(reader)
+			decoder := m3u8.NewDecoder(resp.Body)
 			decoders = append(decoders, &decoderWrapper{
 				decoder:      decoder,
 				subscription: sub,
-				reader:       reader,
+				reader:       resp.Body,
 			})
 		}
 	}

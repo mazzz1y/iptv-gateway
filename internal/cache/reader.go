@@ -3,16 +3,12 @@ package cache
 import (
 	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/ioutil"
-	"iptv-gateway/internal/logging"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -29,10 +25,11 @@ const (
 )
 
 type Metadata struct {
-	LastModified int64  `json:"last_modified"`
-	CachedAt     int64  `json:"cached_at"`
-	ContentType  string `json:"content_type"`
-	Expires      int64  `json:"expires"`
+	LastModified int64             `json:"last_modified"`
+	CachedAt     int64             `json:"cached_at"`
+	ContentType  string            `json:"content_type"`
+	Expires      int64             `json:"expires"`
+	Headers      map[string]string `json:"headers"`
 }
 
 type Reader struct {
@@ -51,55 +48,13 @@ type Reader struct {
 	contentType   string
 }
 
-func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
-	hash := sha256.Sum256([]byte(url))
-	name := hex.EncodeToString(hash[:16])
-	reader := &Reader{
-		URL:      url,
-		Name:     name,
-		FilePath: filepath.Join(c.dir, name+fileExtension),
-		MetaPath: filepath.Join(c.dir, name+metaExtension),
-		client:   c.httpClient,
-		ttl:      c.ttl,
-	}
-
-	s := reader.checkCacheStatus()
-
-	logging.Debug(ctx, "file access", "cache", formatCacheStatus(s), "url", logging.SanitizeURL(url))
-
-	var err error
-	var readCloser io.ReadCloser
-
-	switch s {
-	case statusValid:
-		readCloser, err = reader.newCachedReader()
-		if err == nil {
-			reader.ReadCloser = readCloser
-		}
-
-	case statusExpired, statusNotFound:
-		readCloser, err = reader.newCachingReader(ctx)
-		if err == nil {
-			reader.ReadCloser = readCloser
-		}
-
-	default:
-		readCloser, err = reader.newDirectReader(ctx)
-		if err == nil {
-			reader.ReadCloser = readCloser
-		}
-	}
-
-	return reader, err
-}
-
 func (r *Reader) Read(p []byte) (n int, err error) {
 	if r.ReadCloser == nil {
 		return 0, io.EOF
 	}
 	n, err = r.ReadCloser.Read(p)
 
-	if err == io.EOF || r.bytesDownload == r.expectedSize {
+	if (err == io.EOF || r.bytesDownload == r.expectedSize) && r.res != nil {
 		if r.isDownloadComplete() {
 			err := r.SaveMetadata()
 			if err != nil {
@@ -142,8 +97,12 @@ func (r *Reader) Close() error {
 	return err
 }
 
-func (r *Reader) GetContentType() string {
-	return r.contentType
+func (r *Reader) GetCachedHeaders() map[string]string {
+	meta, err := ReadMetadata(r.MetaPath)
+	if err != nil {
+		return nil
+	}
+	return meta.Headers
 }
 
 func (r *Reader) CreateCacheFile() error {
@@ -224,21 +183,20 @@ func (r *Reader) checkCacheStatus() status {
 	cachedAt := time.Unix(meta.CachedAt, 0)
 	expires := time.Unix(meta.Expires, 0)
 
-	if !expires.IsZero() && expires.Before(time.Now()) {
-		return statusExpired
-	}
-
-	if !expires.IsZero() {
+	if r.ttl > 0 {
+		if time.Since(cachedAt) > r.ttl {
+			if !r.isModifiedSince(lastModified) {
+				if err := r.SaveMetadata(); err != nil {
+					return statusExpired
+				}
+				return statusValid
+			}
+			return statusExpired
+		}
 		return statusValid
 	}
 
-	if r.ttl > 0 && time.Since(cachedAt) > r.ttl {
-		if !r.isModifiedSince(lastModified) {
-			if err := r.SaveMetadata(); err != nil {
-				return statusExpired
-			}
-			return statusValid
-		}
+	if !expires.IsZero() && expires.Before(time.Now()) {
 		return statusExpired
 	}
 

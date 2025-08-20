@@ -31,7 +31,7 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-mpegurl")
 	w.Header().Set("Cache-Control", "no-cache")
 
-	streamer := m3u8.NewStreamer(c.GetSubscriptions(), c.GetEpgLink(), s.cache)
+	streamer := m3u8.NewStreamer(c.GetSubscriptions(), c.GetEpgLink(), s.cache.NewCachedHTTPClient())
 	if _, err := streamer.WriteTo(ctx, w); err != nil {
 		logging.Error(ctx, err, "failed to write playlist")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -100,21 +100,22 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, data *urlgen.Data) {
 	logging.Debug(ctx, "proxying file", "url", data.URL)
 
-	reader, err := s.cache.NewReader(ctx, data.URL)
+	c := s.cache.NewCachedHTTPClient()
+	resp, err := c.Get(data.URL)
 	if err != nil {
 		logging.Error(ctx, err, "file proxy failed")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	defer reader.Close()
+	defer resp.Body.Close()
 
-	contentType := reader.GetContentType()
-	if contentType == "" {
-		contentType = "application/octet-stream"
+	for header, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(header, value)
+		}
 	}
-	w.Header().Set("Content-Type", contentType)
 
-	if _, err = io.Copy(w, reader); err != nil {
+	if _, err = io.Copy(w, resp.Body); err != nil {
 		logging.Error(ctx, err, "file copy failed")
 	}
 }
@@ -127,14 +128,14 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error) {
 	c := ctx.Value(constant.ContextClient).(*client.Client)
 
-	m3u8Streamer := m3u8.NewStreamer(c.GetSubscriptions(), "", s.cache)
+	m3u8Streamer := m3u8.NewStreamer(c.GetSubscriptions(), "", s.cache.NewCachedHTTPClient())
 	channels, err := m3u8Streamer.GetAllChannels(ctx)
 	if err != nil {
 		logging.Error(ctx, err, "failed to get channels")
 		return nil, err
 	}
 
-	return xmltv.NewStreamer(c.GetSubscriptions(), s.cache, channels), nil
+	return xmltv.NewStreamer(c.GetSubscriptions(), s.cache.NewCachedHTTPClient(), channels), nil
 }
 
 func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {

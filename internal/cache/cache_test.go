@@ -1,15 +1,183 @@
 package cache
 
 import (
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
-func TestCleanExpired(t *testing.T) {
+func TestNewCache(t *testing.T) {
+	t.Run("successfully creates cache", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		ttl := time.Hour
+
+		cache, err := NewCache(tmpDir, ttl)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if cache == nil {
+			t.Fatal("expected cache to be created")
+		}
+
+		if cache.dir != tmpDir {
+			t.Errorf("expected dir %s, got %s", tmpDir, cache.dir)
+		}
+
+		if cache.ttl != ttl {
+			t.Errorf("expected ttl %v, got %v", ttl, cache.ttl)
+		}
+
+		if cache.httpClient == nil {
+			t.Error("expected httpClient to be set")
+		}
+
+		if cache.cleanupTicker == nil {
+			t.Error("expected cleanupTicker to be set")
+		}
+
+		if cache.doneCh == nil {
+			t.Error("expected doneCh to be set")
+		}
+
+		cache.Close()
+	})
+
+	t.Run("creates cache directory", func(t *testing.T) {
+		tmpDir := filepath.Join(t.TempDir(), "nested", "cache")
+
+		cache, err := NewCache(tmpDir, time.Hour)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		defer cache.Close()
+
+		if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
+			t.Error("expected cache directory to be created")
+		}
+	})
+
+	t.Run("fails with invalid directory", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("skipping test when running as root")
+		}
+
+		tmpFile := filepath.Join(t.TempDir(), "blocking-file")
+		if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
+			t.Fatalf("failed to create blocking file: %v", err)
+		}
+
+		invalidDir := filepath.Join(tmpFile, "cache")
+		_, err := NewCache(invalidDir, time.Hour)
+		if err == nil {
+			t.Error("expected error for invalid directory")
+		}
+	})
+}
+
+func TestCache_NewCachedHTTPClient(t *testing.T) {
+	cache, err := NewCache(t.TempDir(), time.Hour)
+	if err != nil {
+		t.Fatalf("failed to create cache: %v", err)
+	}
+	defer cache.Close()
+
+	client := cache.NewCachedHTTPClient()
+
+	if client == nil {
+		t.Fatal("expected client to be created")
+	}
+
+	if client.Timeout != 10*time.Minute {
+		t.Errorf("expected timeout 10m, got %v", client.Timeout)
+	}
+
+	if client.Transport == nil {
+		t.Error("expected transport to be set")
+	}
+
+	t.Run("redirect limit", func(t *testing.T) {
+		req := &http.Request{}
+		via := make([]*http.Request, 5)
+
+		err := client.CheckRedirect(req, via)
+		if err == nil {
+			t.Error("expected error for too many redirects")
+		}
+	})
+}
+
+func TestCache_NewReader(t *testing.T) {
+	tmpDir := t.TempDir()
+	cache, err := NewCache(tmpDir, time.Hour)
+	if err != nil {
+		t.Fatalf("failed to create cache: %v", err)
+	}
+	defer cache.Close()
+
+	ctx := context.Background()
+
+	t.Run("creates reader with correct properties", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("#EXTM3U\n#EXTINF:10.0,\ntest.ts\n"))
+		}))
+		defer server.Close()
+
+		reader, err := cache.NewReader(ctx, server.URL)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		defer reader.Close()
+
+		if reader.URL != server.URL {
+			t.Errorf("expected URL %s, got %s", server.URL, reader.URL)
+		}
+
+		if reader.Name == "" {
+			t.Error("expected Name to be set")
+		}
+
+		if reader.FilePath == "" {
+			t.Error("expected FilePath to be set")
+		}
+
+		if reader.MetaPath == "" {
+			t.Error("expected MetaPath to be set")
+		}
+
+		content, err := io.ReadAll(reader)
+		if err != nil {
+			t.Fatalf("failed to read content: %v", err)
+		}
+
+		expected := "#EXTM3U\n#EXTINF:10.0,\ntest.ts\n"
+		if string(content) != expected {
+			t.Errorf("expected content %q, got %q", expected, string(content))
+		}
+	})
+
+	t.Run("handles server error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		_, err := cache.NewReader(ctx, server.URL)
+		if err == nil {
+			t.Error("expected error for server error")
+		}
+	})
+}
+
+func TestCache_CleanExpired(t *testing.T) {
 	tests := []struct {
 		name           string
 		ttl            time.Duration
@@ -43,6 +211,11 @@ func TestCleanExpired(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
+			cache, err := NewCache(tmpDir, tc.ttl)
+			if err != nil {
+				t.Fatalf("failed to create cache: %v", err)
+			}
+			defer cache.Close()
 
 			validName := "valid"
 			validFile := filepath.Join(tmpDir, validName+fileExtension)
@@ -70,9 +243,6 @@ func TestCleanExpired(t *testing.T) {
 				t.Fatalf("failed to create orphaned file: %v", err)
 			}
 
-			cache := &Cache{
-				dir: tmpDir,
-			}
 			if err := cache.cleanExpired(tmpDir, tc.ttl); err != nil {
 				t.Fatalf("failed to clean cache: %v", err)
 			}
@@ -86,24 +256,58 @@ func TestCleanExpired(t *testing.T) {
 	}
 }
 
-func TestCache_NewReader(t *testing.T) {
+func TestCache_RemoveEntry(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache := &Cache{
-		dir:        tmpDir,
-		ttl:        time.Hour,
-		httpClient: &http.Client{},
+	cache, err := NewCache(tmpDir, time.Hour)
+	if err != nil {
+		t.Fatalf("failed to create cache: %v", err)
+	}
+	defer cache.Close()
+
+	name := "test"
+	dataPath := filepath.Join(tmpDir, name+fileExtension)
+	metaPath := filepath.Join(tmpDir, name+metaExtension)
+
+	if err := os.WriteFile(dataPath, []byte("test data"), 0644); err != nil {
+		t.Fatalf("failed to create data file: %v", err)
+	}
+	if err := createTestMetadata(metaPath, time.Now().Unix()); err != nil {
+		t.Fatalf("failed to create metadata: %v", err)
 	}
 
-	if cache.dir != tmpDir {
-		t.Errorf("expected cache directory to be %s, got %s", tmpDir, cache.dir)
+	if err := cache.removeEntry(name); err != nil {
+		t.Fatalf("failed to remove entry: %v", err)
 	}
 
-	if cache.ttl != time.Hour {
-		t.Errorf("expected ttl to be %s, got %s", time.Hour, cache.ttl)
+	checkFileExists(t, dataPath, false)
+	checkFileExists(t, metaPath, false)
+
+	if err := cache.removeEntry("nonexistent"); err != nil {
+		t.Errorf("unexpected error removing non-existent entry: %v", err)
+	}
+}
+
+func TestNewDirectHTTPClient(t *testing.T) {
+	client := newDirectHTTPClient()
+
+	if client == nil {
+		t.Fatal("expected client to be created")
 	}
 
-	if cache.httpClient == nil {
-		t.Error("client should not be nil")
+	if client.Timeout != 10*time.Minute {
+		t.Errorf("expected timeout 10m, got %v", client.Timeout)
+	}
+
+	if client.Transport != http.DefaultTransport {
+		t.Error("expected default transport")
+	}
+
+	req := &http.Request{}
+	via := make([]*http.Request, 5)
+
+	err := client.CheckRedirect(req, via)
+	if err == nil {
+		t.Error("expected error for too many redirects")
 	}
 }
 
@@ -112,6 +316,7 @@ func createTestMetadata(path string, cachedAt int64) error {
 		LastModified: time.Now().Add(-2 * time.Hour).Unix(),
 		CachedAt:     cachedAt,
 		ContentType:  "text/plain",
+		Headers:      make(map[string]string),
 	}
 
 	file, err := os.Create(path)
@@ -124,6 +329,7 @@ func createTestMetadata(path string, cachedAt int64) error {
 }
 
 func checkFileExists(t *testing.T, path string, shouldExist bool) {
+	t.Helper()
 	_, err := os.Stat(path)
 	if shouldExist && os.IsNotExist(err) {
 		t.Errorf("file %s should exist but doesn't", path)

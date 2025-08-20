@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"path/filepath"
 	"strconv"
@@ -23,7 +21,6 @@ type RequestType int
 const (
 	Stream RequestType = iota
 	File
-	ttl = time.Hour * 24 * 30
 )
 
 var ErrExpiredURL = errors.New("expired URL")
@@ -38,7 +35,6 @@ type Data struct {
 	URL         string
 	Playlist    string
 	ChannelID   string
-	Created     time.Time
 }
 
 func NewGenerator(publicURL, secret string) (*Generator, error) {
@@ -54,20 +50,21 @@ func NewGenerator(publicURL, secret string) (*Generator, error) {
 	return &Generator{PublicURL: publicURL, aead: aead}, nil
 }
 
-func (g *Generator) CreateURL(d Data) (*url.URL, error) {
-	if d.Created.IsZero() {
-		d.Created = time.Now()
-	}
-
+func (g *Generator) CreateURL(d Data, ttl time.Duration) (*url.URL, error) {
 	buf := &bytes.Buffer{}
 	w := csv.NewWriter(buf)
+
+	expireAt := "0"
+	if ttl != 0 {
+		expireAt = strconv.FormatInt(time.Now().Add(ttl).Unix(), 10)
+	}
 
 	err := w.Write([]string{
 		strconv.Itoa(int(d.RequestType)),
 		d.URL,
 		d.Playlist,
 		d.ChannelID,
-		strconv.FormatInt(d.Created.Unix(), 10),
+		expireAt,
 	})
 	if err != nil {
 		return nil, err
@@ -77,10 +74,9 @@ func (g *Generator) CreateURL(d Data) (*url.URL, error) {
 	if err := w.Error(); err != nil {
 		return nil, err
 	}
-	nonce := make([]byte, g.aead.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
-	}
+
+	hash := sha256.Sum256(buf.Bytes())
+	nonce := hash[:g.aead.NonceSize()]
 
 	ct := g.aead.Seal(nonce, nonce, buf.Bytes(), nil)
 	token := base64.RawURLEncoding.EncodeToString(ct)
@@ -124,9 +120,11 @@ func (g *Generator) Decrypt(token string) (*Data, error) {
 		return nil, err
 	}
 
-	created := time.Unix(ts, 0)
-	if created.Add(ttl).Before(time.Now()) {
-		return nil, ErrExpiredURL
+	if ts > 0 {
+		expiresAt := time.Unix(ts, 0)
+		if expiresAt.Before(time.Now()) {
+			return nil, ErrExpiredURL
+		}
 	}
 
 	return &Data{
@@ -134,7 +132,6 @@ func (g *Generator) Decrypt(token string) (*Data, error) {
 		URL:         rec[1],
 		Playlist:    rec[2],
 		ChannelID:   rec[3],
-		Created:     created,
 	}, nil
 }
 

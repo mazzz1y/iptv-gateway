@@ -5,9 +5,9 @@ import (
 	"compress/gzip"
 	"context"
 	"io"
-	"iptv-gateway/internal/cache"
 	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/config"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -21,35 +21,12 @@ type MockHTTPClient struct {
 	mock.Mock
 }
 
-func (m *MockHTTPClient) Close() {}
-
-func (m *MockHTTPClient) NewReader(ctx context.Context, url string) (*cache.Reader, error) {
-	args := m.Called(ctx, url)
-	return args.Get(0).(*cache.Reader), args.Error(1)
-}
-
-func createMockReader(readCloser io.ReadCloser, contentType string) *cache.Reader {
-	return &cache.Reader{
-		URL:        "test://example.com",
-		Name:       "test",
-		FilePath:   "test.gz",
-		MetaPath:   "test.meta",
-		ReadCloser: readCloser,
+func (m *MockHTTPClient) Get(url string) (*http.Response, error) {
+	args := m.Called(url)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-}
-
-type MockDecoder struct {
-	mock.Mock
-	closed bool
-}
-
-func (m *MockDecoder) Decode() (interface{}, error) {
-	return nil, io.EOF
-}
-
-func (m *MockDecoder) Close() error {
-	m.closed = true
-	return nil
+	return args.Get(0).(*http.Response), args.Error(1)
 }
 
 func createTestSubscription(name string, epgs []string) (*client.Subscription, error) {
@@ -103,10 +80,12 @@ func TestStreamer_WriteTo(t *testing.T) {
 	sub, err := createTestSubscription("test-subscription", []string{"http://example.com/epg.xml"})
 	require.NoError(t, err)
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/epg.xml").Return(
-		createMockReader(io.NopCloser(strings.NewReader(xmlContent)), ""),
-		nil,
-	)
+	response := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlContent)),
+	}
+
+	httpClient.On("Get", "http://example.com/epg.xml").Return(response, nil)
 
 	channels := map[string]bool{"channel1": true}
 	streamer = NewStreamer([]*client.Subscription{sub}, httpClient, channels)
@@ -134,10 +113,12 @@ func TestStreamer_WriteToGzip(t *testing.T) {
 	sub, err := createTestSubscription("test-subscription", []string{"http://example.com/epg.xml"})
 	require.NoError(t, err)
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/epg.xml").Return(
-		createMockReader(io.NopCloser(strings.NewReader(xmlContent)), ""),
-		nil,
-	)
+	response := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlContent)),
+	}
+
+	httpClient.On("Get", "http://example.com/epg.xml").Return(response, nil)
 
 	channels := map[string]bool{"channel1": true}
 	streamer := NewStreamer([]*client.Subscription{sub}, httpClient, channels)
@@ -184,11 +165,17 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
   </programme>
 </tv>`
 
-	mockReader1 := createMockReader(io.NopCloser(strings.NewReader(xmlContent1)), "")
-	mockReader2 := createMockReader(io.NopCloser(strings.NewReader(xmlContent2)), "")
+	response1 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlContent1)),
+	}
+	response2 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlContent2)),
+	}
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/epg1.xml").Return(mockReader1, nil)
-	httpClient.On("NewReader", mock.Anything, "http://example.com/epg2.xml").Return(mockReader2, nil)
+	httpClient.On("Get", "http://example.com/epg1.xml").Return(response1, nil)
+	httpClient.On("Get", "http://example.com/epg2.xml").Return(response2, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
@@ -243,11 +230,17 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
   </channel>
 </tv>`
 
-	mockReader1 := createMockReader(io.NopCloser(strings.NewReader(xmlContent1)), "")
-	mockReader2 := createMockReader(io.NopCloser(strings.NewReader(xmlContent2)), "")
+	response1 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlContent1)),
+	}
+	response2 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlContent2)),
+	}
 
-	httpClient.On("NewReader", mock.Anything, "http://example.com/sub1_epg.xml").Return(mockReader1, nil)
-	httpClient.On("NewReader", mock.Anything, "http://example.com/sub2_epg.xml").Return(mockReader2, nil)
+	httpClient.On("Get", "http://example.com/sub1_epg.xml").Return(response1, nil)
+	httpClient.On("Get", "http://example.com/sub2_epg.xml").Return(response2, nil)
 
 	sub1, err := createTestSubscription(
 		"subscription-1",
@@ -303,8 +296,11 @@ func TestStreamerEmptyEPGSubscription(t *testing.T) {
   </channel>
 </tv>`
 
-	mockReader := createMockReader(io.NopCloser(strings.NewReader(xmlContent)), "")
-	httpClient.On("NewReader", mock.Anything, "http://example.com/epg.xml").Return(mockReader, nil)
+	response := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlContent)),
+	}
+	httpClient.On("Get", "http://example.com/epg.xml").Return(response, nil)
 
 	channels := map[string]bool{"test1": true}
 
