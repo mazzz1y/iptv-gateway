@@ -7,12 +7,11 @@ import (
 	"time"
 )
 
-var cachingHeaders = []string{
-	"Cache-Control", "Expires", "Last-Modified", "ETag",
-	"Age", "Vary", "Content-Type",
+var forwardedHeaders = []string{
+	"Cache-Control", "Expires", "Last-Modified", "ETag", "Content-Type",
 }
 
-func ReadMetadata(metaPath string) (Metadata, error) {
+func readMetadata(metaPath string) (Metadata, error) {
 	metaFile, err := os.Open(metaPath)
 	if err != nil {
 		return Metadata{}, err
@@ -34,34 +33,19 @@ func (r *Reader) SaveMetadata() error {
 	}
 	defer metaFile.Close()
 
-	var lastModified time.Time
-	var expires time.Time
-	headers := make(map[string]string)
+	headers := make(map[string]string, len(forwardedHeaders))
 
-	if r.res != nil {
-		if lm := r.res.Header.Get("Last-Modified"); lm != "" {
-			lastModified, _ = time.Parse(time.RFC1123, lm)
-		}
-		if exp := r.res.Header.Get("Expires"); exp != "" {
-			expires, _ = time.Parse(time.RFC1123, exp)
-		}
-		if r.contentType == "" {
-			r.contentType = r.res.Header.Get("Content-Type")
-		}
-
-		for _, header := range cachingHeaders {
-			if value := r.res.Header.Get(header); value != "" {
+	if r.originResponse != nil {
+		for _, header := range forwardedHeaders {
+			if value := r.originResponse.Header.Get(header); value != "" {
 				headers[header] = value
 			}
 		}
 	}
 
 	return json.NewEncoder(metaFile).Encode(Metadata{
-		LastModified: lastModified.Unix(),
-		CachedAt:     time.Now().Unix(),
-		ContentType:  r.contentType,
-		Expires:      expires.Unix(),
-		Headers:      headers,
+		CachedAt: time.Now().Unix(),
+		Headers:  headers,
 	})
 }
 

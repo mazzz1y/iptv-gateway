@@ -25,27 +25,24 @@ const (
 )
 
 type Metadata struct {
-	LastModified int64             `json:"last_modified"`
-	CachedAt     int64             `json:"cached_at"`
-	ContentType  string            `json:"content_type"`
-	Expires      int64             `json:"expires"`
-	Headers      map[string]string `json:"headers"`
+	CachedAt int64             `json:"cached_at"`
+	Headers  map[string]string `json:"headers"`
 }
 
 type Reader struct {
-	URL           string
-	Name          string
-	FilePath      string
-	MetaPath      string
-	ReadCloser    io.ReadCloser
-	file          *os.File
-	writer        *gzip.Writer
-	res           *http.Response
-	client        *http.Client
-	ttl           time.Duration
-	bytesDownload int64
-	expectedSize  int64
-	contentType   string
+	URL            string
+	Name           string
+	FilePath       string
+	MetaPath       string
+	ReadCloser     io.ReadCloser
+	file           *os.File
+	gzipWriter     *gzip.Writer
+	originResponse *http.Response
+	client         *http.Client
+	ttl            time.Duration
+	bytesDownload  int64
+	expectedSize   int64
+	contentType    string
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
@@ -54,7 +51,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	}
 	n, err = r.ReadCloser.Read(p)
 
-	if (err == io.EOF || r.bytesDownload == r.expectedSize) && r.res != nil {
+	if (err == io.EOF || r.bytesDownload == r.expectedSize) && r.originResponse != nil {
 		if r.isDownloadComplete() {
 			err := r.SaveMetadata()
 			if err != nil {
@@ -70,8 +67,8 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 func (r *Reader) Close() error {
 	var err error
 
-	if r.res != nil {
-		if e := r.res.Body.Close(); e != nil {
+	if r.originResponse != nil {
+		if e := r.originResponse.Body.Close(); e != nil {
 			err = e
 		}
 	}
@@ -82,8 +79,8 @@ func (r *Reader) Close() error {
 		}
 	}
 
-	if r.writer != nil {
-		if e := r.writer.Close(); e != nil && err == nil {
+	if r.gzipWriter != nil {
+		if e := r.gzipWriter.Close(); e != nil && err == nil {
 			err = e
 		}
 	}
@@ -98,7 +95,7 @@ func (r *Reader) Close() error {
 }
 
 func (r *Reader) GetCachedHeaders() map[string]string {
-	meta, err := ReadMetadata(r.MetaPath)
+	meta, err := readMetadata(r.MetaPath)
 	if err != nil {
 		return nil
 	}
@@ -113,8 +110,8 @@ func (r *Reader) CreateCacheFile() error {
 	}
 
 	r.file = file
-	if r.res.ContentLength > 0 {
-		r.expectedSize = r.res.ContentLength
+	if r.originResponse.ContentLength > 0 {
+		r.expectedSize = r.originResponse.ContentLength
 	}
 
 	return nil
@@ -173,15 +170,26 @@ func (r *Reader) checkCacheStatus() status {
 		return statusNotFound
 	}
 
-	meta, err := ReadMetadata(r.MetaPath)
+	meta, err := readMetadata(r.MetaPath)
 	if err != nil {
 		return statusNotFound
 	}
 
-	r.contentType = meta.ContentType
-	lastModified := time.Unix(meta.LastModified, 0)
 	cachedAt := time.Unix(meta.CachedAt, 0)
-	expires := time.Unix(meta.Expires, 0)
+
+	var lastModified time.Time
+	if lm, ok := meta.Headers["Last-Modified"]; ok {
+		if parsed, err := time.Parse(time.RFC1123, lm); err == nil {
+			lastModified = parsed
+		}
+	}
+
+	var expires time.Time
+	if exp, ok := meta.Headers["Expires"]; ok {
+		if parsed, err := time.Parse(time.RFC1123, exp); err == nil {
+			expires = parsed
+		}
+	}
 
 	if r.ttl > 0 {
 		if time.Since(cachedAt) > r.ttl {
@@ -235,7 +243,7 @@ func (r *Reader) newDirectReader(ctx context.Context) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	r.res = resp
+	r.originResponse = resp
 	r.contentType = resp.Header.Get("Content-Type")
 
 	if r.isGzippedContent(resp) {
@@ -266,7 +274,7 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	r.res = resp
+	r.originResponse = resp
 	r.contentType = resp.Header.Get("Content-Type")
 
 	err = r.CreateCacheFile()
@@ -294,7 +302,7 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 			_ = sc.Close()
 			return nil, fmt.Errorf("failed to create gzip writer: %w", err)
 		}
-		r.writer = gzipW
+		r.gzipWriter = gzipW
 		reader = ioutil.NewReaderWithCloser(io.TeeReader(sc, gzipW), gzipW.Close)
 	}
 

@@ -18,7 +18,9 @@ type Server struct {
 	router  *mux.Router
 	server  *http.Server
 	manager *client.Manager
-	cache   *cache.Cache
+
+	cache      *cache.Cache
+	httpClient *http.Client
 
 	demux *demux.Demuxer
 
@@ -43,6 +45,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		router:     mux.NewRouter(),
 		manager:    m,
 		cache:      c,
+		httpClient: c.NewCachedHTTPClient(),
 		demux:      streamManager,
 		serverURL:  cfg.PublicURL.String(),
 		listenAddr: cfg.ListenAddr,

@@ -34,7 +34,7 @@ func TestNewCache(t *testing.T) {
 			t.Errorf("expected ttl %v, got %v", ttl, cache.ttl)
 		}
 
-		if cache.httpClient == nil {
+		if cache.directHttpClient == nil {
 			t.Error("expected httpClient to be set")
 		}
 
@@ -313,10 +313,8 @@ func TestNewDirectHTTPClient(t *testing.T) {
 
 func createTestMetadata(path string, cachedAt int64) error {
 	metadata := Metadata{
-		LastModified: time.Now().Add(-2 * time.Hour).Unix(),
-		CachedAt:     cachedAt,
-		ContentType:  "text/plain",
-		Headers:      make(map[string]string),
+		CachedAt: cachedAt,
+		Headers:  make(map[string]string, len(forwardedHeaders)),
 	}
 
 	file, err := os.Create(path)

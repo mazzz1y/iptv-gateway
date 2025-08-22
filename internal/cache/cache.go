@@ -15,11 +15,11 @@ import (
 )
 
 type Cache struct {
-	httpClient    *http.Client
-	dir           string
-	ttl           time.Duration
-	cleanupTicker *time.Ticker
-	doneCh        chan struct{}
+	directHttpClient *http.Client
+	dir              string
+	ttl              time.Duration
+	cleanupTicker    *time.Ticker
+	doneCh           chan struct{}
 }
 
 func NewCache(cacheDir string, ttl time.Duration) (*Cache, error) {
@@ -28,11 +28,11 @@ func NewCache(cacheDir string, ttl time.Duration) (*Cache, error) {
 	}
 
 	cache := &Cache{
-		dir:           cacheDir,
-		ttl:           ttl,
-		cleanupTicker: time.NewTicker(24 * time.Hour),
-		doneCh:        make(chan struct{}),
-		httpClient:    newDirectHTTPClient(),
+		dir:              cacheDir,
+		ttl:              ttl,
+		cleanupTicker:    time.NewTicker(24 * time.Hour),
+		doneCh:           make(chan struct{}),
+		directHttpClient: newDirectHTTPClient(),
 	}
 
 	go cache.cleanupRoutine(cacheDir, ttl)
@@ -61,7 +61,7 @@ func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
 		Name:     name,
 		FilePath: filepath.Join(c.dir, name+fileExtension),
 		MetaPath: filepath.Join(c.dir, name+metaExtension),
-		client:   c.httpClient,
+		client:   c.directHttpClient,
 		ttl:      c.ttl,
 	}
 
@@ -172,7 +172,7 @@ func (c *Cache) cleanExpired(cacheDir string, ttl time.Duration) error {
 			isExpired := false
 			if ttl > 0 {
 				metaPath := filepath.Join(cacheDir, fileName)
-				metadata, err := ReadMetadata(metaPath)
+				metadata, err := readMetadata(metaPath)
 				if err == nil && now.Sub(time.Unix(metadata.CachedAt, 0)) > ttl {
 					isExpired = true
 				}
