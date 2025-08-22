@@ -17,6 +17,7 @@ type Config struct {
 	Secret        string                  `yaml:"secret"`
 	Cache         CacheConfig             `yaml:"cache"`
 	Proxy         Proxy                   `yaml:"proxy"`
+	MetricsAddr   string                  `yaml:"metrics_addr,omitempty"`
 	Clients       map[string]Client       `yaml:"clients"`
 	Subscriptions map[string]Subscription `yaml:"subscriptions"`
 	Rules         []RuleAction            `yaml:"rules,omitempty"`
@@ -27,6 +28,8 @@ type CacheConfig struct {
 	Path string `yaml:"path"`
 	TTL  TTL    `yaml:"ttl"`
 }
+
+
 
 type TTL time.Duration
 

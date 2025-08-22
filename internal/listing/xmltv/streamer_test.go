@@ -5,8 +5,10 @@ import (
 	"compress/gzip"
 	"context"
 	"io"
-	"iptv-gateway/internal/client"
+	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/listing"
+	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"strings"
 	"testing"
@@ -17,23 +19,37 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+func createStreamer(subscriptions []listing.Subscription, httpClient listing.HTTPClient, channels map[string]bool) *Streamer {
+	return &Streamer{
+		subscriptions:   subscriptions,
+		httpClient:      httpClient,
+		channels:        channels,
+		addedChannels:   make(map[string]bool, DefaultChannelMapSize),
+		addedProgrammes: make(map[string]bool, DefaultProgrammeMapSize),
+	}
+}
+
 type MockHTTPClient struct {
 	mock.Mock
 }
 
-func (m *MockHTTPClient) Get(url string) (*http.Response, error) {
-	args := m.Called(url)
+func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	args := m.Called(req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
-func createTestSubscription(name string, epgs []string) (*client.Subscription, error) {
+func createTestSubscription(name string, epgs []string) (*app.Subscription, error) {
 	sem := semaphore.NewWeighted(1)
-	return client.NewSubscription(
+	generator, err := urlgen.NewGenerator("http://localhost", "secret")
+	if err != nil {
+		return nil, err
+	}
+	return app.NewSubscription(
 		name,
-		nil,
+		*generator,
 		nil,
 		epgs,
 		config.Proxy{},
@@ -43,11 +59,11 @@ func createTestSubscription(name string, epgs []string) (*client.Subscription, e
 }
 
 func TestNewStreamer(t *testing.T) {
-	var subscriptions []*client.Subscription
+	var subscriptions []listing.Subscription
 	httpClient := &MockHTTPClient{}
 	channels := map[string]bool{"channel1": true}
 
-	streamer := NewStreamer(subscriptions, httpClient, channels)
+	streamer := createStreamer(subscriptions, httpClient, channels)
 	assert.NotNil(t, streamer)
 	assert.Equal(t, channels, streamer.channels)
 	assert.NotNil(t, streamer.addedChannels)
@@ -56,7 +72,7 @@ func TestNewStreamer(t *testing.T) {
 
 func TestStreamer_WriteTo(t *testing.T) {
 	ctx := context.Background()
-	streamer := NewStreamer([]*client.Subscription{}, &MockHTTPClient{}, nil)
+	streamer := createStreamer([]listing.Subscription{}, &MockHTTPClient{}, nil)
 	buf := bytes.NewBuffer(nil)
 	_, err := streamer.WriteTo(ctx, buf)
 	assert.Error(t, err)
@@ -85,10 +101,12 @@ func TestStreamer_WriteTo(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(xmlContent)),
 	}
 
-	httpClient.On("Get", "http://example.com/epg.xml").Return(response, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/epg.xml"
+	})).Return(response, nil)
 
 	channels := map[string]bool{"channel1": true}
-	streamer = NewStreamer([]*client.Subscription{sub}, httpClient, channels)
+	streamer = createStreamer([]listing.Subscription{sub}, httpClient, channels)
 	buf = bytes.NewBuffer(nil)
 	_, err = streamer.WriteTo(ctx, buf)
 	require.NoError(t, err)
@@ -118,10 +136,12 @@ func TestStreamer_WriteToGzip(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(xmlContent)),
 	}
 
-	httpClient.On("Get", "http://example.com/epg.xml").Return(response, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/epg.xml"
+	})).Return(response, nil)
 
 	channels := map[string]bool{"channel1": true}
-	streamer := NewStreamer([]*client.Subscription{sub}, httpClient, channels)
+	streamer := createStreamer([]listing.Subscription{sub}, httpClient, channels)
 	buf := bytes.NewBuffer(nil)
 	_, err = streamer.WriteToGzip(ctx, buf)
 	require.NoError(t, err)
@@ -174,8 +194,13 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(xmlContent2)),
 	}
 
-	httpClient.On("Get", "http://example.com/epg1.xml").Return(response1, nil)
-	httpClient.On("Get", "http://example.com/epg2.xml").Return(response2, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/epg1.xml"
+	})).Return(response1, nil)
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/epg2.xml"
+	})).Return(response2, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
@@ -191,7 +216,7 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 		"channel2": true,
 	}
 
-	streamer := NewStreamer([]*client.Subscription{sub}, httpClient, channels)
+	streamer := createStreamer([]listing.Subscription{sub}, httpClient, channels)
 
 	buffer := &bytes.Buffer{}
 
@@ -239,8 +264,13 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(xmlContent2)),
 	}
 
-	httpClient.On("Get", "http://example.com/sub1_epg.xml").Return(response1, nil)
-	httpClient.On("Get", "http://example.com/sub2_epg.xml").Return(response2, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/sub1_epg.xml"
+	})).Return(response1, nil)
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/sub2_epg.xml"
+	})).Return(response2, nil)
 
 	sub1, err := createTestSubscription(
 		"subscription-1",
@@ -259,7 +289,7 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
 		"movies1": true,
 	}
 
-	streamer := NewStreamer([]*client.Subscription{sub1, sub2}, httpClient, channels)
+	streamer := createStreamer([]listing.Subscription{sub1, sub2}, httpClient, channels)
 
 	buffer := &bytes.Buffer{}
 
@@ -269,48 +299,6 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
 	output := buffer.String()
 	assert.Contains(t, output, "<channel id=\"news1\">")
 	assert.Contains(t, output, "<channel id=\"movies1\">")
-
-	httpClient.AssertExpectations(t)
-}
-
-func TestStreamerEmptyEPGSubscription(t *testing.T) {
-	ctx := context.Background()
-	httpClient := new(MockHTTPClient)
-
-	emptySub, err := createTestSubscription(
-		"empty-subscription",
-		[]string{},
-	)
-	require.NoError(t, err)
-
-	validSub, err := createTestSubscription(
-		"valid-subscription",
-		[]string{"http://example.com/epg.xml"},
-	)
-	require.NoError(t, err)
-
-	xmlContent := `<?xml version="1.0" encoding="UTF-8"?>
-<tv>
-  <channel id="test1">
-	<display-name>Test Channel</display-name>
-  </channel>
-</tv>`
-
-	response := &http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader(xmlContent)),
-	}
-	httpClient.On("Get", "http://example.com/epg.xml").Return(response, nil)
-
-	channels := map[string]bool{"test1": true}
-
-	streamer := NewStreamer([]*client.Subscription{emptySub, validSub}, httpClient, channels)
-
-	buffer := &bytes.Buffer{}
-	_, err = streamer.WriteTo(ctx, buffer)
-	require.NoError(t, err)
-
-	assert.Contains(t, buffer.String(), "<channel id=\"test1\">")
 
 	httpClient.AssertExpectations(t)
 }

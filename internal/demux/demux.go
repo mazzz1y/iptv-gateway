@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
-	"iptv-gateway/internal/constant"
+	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/logging"
+	"iptv-gateway/internal/metrics"
 	"iptv-gateway/internal/utils"
 	"sync"
 
@@ -68,7 +69,7 @@ func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
 
 	pr, pw := io.Pipe()
 
-	ctx := context.WithValue(req.Context, constant.ContextStreamID, req.StreamKey)
+	ctx := ctxutil.WithStreamID(req.Context, req.StreamKey)
 
 	go func() {
 		<-ctx.Done()
@@ -85,6 +86,7 @@ func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
 		} else {
 			return nil, ErrSubscriptionSemaphore
 		}
+
 		go m.startStream(ctx, req, pw)
 		logging.Info(ctx, "started new stream")
 	} else {
@@ -109,9 +111,12 @@ func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 		return
 	}
 
-	streamID := ctx.Value(constant.ContextStreamID).(string)
-	streamCtx, cancel := context.WithCancel(
-		context.WithValue(context.Background(), constant.ContextStreamID, streamID))
+	subscriptionName := ctxutil.SubscriptionName(ctx)
+	channelID := ctxutil.ChannelID(ctx)
+	metrics.BackendStreamsActive.WithLabelValues(subscriptionName, channelID).Inc()
+
+	streamID := ctxutil.StreamID(ctx)
+	streamCtx, cancel := context.WithCancel(ctxutil.WithStreamID(context.Background(), streamID))
 	defer cancel()
 
 	go func() {
@@ -122,6 +127,12 @@ func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 			defer req.Semaphore.Release(1)
 			defer logging.Debug(ctx, "releasing subscription semaphore")
 		}
+
+		defer func() {
+			subscriptionName := ctxutil.SubscriptionName(ctx)
+			channelID := ctxutil.ChannelID(ctx)
+			metrics.BackendStreamsActive.WithLabelValues(subscriptionName, channelID).Dec()
+		}()
 
 		select {
 		case <-emptyCh:

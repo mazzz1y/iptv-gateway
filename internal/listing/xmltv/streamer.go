@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/client"
-	"iptv-gateway/internal/constant"
+	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/ioutil"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/parser/xmltv"
 	"iptv-gateway/internal/urlgen"
+	"net/http"
 	"sync"
 	"syscall"
 	"time"
@@ -23,7 +23,7 @@ const (
 )
 
 type Streamer struct {
-	subscriptions       []*client.Subscription
+	subscriptions       []listing.Subscription
 	httpClient          listing.HTTPClient
 	channels            map[string]bool
 	addedChannels       map[string]bool
@@ -32,8 +32,11 @@ type Streamer struct {
 	mu                  sync.Mutex
 }
 
-func NewStreamer(
-	subscriptions []*client.Subscription, httpClient listing.HTTPClient, channels map[string]bool) *Streamer {
+func NewStreamer(subs []*app.Subscription, httpClient listing.HTTPClient, channels map[string]bool) *Streamer {
+	subscriptions := make([]listing.Subscription, len(subs))
+	for i, sub := range subs {
+		subscriptions[i] = sub
+	}
 	return &Streamer{
 		subscriptions:   subscriptions,
 		httpClient:      httpClient,
@@ -44,7 +47,7 @@ func NewStreamer(
 }
 
 func (s *Streamer) WriteToGzip(ctx context.Context, w io.Writer) (int64, error) {
-	gzWriter, _ := gzip.NewWriterLevel(w, constant.GzipLevel)
+	gzWriter, _ := gzip.NewWriterLevel(w, gzip.BestSpeed)
 	defer gzWriter.Close()
 
 	return s.WriteTo(ctx, gzWriter)
@@ -59,7 +62,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	encoder := xmltv.NewEncoder(bytesCounter)
 	defer encoder.Close()
 
-	decoders, err := s.initDecoders()
+	decoders, err := s.initDecoders(ctx)
 	if err != nil {
 		return bytesCounter.Count(), err
 	}
@@ -86,19 +89,23 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	return count, nil
 }
 
-func (s *Streamer) initDecoders() ([]*decoderWrapper, error) {
+func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) {
 	var decoders []*decoderWrapper
 
 	for _, sub := range s.subscriptions {
-		epgs := sub.GetEPGs()
-		for _, epgURL := range epgs {
-			resp, err := s.httpClient.Get(epgURL)
+		for _, epgURL := range sub.GetEPGs() {
+			req, err := http.NewRequestWithContext(ctx, "GET", epgURL, nil)
 			if err != nil {
-				for _, d := range decoders {
-					d.Close()
-				}
-				return nil, fmt.Errorf("failed to create xmltv reader: %v", err)
+				s.closeDecoders(decoders)
+				return nil, fmt.Errorf("failed to create request: %w", err)
 			}
+
+			resp, err := s.httpClient.Do(req)
+			if err != nil {
+				s.closeDecoders(decoders)
+				return nil, fmt.Errorf("failed to fetch EPG: %w", err)
+			}
+
 			decoder := xmltv.NewDecoder(resp.Body)
 			decoders = append(decoders, &decoderWrapper{
 				decoder:      decoder,
@@ -111,6 +118,11 @@ func (s *Streamer) initDecoders() ([]*decoderWrapper, error) {
 	return decoders, nil
 }
 
+func (s *Streamer) closeDecoders(decoders []*decoderWrapper) {
+	for _, d := range decoders {
+		d.Close()
+	}
+}
 func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapper, encoder xmltv.Encoder) error {
 	return listing.Process(
 		ctx,

@@ -1,6 +1,8 @@
 package listing
 
 import (
+	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"net/url"
@@ -8,7 +10,7 @@ import (
 )
 
 type HTTPClient interface {
-	Get(url string) (*http.Response, error)
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type Decoder interface {
@@ -17,4 +19,14 @@ type Decoder interface {
 
 type URLGenerator interface {
 	CreateURL(data urlgen.Data, ttl time.Duration) (*url.URL, error)
+}
+
+type Subscription interface {
+	GetPlaylists() []string
+	GetEPGs() []string
+	GetURLGenerator() *urlgen.Generator
+	GetRules() []config.RuleAction
+	IsProxied() bool
+	GetName() string
+	ExpiredCommandStreamer() *shell.Streamer
 }

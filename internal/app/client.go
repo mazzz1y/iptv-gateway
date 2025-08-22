@@ -1,4 +1,4 @@
-package client
+package app
 
 import (
 	"fmt"
@@ -19,23 +19,23 @@ type Client struct {
 	secret        string
 }
 
-func NewClient(name string, clientConfig config.Client, presets []config.Preset, publicUrl string) (*Client, error) {
-	if clientConfig.Secret == "" {
+func NewClient(name string, clientCfg config.Client, presets []config.Preset, publicUrl string) (*Client, error) {
+	if clientCfg.Secret == "" {
 		return nil, fmt.Errorf("client secret cannot be empty")
 	}
 
 	var sem *semaphore.Weighted
-	if clientConfig.Proxy.ConcurrentStreams > 0 {
-		sem = semaphore.NewWeighted(clientConfig.Proxy.ConcurrentStreams)
+	if clientCfg.Proxy.ConcurrentStreams > 0 {
+		sem = semaphore.NewWeighted(clientCfg.Proxy.ConcurrentStreams)
 	}
 
 	return &Client{
 		name:      name,
 		semaphore: sem,
 		presets:   presets,
-		proxy:     clientConfig.Proxy,
-		secret:    clientConfig.Secret,
-		epgLink:   fmt.Sprintf("%s/%s/epg.xml.gz", publicUrl, clientConfig.Secret),
+		proxy:     clientCfg.Proxy,
+		secret:    clientCfg.Secret,
+		epgLink:   fmt.Sprintf("%s/%s/epg.xml.gz", publicUrl, clientCfg.Secret),
 	}, nil
 }
 
@@ -75,10 +75,6 @@ func (c *Client) AddSubscription(
 
 func (c *Client) GetEpgLink() string {
 	return c.epgLink
-}
-
-func (c *Client) IsCorrectSecret(secret string) bool {
-	return c.secret == secret
 }
 
 func (c *Client) GetName() string {

@@ -1,4 +1,4 @@
-package client
+package app
 
 import (
 	"iptv-gateway/internal/config"

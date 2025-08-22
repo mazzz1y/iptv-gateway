@@ -1,12 +1,9 @@
 package server
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
-	"iptv-gateway/internal/client"
-	"iptv-gateway/internal/constant"
+	"iptv-gateway/internal/app"
+	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
@@ -27,9 +24,7 @@ func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
 
 func (s *Server) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b := make([]byte, 4)
-		rand.Read(b)
-		ctx := context.WithValue(r.Context(), constant.ContextRequestID, hex.EncodeToString(b))
+		ctx := ctxutil.WithRequestID(r.Context())
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -37,7 +32,7 @@ func (s *Server) requestIDMiddleware(next http.Handler) http.Handler {
 func (s *Server) authenticationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		secret, ok := vars["secret"]
+		secret, ok := vars[muxSecretVar]
 		if !ok || secret == "" {
 			logging.Error(r.Context(), nil, "authentication failed: no secret")
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
@@ -51,9 +46,7 @@ func (s *Server) authenticationMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), constant.ContextClient, c)
-		ctx = context.WithValue(ctx, constant.ContextClientName, c.GetName())
-
+		ctx := ctxutil.WithClient(r.Context(), c)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -61,29 +54,25 @@ func (s *Server) authenticationMiddleware(next http.Handler) http.Handler {
 func (s *Server) decryptProxyDataMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-
-		pp, ok := vars["encrypted_data"]
+		pp, ok := vars[muxEncryptedDataVar]
 		if !ok {
 			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 
-		c, _ := r.Context().Value(constant.ContextClient).(*client.Client)
-
+		c := ctxutil.Client(r.Context()).(*app.Client)
 		for _, sub := range c.GetSubscriptions() {
 			urlGen := sub.GetURLGenerator()
 			if urlGen != nil {
 				data, err := urlGen.Decrypt(pp)
 				if err == nil {
-					ctx := context.WithValue(r.Context(), constant.ContextSubscription, sub)
-					ctx = context.WithValue(ctx, constant.ContextSubscriptionName, sub.GetName())
-					ctx = context.WithValue(ctx, constant.ContextStreamData, data)
+					ctx := ctxutil.WithSubscription(r.Context(), sub)
+					ctx = ctxutil.WithStreamData(ctx, data)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
 				if errors.Is(err, urlgen.ErrExpiredStreamURL) {
-					ctx := context.WithValue(r.Context(), constant.ContextSubscription, sub)
-					ctx = context.WithValue(ctx, constant.ContextSubscriptionName, sub.GetName())
+					ctx := ctxutil.WithSubscription(r.Context(), sub)
 					sub.ExpiredCommandStreamer().Stream(ctx, w)
 					return
 				}

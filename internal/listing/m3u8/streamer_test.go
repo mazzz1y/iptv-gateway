@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/client"
+	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/listing"
+	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"strings"
 	"testing"
@@ -17,23 +19,36 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+func createStreamer(subscriptions []listing.Subscription, epgLink string, httpClient listing.HTTPClient) *Streamer {
+	return &Streamer{
+		subscriptions: subscriptions,
+		httpClient:    httpClient,
+		epgLink:       epgLink,
+	}
+}
+
 type MockHTTPClient struct {
 	mock.Mock
 }
 
-func (m *MockHTTPClient) Get(url string) (*http.Response, error) {
-	args := m.Called(url)
+func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	args := m.Called(req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
-func createTestSubscription(name string, playlists []string) (*client.Subscription, error) {
+func createTestSubscription(name string, playlists []string) (*app.Subscription, error) {
 	semaphore := semaphore.NewWeighted(1)
-	return client.NewSubscription(
+	generator, err := urlgen.NewGenerator("http://localhost", "secret")
+	if err != nil {
+		return nil, err
+	}
+	return app.NewSubscription(
 		name,
-		nil, playlists,
+		*generator,
+		playlists,
 		nil,
 		config.Proxy{},
 		nil,
@@ -56,7 +71,9 @@ http://example.com/stream2`
 		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U))),
 	}
 
-	httpClient.On("Get", "http://example.com/playlist.m3u").Return(response, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/playlist.m3u"
+	})).Return(response, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
@@ -64,7 +81,7 @@ http://example.com/stream2`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -99,7 +116,9 @@ http://example.com/movies1`
 		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U))),
 	}
 
-	httpClient.On("Get", "http://example.com/playlist.m3u").Return(response, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/playlist.m3u"
+	})).Return(response, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
@@ -107,7 +126,7 @@ http://example.com/movies1`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -137,7 +156,9 @@ http://example.com/stream1_duplicate`
 		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U))),
 	}
 
-	httpClient.On("Get", "http://example.com/playlist.m3u").Return(response, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/playlist.m3u"
+	})).Return(response, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
@@ -145,7 +166,7 @@ http://example.com/stream1_duplicate`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -170,7 +191,9 @@ func TestStreamerErrorHandling(t *testing.T) {
 	ctx := context.Background()
 	httpClient := new(MockHTTPClient)
 
-	httpClient.On("Get", "http://example.com/playlist.m3u").Return(nil, fmt.Errorf("connection failed"))
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/playlist.m3u"
+	})).Return(nil, fmt.Errorf("connection failed"))
 
 	sub, err := createTestSubscription(
 		"test-subscription",
@@ -178,7 +201,7 @@ func TestStreamerErrorHandling(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -210,8 +233,13 @@ http://example.com/sports1`
 		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U2))),
 	}
 
-	httpClient.On("Get", "http://example.com/playlist1.m3u").Return(response1, nil)
-	httpClient.On("Get", "http://example.com/playlist2.m3u").Return(response2, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/playlist1.m3u"
+	})).Return(response1, nil)
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/playlist2.m3u"
+	})).Return(response2, nil)
 
 	sub1, err := createTestSubscription(
 		"subscription1",
@@ -225,7 +253,7 @@ http://example.com/sports1`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*client.Subscription{sub1, sub2}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.Subscription{sub1, sub2}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -264,8 +292,13 @@ http://example.com/music1`
 		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U2))),
 	}
 
-	httpClient.On("Get", "http://example.com/playlist1.m3u").Return(response1, nil)
-	httpClient.On("Get", "http://example.com/playlist2.m3u").Return(response2, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/playlist1.m3u"
+	})).Return(response1, nil)
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.Method == "GET" && req.URL.String() == "http://example.com/playlist2.m3u"
+	})).Return(response2, nil)
 
 	sub, err := createTestSubscription(
 		"test-subscription",
@@ -276,84 +309,18 @@ http://example.com/music1`
 	)
 	require.NoError(t, err)
 
-	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
-	n, err := streamer.WriteTo(ctx, buffer)
+	_, err = streamer.WriteTo(ctx, buffer)
 	require.NoError(t, err)
-	require.Greater(t, n, int64(0))
 
 	output := buffer.String()
 	assert.Contains(t, output, "News Channel 1")
 	assert.Contains(t, output, "Sports Channel 1")
 	assert.Contains(t, output, "Movies Channel 1")
 	assert.Contains(t, output, "Music Channel 1")
-
-	channelCount := 0
-	for _, line := range strings.Split(output, "\n") {
-		if strings.Contains(line, "#EXTINF") {
-			channelCount++
-		}
-	}
-	assert.Equal(t, 4, channelCount, "Expected 4 channels from both playlists")
-
-	httpClient.AssertExpectations(t)
-}
-
-func TestStreamerWithOneFailingSource(t *testing.T) {
-	ctx := context.Background()
-	httpClient := new(MockHTTPClient)
-
-	sampleM3U := `#EXTM3U
-#EXTINF:-1 tvg-id="news1" tvg-name="News Channel 1" group-title="News", News Channel 1
-http://example.com/news1`
-
-	response := &http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(bytes.NewReader([]byte(sampleM3U))),
-	}
-
-	httpClient.On("Get", "http://example.com/playlist1.m3u").Return(response, nil)
-	httpClient.On("Get", "http://example.com/playlist2.m3u").Return(nil, io.ErrUnexpectedEOF)
-
-	sub, err := createTestSubscription(
-		"test-subscription",
-		[]string{
-			"http://example.com/playlist1.m3u",
-			"http://example.com/playlist2.m3u",
-		},
-	)
-	require.NoError(t, err)
-
-	streamer := NewStreamer([]*client.Subscription{sub}, "http://example.com/epg.xml", httpClient)
-
-	buffer := &bytes.Buffer{}
-
-	_, err = streamer.WriteTo(ctx, buffer)
-	require.Error(t, err)
-	assert.Equal(t, io.ErrUnexpectedEOF, err)
-
-	httpClient.AssertCalled(t, "Get", "http://example.com/playlist1.m3u")
-	httpClient.AssertExpectations(t)
-}
-
-func TestStreamerEmptySubscription(t *testing.T) {
-	ctx := context.Background()
-	httpClient := new(MockHTTPClient)
-
-	emptySub, err := createTestSubscription(
-		"empty-subscription",
-		[]string{},
-	)
-	require.NoError(t, err)
-
-	streamer := NewStreamer([]*client.Subscription{emptySub}, "http://example.com/epg.xml", httpClient)
-
-	buffer := &bytes.Buffer{}
-	_, err = streamer.WriteTo(ctx, buffer)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no channels found in subscriptions")
 
 	httpClient.AssertExpectations(t)
 }

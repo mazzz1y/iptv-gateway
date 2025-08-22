@@ -7,12 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/client"
-	"iptv-gateway/internal/constant"
+	"iptv-gateway/internal/app"
+	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/demux"
 	"iptv-gateway/internal/listing/m3u8"
 	"iptv-gateway/internal/listing/xmltv"
 	"iptv-gateway/internal/logging"
+	"iptv-gateway/internal/metrics"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"time"
@@ -24,7 +25,9 @@ const (
 
 func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	c := ctx.Value(constant.ContextClient).(*client.Client)
+	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypePlaylist)
+
+	c := ctxutil.Client(ctx).(*app.Client)
 
 	logging.Debug(ctx, "playlist request")
 
@@ -37,10 +40,14 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
+	metrics.ListingDownload.WithLabelValues(c.GetName(), metrics.RequestTypePlaylist).Inc()
 }
 
 func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypeEPG)
+
 	logging.Info(ctx, "epg request")
 
 	streamer, err := s.prepareEPGStreamer(ctx)
@@ -57,10 +64,15 @@ func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
+	c := ctxutil.Client(ctx).(*app.Client)
+	metrics.ListingDownload.WithLabelValues(c.GetName(), metrics.RequestTypeEPG).Inc()
 }
 
 func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypeEPG)
+
 	logging.Debug(ctx, "gzipped epg request")
 
 	streamer, err := s.prepareEPGStreamer(ctx)
@@ -78,11 +90,14 @@ func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
+	c := ctxutil.Client(ctx).(*app.Client)
+	metrics.ListingDownload.WithLabelValues(c.GetName(), metrics.RequestTypeEPG).Inc()
 }
 
 func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	data := ctx.Value(constant.ContextStreamData).(*urlgen.Data)
+	data := ctxutil.StreamData(ctx).(*urlgen.Data)
 
 	logging.Debug(ctx, "handling proxy request", "type", data.RequestType)
 
@@ -99,8 +114,16 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, data *urlgen.Data) {
 	logging.Debug(ctx, "proxying file", "url", data.URL)
+	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypeFile)
 
-	resp, err := s.httpClient.Get(data.URL)
+	req, err := http.NewRequestWithContext(ctx, "GET", data.URL, nil)
+	if err != nil {
+		logging.Error(ctx, err, "failed to create request")
+		http.Error(w, "Failed to create request", http.StatusBadGateway)
+		return
+	}
+
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		logging.Error(ctx, err, "file proxy failed")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -129,7 +152,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error) {
-	c := ctx.Value(constant.ContextClient).(*client.Client)
+	c := ctxutil.Client(ctx).(*app.Client)
 
 	m3u8Streamer := m3u8.NewStreamer(c.GetSubscriptions(), "", s.httpClient)
 	channels, err := m3u8Streamer.GetAllChannels(ctx)
@@ -144,9 +167,13 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	logging.Debug(ctx, "proxying stream")
 
-	subscription := ctx.Value(constant.ContextSubscription).(*client.Subscription)
-	data := ctx.Value(constant.ContextStreamData).(*urlgen.Data)
-	ctx = context.WithValue(ctx, constant.ContextChannelID, data.ChannelID)
+	subscription := ctxutil.Subscription(ctx).(*app.Subscription)
+	data := ctxutil.StreamData(ctx).(*urlgen.Data)
+	ctx = ctxutil.WithChannelID(ctx, data.ChannelID)
+	clientName := ctxutil.ClientName(ctx)
+
+	metrics.ClientStreamsActive.WithLabelValues(clientName, subscription.GetName(), data.ChannelID).Inc()
+	defer metrics.ClientStreamsActive.WithLabelValues(clientName, subscription.GetName(), data.ChannelID).Dec()
 
 	streamKey := generateStreamKey(data.URL, r.URL.RawQuery)
 
@@ -179,6 +206,8 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	reader, err := s.demux.GetReader(demuxReq)
 	if errors.Is(err, demux.ErrSubscriptionSemaphore) {
 		logging.Error(ctx, err, "failed to get stream")
+		metrics.StreamsFailures.WithLabelValues(
+			clientName, subscription.GetName(), data.ChannelID, metrics.FailureReasonSubscriptionLimit).Inc()
 		subscription.LimitStreamer().Stream(ctx, w)
 		return
 	}
@@ -194,6 +223,8 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 
 	if err == nil && written == 0 {
 		logging.Error(ctx, errors.New("no data written to response"), "")
+		metrics.StreamsFailures.WithLabelValues(
+			clientName, subscription.GetName(), data.ChannelID, metrics.FailureReasonUpstreamError).Inc()
 		subscription.UpstreamErrorStreamer().Stream(ctx, w)
 		return
 	}

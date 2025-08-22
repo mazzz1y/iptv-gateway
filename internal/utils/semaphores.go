@@ -3,8 +3,9 @@ package utils
 import (
 	"context"
 	"errors"
-	"iptv-gateway/internal/constant"
+	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/logging"
+	"time"
 
 	"golang.org/x/sync/semaphore"
 )
@@ -14,8 +15,8 @@ func AcquireSemaphore(ctx context.Context, sem *semaphore.Weighted, name string)
 		return true
 	}
 
-	semCtx, cancel := context.WithTimeout(ctx, constant.SemaphoreTimeout)
-	semCtx = context.WithValue(semCtx, constant.ContextSemaphoreName, name)
+	semCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	semCtx = ctxutil.WithSemaphoreName(semCtx, name)
 
 	defer cancel()
 

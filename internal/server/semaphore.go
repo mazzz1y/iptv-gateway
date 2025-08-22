@@ -2,9 +2,11 @@ package server
 
 import (
 	"context"
-	"errors"
-	"iptv-gateway/internal/client"
-	"iptv-gateway/internal/constant"
+	"fmt"
+	"iptv-gateway/internal/app"
+	"iptv-gateway/internal/ctxutil"
+	"iptv-gateway/internal/metrics"
+	"iptv-gateway/internal/urlgen"
 	"iptv-gateway/internal/utils"
 
 	"golang.org/x/sync/errgroup"
@@ -12,34 +14,37 @@ import (
 )
 
 func (s *Server) acquireSemaphores(ctx context.Context) bool {
-	c, _ := ctx.Value(constant.ContextClient).(*client.Client)
+	c := ctxutil.Client(ctx).(*app.Client)
+	data := ctxutil.StreamData(ctx).(*urlgen.Data)
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	acquireSem := func(sem *semaphore.Weighted, semType string) func() error {
+	acquireSem := func(sem *semaphore.Weighted, reason string) func() error {
 		return func() error {
-			if sem == nil || utils.AcquireSemaphore(gCtx, sem, semType) {
+			if sem == nil || utils.AcquireSemaphore(gCtx, sem, reason) {
 				return nil
 			}
-			return errors.New("failed to acquire " + semType + " semaphore")
+			metrics.StreamsFailures.WithLabelValues(
+				c.GetName(), ctxutil.SubscriptionName(ctx), data.ChannelID, reason).Inc()
+			return fmt.Errorf("failed to acquire semaphore: %s", reason)
 		}
 	}
 
-	if managerSem := s.manager.GetSemaphore(); managerSem != nil {
-		g.Go(acquireSem(managerSem, "global"))
+	if managerSem := s.manager.GetGlobalSemaphore(); managerSem != nil {
+		g.Go(acquireSem(managerSem, metrics.FailureReasonGlobalLimit))
 	}
 
 	if clientSem := c.GetSemaphore(); clientSem != nil {
-		g.Go(acquireSem(clientSem, "client"))
+		g.Go(acquireSem(clientSem, metrics.FailureReasonClientLimit))
 	}
 
 	return g.Wait() == nil
 }
 
 func (s *Server) releaseSemaphores(ctx context.Context) {
-	c, _ := ctx.Value(constant.ContextClient).(*client.Client)
+	c := ctxutil.Client(ctx).(*app.Client)
 
-	if managerSem := s.manager.GetSemaphore(); managerSem != nil {
+	if managerSem := s.manager.GetGlobalSemaphore(); managerSem != nil {
 		managerSem.Release(1)
 	}
 

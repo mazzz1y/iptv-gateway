@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"iptv-gateway/internal/constant"
+	"iptv-gateway/internal/ctxutil"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -122,7 +122,7 @@ func sanitizePath(path string) string {
 }
 
 func log(ctx context.Context, level slog.Level, msg string, args ...any) {
-	ctxArgs := extractContextValues(ctx)
+	ctxArgs := ctxutil.LogFields(ctx)
 	if len(ctxArgs) > 0 {
 		combinedArgs := make([]any, 0, len(ctxArgs)+len(args))
 		combinedArgs = append(combinedArgs, ctxArgs...)
@@ -133,22 +133,7 @@ func log(ctx context.Context, level slog.Level, msg string, args ...any) {
 }
 
 func extractContextValues(ctx context.Context) []any {
-	keys := []string{
-		constant.ContextRequestID,
-		constant.ContextClientName,
-		constant.ContextSubscriptionName,
-		constant.ContextStreamID,
-		constant.ContextSemaphoreName,
-		constant.ContextChannelID,
-	}
-
-	var result []any
-	for _, key := range keys {
-		if value := ctx.Value(key); value != nil {
-			result = append(result, key, value)
-		}
-	}
-	return result
+	return ctxutil.LogFields(ctx)
 }
 
 func humanizeBytes(bytes int64) string {

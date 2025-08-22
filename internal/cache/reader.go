@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/constant"
 	"iptv-gateway/internal/ioutil"
 	"net/http"
 	"os"
@@ -296,7 +295,7 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 		reader = ioutil.NewReaderWithCloser(gzipReader, gzipReader.Close)
 	} else {
 		sc := ioutil.NewCountReadCloser(resp.Body, &r.bytesDownload)
-		gzipW, err := gzip.NewWriterLevel(r.file, constant.GzipLevel)
+		gzipW, err := gzip.NewWriterLevel(r.file, gzip.BestSpeed)
 		if err != nil {
 			_ = r.file.Close()
 			_ = sc.Close()

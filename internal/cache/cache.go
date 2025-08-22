@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/logging"
+	"iptv-gateway/internal/metrics"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -69,28 +71,39 @@ func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
 
 	var err error
 	var readCloser io.ReadCloser
+	var cacheStatus string
 
 	switch s {
 	case statusValid:
 		readCloser, err = reader.newCachedReader()
 		if err == nil {
+			cacheStatus = metrics.CacheStatusHit
 			reader.ReadCloser = readCloser
 		}
 
 	case statusExpired, statusNotFound:
 		readCloser, err = reader.newCachingReader(ctx)
 		if err == nil {
+			cacheStatus = metrics.CacheStatusMiss
 			reader.ReadCloser = readCloser
 		}
 
 	default:
 		readCloser, err = reader.newDirectReader(ctx)
 		if err == nil {
+			cacheStatus = metrics.CacheStatusMiss
 			reader.ReadCloser = readCloser
 		}
 	}
 
-	logging.Debug(ctx, "file access", "cache", formatCacheStatus(s), "url", logging.SanitizeURL(url))
+	metrics.ProxyRequests.WithLabelValues(
+		ctxutil.ClientName(ctx),
+		ctxutil.RequestType(ctx),
+		cacheStatus,
+	).Inc()
+
+	logging.Debug(
+		ctx, "file access", "cache", formatCacheStatus(s), "url", logging.SanitizeURL(url))
 
 	return reader, err
 }

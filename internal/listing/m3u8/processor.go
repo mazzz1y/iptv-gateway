@@ -2,7 +2,6 @@ package m3u8
 
 import (
 	"fmt"
-	"iptv-gateway/internal/client"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
@@ -29,10 +28,10 @@ func NewProcessor() *Processor {
 }
 
 func (p *Processor) Process(
-	store *rules.Store, rulesProcessor *rules.Processor, subscriptions []*client.Subscription) ([]*rules.Channel, error) {
+	store *rules.Store, rulesProcessor *rules.Processor, subscriptions []listing.Subscription) ([]*rules.Channel, error) {
 	rulesProcessor.Process(store)
 
-	subscriptionMap := make(map[rules.Subscription]*client.Subscription)
+	subscriptionMap := make(map[rules.Subscription]listing.Subscription)
 	for _, sub := range subscriptions {
 		subscriptionMap[sub] = sub
 	}
