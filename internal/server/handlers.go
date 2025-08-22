@@ -106,19 +106,16 @@ func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, dat
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode > 299 {
-		logging.Error(ctx, fmt.Errorf("status code: %d", resp.StatusCode), "upsteam returned error")
+		logging.Error(ctx, fmt.Errorf("status code: %d", resp.StatusCode), "upstream returned error")
 		http.Error(w, http.StatusText(resp.StatusCode), resp.StatusCode)
 		return
 	}
 
-	defer resp.Body.Close()
-
 	for header, values := range resp.Header {
-		for _, value := range values {
-			w.Header().Add(header, value)
-		}
+		w.Header()[header] = values
 	}
 
 	if _, err = io.Copy(w, resp.Body); err != nil {
@@ -151,14 +148,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	data := ctx.Value(constant.ContextStreamData).(*urlgen.Data)
 	ctx = context.WithValue(ctx, constant.ContextChannelID, data.ChannelID)
 
-	var streamKey string
-	url := data.URL
-	if r.URL.RawQuery != "" {
-		url += "?" + r.URL.RawQuery
-		streamKey = generateHash(url, time.Now().Unix())
-	} else {
-		streamKey = generateHash(data.URL)
-	}
+	streamKey := generateStreamKey(data.URL, r.URL.RawQuery)
 
 	if !s.acquireSemaphores(ctx) {
 		logging.Error(ctx, errors.New("failed to acquire semaphores"), "")
@@ -166,6 +156,11 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		return
 	}
 	defer s.releaseSemaphores(ctx)
+
+	url := data.URL
+	if r.URL.RawQuery != "" {
+		url += "?" + r.URL.RawQuery
+	}
 
 	streamSource := subscription.LinkStreamer(url)
 	if streamSource == nil {
@@ -200,11 +195,19 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	if err == nil && written == 0 {
 		logging.Error(ctx, errors.New("no data written to response"), "")
 		subscription.UpstreamErrorStreamer().Stream(ctx, w)
+		return
 	}
 
 	if err != nil && !errors.Is(err, io.ErrClosedPipe) {
 		logging.Error(ctx, err, "error copying stream to response")
 	}
+}
+
+func generateStreamKey(url, query string) string {
+	if query != "" {
+		return generateHash(url+"?"+query, time.Now().Unix())
+	}
+	return generateHash(url)
 }
 
 func generateHash(parts ...any) string {

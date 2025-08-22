@@ -5,23 +5,16 @@ import (
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
-	"net/url"
-	"time"
 
 	"golang.org/x/sync/semaphore"
 )
-
-type URLGenerator interface {
-	CreateURL(data urlgen.Data, ttl time.Duration) (*url.URL, error)
-	Decrypt(s string) (*urlgen.Data, error)
-}
 
 type Subscription struct {
 	name      string
 	playlists []string
 	epgs      []string
 
-	urlGenerator URLGenerator
+	urlGenerator *urlgen.Generator
 	semaphore    *semaphore.Weighted
 	rules        []config.RuleAction
 
@@ -34,7 +27,7 @@ type Subscription struct {
 }
 
 func NewSubscription(
-	name string, urlGen URLGenerator, playlists []string, epgs []string,
+	name string, urlGen urlgen.Generator, playlists []string, epgs []string,
 	proxy config.Proxy, r []config.RuleAction, sem *semaphore.Weighted) (*Subscription, error) {
 
 	streamStreamer, err := shell.NewShellStreamer(
@@ -75,7 +68,7 @@ func NewSubscription(
 
 	return &Subscription{
 		name:                  name,
-		urlGenerator:          urlGen,
+		urlGenerator:          &urlGen,
 		playlists:             playlists,
 		epgs:                  epgs,
 		semaphore:             sem,
@@ -100,7 +93,7 @@ func (s *Subscription) GetEPGs() []string {
 	return s.epgs
 }
 
-func (s *Subscription) GetURLGenerator() URLGenerator {
+func (s *Subscription) GetURLGenerator() *urlgen.Generator {
 	return s.urlGenerator
 }
 func (s *Subscription) GetRules() []config.RuleAction {

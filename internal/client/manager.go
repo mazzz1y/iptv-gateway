@@ -105,7 +105,7 @@ func (m *Manager) addSubscriptionsToClient(clientInstance *Client, clientName st
 		}
 
 		err = clientInstance.AddSubscription(
-			subName, subConf, urlGen,
+			subName, subConf, *urlGen,
 			m.config.Rules, m.config.Proxy,
 			m.subSemaphores[subName])
 		if err != nil {

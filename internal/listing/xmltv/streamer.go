@@ -28,7 +28,7 @@ type Streamer struct {
 	channels            map[string]bool
 	addedChannels       map[string]bool
 	addedProgrammes     map[string]bool
-	currentURLGenerator *urlgen.Generator
+	currentURLGenerator listing.URLGenerator
 	mu                  sync.Mutex
 }
 
@@ -59,7 +59,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	encoder := xmltv.NewEncoder(bytesCounter)
 	defer encoder.Close()
 
-	decoders, err := s.initDecoders(ctx)
+	decoders, err := s.initDecoders()
 	if err != nil {
 		return bytesCounter.Count(), err
 	}
@@ -86,7 +86,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	return count, nil
 }
 
-func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) {
+func (s *Streamer) initDecoders() ([]*decoderWrapper, error) {
 	var decoders []*decoderWrapper
 
 	for _, sub := range s.subscriptions {
@@ -118,7 +118,7 @@ func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapp
 		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
 			if decoder.subscription.IsProxied() {
 				s.mu.Lock()
-				s.currentURLGenerator = decoder.subscription.GetURLGenerator().(*urlgen.Generator)
+				s.currentURLGenerator = decoder.subscription.GetURLGenerator()
 				s.mu.Unlock()
 			}
 
@@ -188,7 +188,7 @@ func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderWra
 		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
 			if decoder.subscription.IsProxied() {
 				s.mu.Lock()
-				s.currentURLGenerator = decoder.subscription.GetURLGenerator().(*urlgen.Generator)
+				s.currentURLGenerator = decoder.subscription.GetURLGenerator()
 				s.mu.Unlock()
 			}
 

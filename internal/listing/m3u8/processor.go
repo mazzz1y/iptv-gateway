@@ -3,6 +3,7 @@ package m3u8
 import (
 	"fmt"
 	"iptv-gateway/internal/client"
+	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
@@ -85,7 +86,7 @@ func (p *Processor) isDuplicate(track *m3u8.Track) bool {
 	return false
 }
 
-func (p *Processor) processProxyLinks(track *m3u8.Track, urlGenerator rules.URLGenerator) error {
+func (p *Processor) processProxyLinks(track *m3u8.Track, urlGenerator listing.URLGenerator) error {
 	for key, value := range track.Attrs {
 		if isURL(value) {
 			encURL, err := urlGenerator.CreateURL(urlgen.Data{

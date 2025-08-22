@@ -359,7 +359,7 @@ func TestGenerator_ExpiredLinkDecryption(t *testing.T) {
 		t.Error("expected error when decrypting expired token")
 	}
 
-	if !errors.Is(err, ErrExpiredURL) {
+	if !errors.Is(err, ErrExpiredStreamURL) {
 		t.Errorf("expected ErrExpiredURL, got %v", err)
 	}
 }
@@ -396,7 +396,7 @@ func TestGenerator_ExpiredLinkEdgeCases(t *testing.T) {
 			ttl:         10 * time.Millisecond,
 			sleepTime:   50 * time.Millisecond,
 			expectError: true,
-			errorType:   ErrExpiredURL,
+			errorType:   ErrExpiredStreamURL,
 		},
 		{
 			name:        "zero TTL - no expiration",

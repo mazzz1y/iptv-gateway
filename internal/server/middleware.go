@@ -81,7 +81,7 @@ func (s *Server) decryptProxyDataMiddleware(next http.Handler) http.Handler {
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
-				if errors.Is(err, urlgen.ErrExpiredURL) {
+				if errors.Is(err, urlgen.ErrExpiredStreamURL) {
 					ctx := context.WithValue(r.Context(), constant.ContextSubscription, sub)
 					ctx = context.WithValue(ctx, constant.ContextSubscriptionName, sub.GetName())
 					sub.ExpiredCommandStreamer().Stream(ctx, w)
