@@ -26,18 +26,16 @@ const (
 var (
 	Registry = prometheus.NewRegistry()
 
-	ClientStreamsActive = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "iptv_client_streams_active",
-			Help: "Currently active client streams (gateway to end clients)",
-		},
+	ClientStreamsActive = NewAutoCleanGauge(
+		"iptv_client_streams_active",
+		"Currently active client streams",
 		[]string{"client_name", "subscription_name", "channel_id"},
 	)
 
-	BackendStreamsActive = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "iptv_backend_streams_active",
-			Help: "Currently active backend streams (gateway to upstream providers)",
+	StreamsReused = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iptv_streams_reused_total",
+			Help: "Total number of reused streams",
 		},
 		[]string{"subscription_name", "channel_id"},
 	)
@@ -52,7 +50,7 @@ var (
 
 	ListingDownload = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "iptv_listing_download_count_total",
+			Name: "iptv_listing_downloads_total",
 			Help: "Total number of listing downloads by client and type",
 		},
 		[]string{"client_name", "listing_type"},
@@ -69,7 +67,7 @@ var (
 
 func init() {
 	Registry.MustRegister(ClientStreamsActive)
-	Registry.MustRegister(BackendStreamsActive)
+	Registry.MustRegister(StreamsReused)
 	Registry.MustRegister(StreamsFailures)
 	Registry.MustRegister(ListingDownload)
 	Registry.MustRegister(ProxyRequests)

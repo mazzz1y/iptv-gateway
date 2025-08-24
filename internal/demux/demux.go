@@ -90,6 +90,9 @@ func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
 		go m.startStream(ctx, req, pw)
 		logging.Info(ctx, "started new stream")
 	} else {
+		subscriptionName := ctxutil.SubscriptionName(ctx)
+		channelID := ctxutil.ChannelID(ctx)
+		metrics.StreamsReused.WithLabelValues(subscriptionName, channelID).Inc()
 		logging.Info(ctx, "joined existing stream")
 	}
 
@@ -111,10 +114,6 @@ func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 		return
 	}
 
-	subscriptionName := ctxutil.SubscriptionName(ctx)
-	channelID := ctxutil.ChannelID(ctx)
-	metrics.BackendStreamsActive.WithLabelValues(subscriptionName, channelID).Inc()
-
 	streamID := ctxutil.StreamID(ctx)
 	streamCtx, cancel := context.WithCancel(ctxutil.WithStreamID(context.Background(), streamID))
 	defer cancel()
@@ -127,12 +126,6 @@ func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 			defer req.Semaphore.Release(1)
 			defer logging.Debug(ctx, "releasing subscription semaphore")
 		}
-
-		defer func() {
-			subscriptionName := ctxutil.SubscriptionName(ctx)
-			channelID := ctxutil.ChannelID(ctx)
-			metrics.BackendStreamsActive.WithLabelValues(subscriptionName, channelID).Dec()
-		}()
 
 		select {
 		case <-emptyCh:

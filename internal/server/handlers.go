@@ -171,9 +171,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	data := ctxutil.StreamData(ctx).(*urlgen.Data)
 	ctx = ctxutil.WithChannelID(ctx, data.ChannelID)
 	clientName := ctxutil.ClientName(ctx)
-
-	metrics.ClientStreamsActive.WithLabelValues(clientName, subscription.GetName(), data.ChannelID).Inc()
-	defer metrics.ClientStreamsActive.WithLabelValues(clientName, subscription.GetName(), data.ChannelID).Dec()
+	subscriptionName := subscription.GetName()
 
 	streamKey := generateStreamKey(data.URL, r.URL.RawQuery)
 
@@ -218,6 +216,8 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	}
 	defer reader.Close()
 
+	metrics.ClientStreamsActive.WithLabelValues(clientName, subscriptionName, data.ChannelID).Inc()
+	defer metrics.ClientStreamsActive.WithLabelValues(clientName, subscriptionName, data.ChannelID).Dec()
 	w.Header().Set("Content-Type", streamContentType)
 	written, err := io.Copy(w, reader)
 
