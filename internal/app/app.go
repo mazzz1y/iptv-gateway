@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/logging"
+	"iptv-gateway/internal/metrics"
 	"iptv-gateway/internal/urlgen"
 
 	"golang.org/x/sync/semaphore"
@@ -28,6 +29,10 @@ func NewManager(cfg *config.Config) (*Manager, error) {
 
 	if cfg.Proxy.Enabled != nil && *cfg.Proxy.Enabled && cfg.Proxy.ConcurrentStreams > 0 {
 		manager.semaphore = semaphore.NewWeighted(cfg.Proxy.ConcurrentStreams)
+	}
+
+	for subName := range cfg.Subscriptions {
+		metrics.SubscriptionStreamsActive.WithLabelValues(subName).Set(0)
 	}
 
 	manager.subSemaphores = make(map[string]*semaphore.Weighted, len(cfg.Subscriptions))

@@ -26,13 +26,21 @@ const (
 var (
 	Registry = prometheus.NewRegistry()
 
+	SubscriptionStreamsActive = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iptv_subscription_streams_active",
+			Help: "Currently active subscription streams",
+		},
+		[]string{"subscription_name"},
+	)
+
 	ClientStreamsActive = NewAutoCleanGauge(
 		"iptv_client_streams_active",
 		"Currently active client streams",
 		[]string{"client_name", "subscription_name", "channel_id"},
 	)
 
-	StreamsReused = prometheus.NewCounterVec(
+	StreamsReusedTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iptv_streams_reused_total",
 			Help: "Total number of reused streams",
@@ -40,7 +48,7 @@ var (
 		[]string{"subscription_name", "channel_id"},
 	)
 
-	StreamsFailures = prometheus.NewCounterVec(
+	StreamsFailuresTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iptv_streams_failures_total",
 			Help: "Total number of stream failures",
@@ -48,7 +56,7 @@ var (
 		[]string{"client_name", "subscription_name", "channel_id", "reason"},
 	)
 
-	ListingDownload = prometheus.NewCounterVec(
+	ListingDownloadTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iptv_listing_downloads_total",
 			Help: "Total number of listing downloads by client and type",
@@ -56,7 +64,7 @@ var (
 		[]string{"client_name", "listing_type"},
 	)
 
-	ProxyRequests = prometheus.NewCounterVec(
+	ProxyRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iptv_proxy_requests_total",
 			Help: "Total proxy requests by client, type and cache status",
@@ -67,10 +75,11 @@ var (
 
 func init() {
 	Registry.MustRegister(ClientStreamsActive)
-	Registry.MustRegister(StreamsReused)
-	Registry.MustRegister(StreamsFailures)
-	Registry.MustRegister(ListingDownload)
-	Registry.MustRegister(ProxyRequests)
+	Registry.MustRegister(SubscriptionStreamsActive)
+	Registry.MustRegister(StreamsReusedTotal)
+	Registry.MustRegister(StreamsFailuresTotal)
+	Registry.MustRegister(ListingDownloadTotal)
+	Registry.MustRegister(ProxyRequestsTotal)
 	Registry.MustRegister(collectors.NewGoCollector(
 		collectors.WithoutGoCollectorRuntimeMetrics(),
 	))

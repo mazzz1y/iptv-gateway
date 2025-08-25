@@ -41,7 +41,7 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics.ListingDownload.WithLabelValues(c.GetName(), metrics.RequestTypePlaylist).Inc()
+	metrics.ListingDownloadTotal.WithLabelValues(c.GetName(), metrics.RequestTypePlaylist).Inc()
 }
 
 func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +66,7 @@ func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c := ctxutil.Client(ctx).(*app.Client)
-	metrics.ListingDownload.WithLabelValues(c.GetName(), metrics.RequestTypeEPG).Inc()
+	metrics.ListingDownloadTotal.WithLabelValues(c.GetName(), metrics.RequestTypeEPG).Inc()
 }
 
 func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +92,7 @@ func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c := ctxutil.Client(ctx).(*app.Client)
-	metrics.ListingDownload.WithLabelValues(c.GetName(), metrics.RequestTypeEPG).Inc()
+	metrics.ListingDownloadTotal.WithLabelValues(c.GetName(), metrics.RequestTypeEPG).Inc()
 }
 
 func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
@@ -204,7 +204,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	reader, err := s.demux.GetReader(demuxReq)
 	if errors.Is(err, demux.ErrSubscriptionSemaphore) {
 		logging.Error(ctx, err, "failed to get stream")
-		metrics.StreamsFailures.WithLabelValues(
+		metrics.StreamsFailuresTotal.WithLabelValues(
 			clientName, subscription.GetName(), data.ChannelID, metrics.FailureReasonSubscriptionLimit).Inc()
 		subscription.LimitStreamer().Stream(ctx, w)
 		return
@@ -223,7 +223,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 
 	if err == nil && written == 0 {
 		logging.Error(ctx, errors.New("no data written to response"), "")
-		metrics.StreamsFailures.WithLabelValues(
+		metrics.StreamsFailuresTotal.WithLabelValues(
 			clientName, subscription.GetName(), data.ChannelID, metrics.FailureReasonUpstreamError).Inc()
 		subscription.UpstreamErrorStreamer().Stream(ctx, w)
 		return

@@ -9,7 +9,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const graceTime = time.Hour
+const (
+	graceTime   = 5 * time.Minute
+	cleanupTime = 5 * time.Minute
+)
 
 type AutoCleanGauge struct {
 	desc        *prometheus.Desc
@@ -156,7 +159,7 @@ func (g *AutoCleanGauge) labelKey(labelValues ...string) string {
 }
 
 func (g *AutoCleanGauge) cleanupRoutine() {
-	ticker := time.NewTicker(time.Minute * 10)
+	ticker := time.NewTicker(cleanupTime)
 	defer ticker.Stop()
 
 	for {

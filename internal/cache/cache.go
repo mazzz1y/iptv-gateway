@@ -67,11 +67,11 @@ func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
 		ttl:      c.ttl,
 	}
 
-	s := reader.checkCacheStatus()
-
 	var err error
 	var readCloser io.ReadCloser
-	var cacheStatus string
+	var cacheStatus = metrics.CacheStatusMiss
+
+	s := reader.checkCacheStatus()
 
 	switch s {
 	case statusValid:
@@ -84,26 +84,24 @@ func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
 	case statusExpired, statusNotFound:
 		readCloser, err = reader.newCachingReader(ctx)
 		if err == nil {
-			cacheStatus = metrics.CacheStatusMiss
 			reader.ReadCloser = readCloser
 		}
 
 	default:
 		readCloser, err = reader.newDirectReader(ctx)
 		if err == nil {
-			cacheStatus = metrics.CacheStatusMiss
 			reader.ReadCloser = readCloser
 		}
 	}
 
-	metrics.ProxyRequests.WithLabelValues(
+	logging.Debug(
+		ctx, "file access", "cache", formatCacheStatus(s), "url", logging.SanitizeURL(url))
+
+	metrics.ProxyRequestsTotal.WithLabelValues(
 		ctxutil.ClientName(ctx),
 		ctxutil.RequestType(ctx),
 		cacheStatus,
 	).Inc()
-
-	logging.Debug(
-		ctx, "file access", "cache", formatCacheStatus(s), "url", logging.SanitizeURL(url))
 
 	return reader, err
 }
