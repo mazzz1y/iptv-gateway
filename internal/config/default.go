@@ -7,8 +7,9 @@ func defaultConfig() *Config {
 		ListenAddr: ":8080",
 		LogLevel:   "info",
 		Cache: CacheConfig{
-			Path: "cache",
-			TTL:  TTL(30 * 24 * time.Hour),
+			Path:      "cache",
+			TTL:       Duration(24 * time.Hour),
+			Retention: Duration(24 * time.Hour * 30),
 		},
 		Proxy: Proxy{
 			Stream: Handler{

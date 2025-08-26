@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	CacheStatusHit  = "hit"
-	CacheStatusMiss = "miss"
+	CacheStatusHit     = "hit"
+	CacheStatusMiss    = "miss"
+	CacheStatusRenewed = "renewed"
 )
 
 const (

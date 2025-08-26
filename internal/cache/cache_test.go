@@ -16,8 +16,9 @@ func TestNewCache(t *testing.T) {
 	t.Run("successfully creates cache", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		ttl := time.Hour
+		retention := 24 * time.Hour
 
-		cache, err := NewCache(tmpDir, ttl)
+		cache, err := NewCache(tmpDir, ttl, retention)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -28,10 +29,6 @@ func TestNewCache(t *testing.T) {
 
 		if cache.dir != tmpDir {
 			t.Errorf("expected dir %s, got %s", tmpDir, cache.dir)
-		}
-
-		if cache.ttl != ttl {
-			t.Errorf("expected ttl %v, got %v", ttl, cache.ttl)
 		}
 
 		if cache.directHttpClient == nil {
@@ -52,7 +49,7 @@ func TestNewCache(t *testing.T) {
 	t.Run("creates cache directory", func(t *testing.T) {
 		tmpDir := filepath.Join(t.TempDir(), "nested", "cache")
 
-		cache, err := NewCache(tmpDir, time.Hour)
+		cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -74,7 +71,7 @@ func TestNewCache(t *testing.T) {
 		}
 
 		invalidDir := filepath.Join(tmpFile, "cache")
-		_, err := NewCache(invalidDir, time.Hour)
+		_, err := NewCache(invalidDir, time.Hour, 24*time.Hour)
 		if err == nil {
 			t.Error("expected error for invalid directory")
 		}
@@ -82,7 +79,7 @@ func TestNewCache(t *testing.T) {
 }
 
 func TestCache_NewCachedHTTPClient(t *testing.T) {
-	cache, err := NewCache(t.TempDir(), time.Hour)
+	cache, err := NewCache(t.TempDir(), time.Hour, 24*time.Hour)
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}
@@ -115,7 +112,7 @@ func TestCache_NewCachedHTTPClient(t *testing.T) {
 
 func TestCache_NewReader(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache, err := NewCache(tmpDir, time.Hour)
+	cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour)
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}
@@ -181,6 +178,7 @@ func TestCache_CleanExpired(t *testing.T) {
 	tests := []struct {
 		name           string
 		ttl            time.Duration
+		retention      time.Duration
 		expectValid    bool
 		expectExpired  bool
 		expectOrphaned bool
@@ -188,22 +186,9 @@ func TestCache_CleanExpired(t *testing.T) {
 		{
 			name:           "clean expired and orphaned files",
 			ttl:            time.Hour,
+			retention:      time.Hour,
 			expectValid:    true,
 			expectExpired:  false,
-			expectOrphaned: false,
-		},
-		{
-			name:           "zero ttl keeps expired files",
-			ttl:            0,
-			expectValid:    true,
-			expectExpired:  true,
-			expectOrphaned: false,
-		},
-		{
-			name:           "negative ttl keeps expired files",
-			ttl:            -1 * time.Hour,
-			expectValid:    true,
-			expectExpired:  true,
 			expectOrphaned: false,
 		},
 	}
@@ -211,7 +196,7 @@ func TestCache_CleanExpired(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			cache, err := NewCache(tmpDir, tc.ttl)
+			cache, err := NewCache(tmpDir, tc.ttl, tc.retention)
 			if err != nil {
 				t.Fatalf("failed to create cache: %v", err)
 			}
@@ -243,7 +228,7 @@ func TestCache_CleanExpired(t *testing.T) {
 				t.Fatalf("failed to create orphaned file: %v", err)
 			}
 
-			if err := cache.cleanExpired(tmpDir, tc.ttl); err != nil {
+			if err := cache.cleanExpired(); err != nil {
 				t.Fatalf("failed to clean cache: %v", err)
 			}
 
@@ -258,7 +243,7 @@ func TestCache_CleanExpired(t *testing.T) {
 
 func TestCache_RemoveEntry(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache, err := NewCache(tmpDir, time.Hour)
+	cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour)
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}

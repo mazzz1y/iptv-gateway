@@ -11,14 +11,7 @@ type cachingTransport struct {
 func (t *cachingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	reader, err := t.cache.NewReader(req.Context(), req.URL.String())
 	if err != nil {
-		return &http.Response{
-			Status:     "502 Bad Gateway",
-			StatusCode: 502,
-			Header:     make(http.Header),
-			Body:       http.NoBody,
-			Request:    req,
-			Close:      false,
-		}, nil
+		return nil, err
 	}
 
 	status := http.StatusOK
@@ -38,7 +31,7 @@ func (t *cachingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 				resp.Header.Set(header, value)
 			}
 		}
-	} else if cachedHeaders := reader.GetCachedHeaders(); cachedHeaders != nil && len(cachedHeaders) > 0 {
+	} else if cachedHeaders := reader.getCachedHeaders(); cachedHeaders != nil && len(cachedHeaders) > 0 {
 		for key, value := range cachedHeaders {
 			resp.Header.Set(key, value)
 		}

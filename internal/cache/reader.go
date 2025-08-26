@@ -17,6 +17,7 @@ type status int
 const (
 	statusValid status = iota
 	statusExpired
+	statusRenewed
 	statusNotFound
 
 	fileExtension = ".gz"
@@ -38,10 +39,10 @@ type Reader struct {
 	gzipWriter     *gzip.Writer
 	originResponse *http.Response
 	client         *http.Client
-	ttl            time.Duration
 	bytesDownload  int64
 	expectedSize   int64
 	contentType    string
+	ttl            time.Duration
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
@@ -93,7 +94,7 @@ func (r *Reader) Close() error {
 	return err
 }
 
-func (r *Reader) GetCachedHeaders() map[string]string {
+func (r *Reader) getCachedHeaders() map[string]string {
 	meta, err := readMetadata(r.MetaPath)
 	if err != nil {
 		return nil
@@ -101,7 +102,7 @@ func (r *Reader) GetCachedHeaders() map[string]string {
 	return meta.Headers
 }
 
-func (r *Reader) CreateCacheFile() error {
+func (r *Reader) createCacheFile() error {
 	os.Remove(r.FilePath)
 	file, err := os.Create(r.FilePath)
 	if err != nil {
@@ -109,10 +110,6 @@ func (r *Reader) CreateCacheFile() error {
 	}
 
 	r.file = file
-	if r.originResponse.ContentLength > 0 {
-		r.expectedSize = r.originResponse.ContentLength
-	}
-
 	return nil
 }
 
@@ -128,44 +125,12 @@ func (r *Reader) isDownloadComplete() bool {
 	return r.expectedSize <= 0 || r.bytesDownload == r.expectedSize
 }
 
-func (r *Reader) isModifiedSince(lastModified time.Time) bool {
-	if lastModified.IsZero() {
-		return true
-	}
-
-	req, err := http.NewRequest("HEAD", r.URL, nil)
-	if err != nil {
-		return true
-	}
-
-	resp, err := r.client.Do(req)
-	if err != nil {
-		return true
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return true
-	}
-
-	if lm := resp.Header.Get("Last-Modified"); lm != "" {
-		currentLastModified, err := time.Parse(time.RFC1123, lm)
-		if err == nil {
-			return currentLastModified.After(lastModified)
-		}
-	}
-
-	return false
-}
-
 func (r *Reader) checkCacheStatus() status {
-	_, err := os.Stat(r.MetaPath)
-	if err != nil {
+	if _, err := os.Stat(r.MetaPath); err != nil {
 		return statusNotFound
 	}
 
-	_, err = os.Stat(r.FilePath)
-	if err != nil {
+	if _, err := os.Stat(r.FilePath); err != nil {
 		return statusNotFound
 	}
 
@@ -174,40 +139,90 @@ func (r *Reader) checkCacheStatus() status {
 		return statusNotFound
 	}
 
-	cachedAt := time.Unix(meta.CachedAt, 0)
-
-	var lastModified time.Time
-	if lm, ok := meta.Headers["Last-Modified"]; ok {
-		if parsed, err := time.Parse(time.RFC1123, lm); err == nil {
-			lastModified = parsed
-		}
-	}
-
-	var expires time.Time
-	if exp, ok := meta.Headers["Expires"]; ok {
-		if parsed, err := time.Parse(time.RFC1123, exp); err == nil {
-			expires = parsed
-		}
-	}
-
 	if r.ttl > 0 {
-		if time.Since(cachedAt) > r.ttl {
-			if !r.isModifiedSince(lastModified) {
-				if err := r.SaveMetadata(); err != nil {
-					return statusExpired
-				}
-				return statusValid
-			}
+		cachedAt := time.Unix(meta.CachedAt, 0)
+		if time.Since(cachedAt) < r.ttl {
+			return statusValid
+		}
+	}
+
+	if exp, ok := meta.Headers["Expires"]; ok {
+		if expires, err := time.Parse(time.RFC1123, exp); err == nil && expires.Before(time.Now()) {
+			return r.tryRenewal(&meta)
+		}
+		if err := r.SaveMetadata(); err != nil {
 			return statusExpired
 		}
-		return statusValid
+		return statusRenewed
 	}
 
-	if !expires.IsZero() && expires.Before(time.Now()) {
-		return statusExpired
+	return r.tryRenewal(&meta)
+}
+
+func (r *Reader) tryRenewal(meta *Metadata) status {
+	var lastModified time.Time
+	var etag string
+
+	if lm, ok := meta.Headers["Last-Modified"]; ok {
+		if parsedTime, err := time.Parse(time.RFC1123, lm); err == nil {
+			lastModified = parsedTime
+		}
 	}
 
-	return statusValid
+	if tag, ok := meta.Headers["Etag"]; ok {
+		etag = tag
+	}
+
+	if !r.isModifiedSince(lastModified, etag) {
+		if err := r.SaveMetadata(); err != nil {
+			return statusExpired
+		}
+		return statusRenewed
+	}
+
+	return statusExpired
+}
+
+func (r *Reader) isModifiedSince(lastModified time.Time, etag string) bool {
+	if lastModified.IsZero() && etag == "" {
+		return true
+	}
+
+	req, err := http.NewRequest("HEAD", r.URL, nil)
+	if err != nil {
+		return true
+	}
+
+	if !lastModified.IsZero() {
+		req.Header.Set("If-Modified-Since", lastModified.Format(time.RFC1123))
+	}
+
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return true
+	}
+	defer resp.Body.Close()
+
+	r.originResponse = resp
+
+	if resp.StatusCode == http.StatusNotModified {
+		return false
+	}
+
+	if resp.StatusCode == http.StatusOK && !lastModified.IsZero() {
+		serverLastModified := resp.Header.Get("Last-Modified")
+		if serverLastModified != "" {
+			if serverTime, err := time.Parse(time.RFC1123, serverLastModified); err == nil {
+				return serverTime.After(lastModified)
+			}
+		}
+	}
+
+	return true
 }
 
 func (r *Reader) newCachedReader() (io.ReadCloser, error) {
@@ -276,7 +291,11 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 	r.originResponse = resp
 	r.contentType = resp.Header.Get("Content-Type")
 
-	err = r.CreateCacheFile()
+	if r.originResponse.ContentLength > 0 {
+		r.expectedSize = r.originResponse.ContentLength
+	}
+
+	err = r.createCacheFile()
 	if err != nil {
 		resp.Body.Close()
 		return nil, err
@@ -316,6 +335,8 @@ func formatCacheStatus(status status) string {
 		return "expired"
 	case statusNotFound:
 		return "not found"
+	case statusRenewed:
+		return "renewed"
 	default:
 		return "unknown"
 	}

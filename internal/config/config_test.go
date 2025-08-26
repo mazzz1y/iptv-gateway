@@ -66,7 +66,7 @@ cache:
 				if cfg.Cache.Path != "/tmp/cache" {
 					t.Errorf("expected cache.path to be '/tmp/cache', got '%s'", cfg.Cache.Path)
 				}
-				if cfg.Cache.TTL != TTL(48*time.Hour) {
+				if cfg.Cache.TTL != Duration(48*time.Hour) {
 					t.Errorf("expected cache.ttl to be 48h, got '%s'", time.Duration(cfg.Cache.TTL))
 				}
 			},
@@ -231,7 +231,6 @@ secret: "test-secret"
 			expectError:   true,
 			validate:      nil,
 		},
-
 	}
 
 	for _, tt := range tests {

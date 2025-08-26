@@ -25,13 +25,12 @@ type Config struct {
 }
 
 type CacheConfig struct {
-	Path string `yaml:"path"`
-	TTL  TTL    `yaml:"ttl"`
+	Path      string   `yaml:"path"`
+	TTL       Duration `yaml:"ttl"`
+	Retention Duration `yaml:"retention"`
 }
 
-
-
-type TTL time.Duration
+type Duration time.Duration
 
 type Client struct {
 	Secret        string       `yaml:"secret"`
@@ -140,7 +139,7 @@ func (pu *PublicURL) String() string {
 	return u.String()
 }
 
-func (t *TTL) UnmarshalYAML(value *yaml.Node) error {
+func (t *Duration) UnmarshalYAML(value *yaml.Node) error {
 	var ttlStr string
 	if err := value.Decode(&ttlStr); err != nil {
 		return err
@@ -150,31 +149,31 @@ func (t *TTL) UnmarshalYAML(value *yaml.Node) error {
 	matches := re.FindStringSubmatch(ttlStr)
 
 	if matches == nil {
-		return fmt.Errorf("invalid TTL format: %s", ttlStr)
+		return fmt.Errorf("invalid Duration format: %s", ttlStr)
 	}
 
 	val, err := strconv.Atoi(matches[1])
 	if err != nil {
-		return fmt.Errorf("invalid TTL value: %s", matches[1])
+		return fmt.Errorf("invalid Duration value: %s", matches[1])
 	}
 
 	unit := matches[2]
 
 	switch unit {
 	case "s":
-		*t = TTL(time.Duration(val) * time.Second)
+		*t = Duration(time.Duration(val) * time.Second)
 	case "m":
-		*t = TTL(time.Duration(val) * time.Minute)
+		*t = Duration(time.Duration(val) * time.Minute)
 	case "h":
-		*t = TTL(time.Duration(val) * time.Hour)
+		*t = Duration(time.Duration(val) * time.Hour)
 	case "d":
-		*t = TTL(time.Duration(val) * 24 * time.Hour)
+		*t = Duration(time.Duration(val) * 24 * time.Hour)
 	case "w":
-		*t = TTL(time.Duration(val) * 7 * 24 * time.Hour)
+		*t = Duration(time.Duration(val) * 7 * 24 * time.Hour)
 	case "M":
-		*t = TTL(time.Duration(val) * 30 * 24 * time.Hour)
+		*t = Duration(time.Duration(val) * 30 * 24 * time.Hour)
 	case "y":
-		*t = TTL(time.Duration(val) * 365 * 24 * time.Hour)
+		*t = Duration(time.Duration(val) * 365 * 24 * time.Hour)
 	default:
 		return fmt.Errorf("unknown time unit: %s", unit)
 	}

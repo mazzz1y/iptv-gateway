@@ -19,25 +19,29 @@ import (
 type Cache struct {
 	directHttpClient *http.Client
 	dir              string
-	ttl              time.Duration
 	cleanupTicker    *time.Ticker
 	doneCh           chan struct{}
+	ttl              time.Duration
+	retention        time.Duration
 }
 
-func NewCache(cacheDir string, ttl time.Duration) (*Cache, error) {
+func NewCache(cacheDir string, ttl, retention time.Duration) (*Cache, error) {
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	cache := &Cache{
 		dir:              cacheDir,
-		ttl:              ttl,
 		cleanupTicker:    time.NewTicker(24 * time.Hour),
 		doneCh:           make(chan struct{}),
 		directHttpClient: newDirectHTTPClient(),
+		ttl:              ttl,
+		retention:        retention,
 	}
 
-	go cache.cleanupRoutine(cacheDir, ttl)
+	if retention > 0 {
+		go cache.cleanupRoutine()
+	}
 
 	return cache, nil
 }
@@ -74,13 +78,16 @@ func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
 	s := reader.checkCacheStatus()
 
 	switch s {
-	case statusValid:
+	case statusValid, statusRenewed:
 		readCloser, err = reader.newCachedReader()
 		if err == nil {
-			cacheStatus = metrics.CacheStatusHit
+			if s == statusValid {
+				cacheStatus = metrics.CacheStatusHit
+			} else {
+				cacheStatus = metrics.CacheStatusRenewed
+			}
 			reader.ReadCloser = readCloser
 		}
-
 	case statusExpired, statusNotFound:
 		readCloser, err = reader.newCachingReader(ctx)
 		if err == nil {
@@ -146,12 +153,22 @@ func (c *Cache) removeEntry(name string) error {
 	return nil
 }
 
-func (c *Cache) cleanExpired(cacheDir string, ttl time.Duration) error {
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return fmt.Errorf("failed to access cache directory: %w", err)
+func (c *Cache) cleanupRoutine() {
+	for {
+		select {
+		case <-c.cleanupTicker.C:
+			if err := c.cleanExpired(); err != nil {
+				logging.Error(context.Background(), err, "failed to clean expired Cache")
+				return
+			}
+		case <-c.doneCh:
+			return
+		}
 	}
+}
 
-	allFiles, err := os.ReadDir(cacheDir)
+func (c *Cache) cleanExpired() error {
+	allFiles, err := os.ReadDir(c.dir)
 	if err != nil {
 		return fmt.Errorf("failed to list cache directory: %w", err)
 	}
@@ -162,12 +179,12 @@ func (c *Cache) cleanExpired(cacheDir string, ttl time.Duration) error {
 
 	for _, file := range allFiles {
 		fileName := file.Name()
-		filePath := filepath.Join(cacheDir, fileName)
+		filePath := filepath.Join(c.dir, fileName)
 
 		switch {
 		case strings.HasSuffix(fileName, fileExtension):
 			name := strings.TrimSuffix(fileName, fileExtension)
-			metaPath := filepath.Join(cacheDir, name+metaExtension)
+			metaPath := filepath.Join(c.dir, name+metaExtension)
 
 			_, err := os.Stat(metaPath)
 			if os.IsNotExist(err) {
@@ -181,12 +198,10 @@ func (c *Cache) cleanExpired(cacheDir string, ttl time.Duration) error {
 			name := strings.TrimSuffix(fileName, metaExtension)
 
 			isExpired := false
-			if ttl > 0 {
-				metaPath := filepath.Join(cacheDir, fileName)
-				metadata, err := readMetadata(metaPath)
-				if err == nil && now.Sub(time.Unix(metadata.CachedAt, 0)) > ttl {
-					isExpired = true
-				}
+			metaPath := filepath.Join(c.dir, fileName)
+			metadata, err := readMetadata(metaPath)
+			if err == nil && now.Sub(time.Unix(metadata.CachedAt, 0)) > c.retention {
+				isExpired = true
 			}
 
 			if isExpired {
@@ -207,18 +222,4 @@ func (c *Cache) cleanExpired(cacheDir string, ttl time.Duration) error {
 	logging.Info(context.Background(), "cache cleanup", args...)
 
 	return nil
-}
-
-func (c *Cache) cleanupRoutine(cacheDir string, ttl time.Duration) {
-	for {
-		select {
-		case <-c.cleanupTicker.C:
-			if err := c.cleanExpired(cacheDir, ttl); err != nil {
-				logging.Error(context.Background(), err, "failed to clean expired Cache")
-				return
-			}
-		case <-c.doneCh:
-			return
-		}
-	}
 }

@@ -126,7 +126,7 @@ func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, dat
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		logging.Error(ctx, err, "file proxy failed")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
