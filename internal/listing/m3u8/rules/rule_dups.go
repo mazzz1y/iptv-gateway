@@ -32,7 +32,8 @@ func (r *RemoveDuplicatesRule) extractBaseName(name string) string {
 	for _, regex := range r.patterns {
 		name = regex.ReplaceAllString(name, "")
 	}
-	return strings.TrimSpace(name)
+
+	return strings.Join(strings.Fields(name), " ")
 }
 
 func (r *RemoveDuplicatesRule) selectBestChannel(channels []*Channel) *Channel {
@@ -43,6 +44,7 @@ func (r *RemoveDuplicatesRule) selectBestChannel(channels []*Channel) *Channel {
 			}
 		}
 	}
+
 	return channels[0]
 }
 
