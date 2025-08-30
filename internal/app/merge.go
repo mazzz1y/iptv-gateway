@@ -2,10 +2,11 @@ package app
 
 import (
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/rules"
 )
 
-func mergeRules(transforms ...[]config.RuleAction) []config.RuleAction {
-	result := make([]config.RuleAction, 0)
+func mergeRules(transforms ...[]rules.RuleAction) []rules.RuleAction {
+	result := make([]rules.RuleAction, 0)
 
 	for _, transform := range transforms {
 		result = append(result, transform...)

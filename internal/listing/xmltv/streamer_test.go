@@ -7,6 +7,7 @@ import (
 	"io"
 	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
@@ -53,7 +54,7 @@ func createTestSubscription(name string, epgs []string) (*app.Subscription, erro
 		nil,
 		epgs,
 		config.Proxy{},
-		[]config.RuleAction{},
+		[]rules.RuleAction{},
 		sem,
 	)
 }

@@ -1,12 +1,13 @@
 package rules_test
 
 import (
-	"iptv-gateway/internal/listing/m3u8/rules"
 	"regexp"
 	"testing"
 	"text/template"
 
-	"iptv-gateway/internal/config"
+	configrules "iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 
 	"github.com/Masterminds/sprig/v3"
@@ -29,24 +30,24 @@ func (m mockSubscription) IsProxied() bool {
 func TestRulesProcessor_RemoveField(t *testing.T) {
 	tests := []struct {
 		name          string
-		rules         []config.RuleAction
+		rules         []configrules.RuleAction
 		track         *m3u8.Track
 		shouldRemove  bool
 		expectedTrack *m3u8.Track
 	}{
 		{
 			name: "remove channel by attr",
-			rules: []config.RuleAction{
+			rules: []configrules.RuleAction{
 				{
-					When: []config.Condition{
+					When: []configrules.Condition{
 						{
-							Attr: &config.AttributeCondition{
+							Attr: &configrules.AttributeCondition{
 								Name:  "tvg-group",
-								Value: config.RegexpArr{regexp.MustCompile("^unwanted$")},
+								Value: types.RegexpArr{regexp.MustCompile("^unwanted$")},
 							},
 						},
 					},
-					RemoveChannel: &config.RemoveChannelRule{},
+					RemoveChannel: &configrules.RemoveChannelRule{},
 				},
 			},
 			track: &m3u8.Track{
@@ -57,19 +58,19 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 		},
 		{
 			name: "remove fields",
-			rules: []config.RuleAction{
+			rules: []configrules.RuleAction{
 				{
-					When: []config.Condition{
+					When: []configrules.Condition{
 						{
-							Attr: &config.AttributeCondition{
+							Attr: &configrules.AttributeCondition{
 								Name:  "tvg-group",
-								Value: config.RegexpArr{regexp.MustCompile("^test$")},
+								Value: types.RegexpArr{regexp.MustCompile("^test$")},
 							},
 						},
 					},
-					RemoveField: []config.FieldSpec{
-						{Type: "attr", Name: "tvg-id"},
-						{Type: "tag", Name: "EXTBYT"},
+					RemoveField: []map[string]types.RegexpArr{
+						{"attr": types.RegexpArr{regexp.MustCompile("tvg-id")}},
+						{"tag": types.RegexpArr{regexp.MustCompile("EXTBYT")}},
 					},
 				},
 			},
@@ -124,23 +125,23 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
 	tests := []struct {
 		name          string
-		rules         []config.RuleAction
+		rules         []configrules.RuleAction
 		track         *m3u8.Track
 		expectedTrack *m3u8.Track
 	}{
 		{
 			name: "move attr to tag",
-			rules: []config.RuleAction{
+			rules: []configrules.RuleAction{
 				{
-					When: []config.Condition{
+					When: []configrules.Condition{
 						{
-							Attr: &config.AttributeCondition{
+							Attr: &configrules.AttributeCondition{
 								Name:  "tvg-group",
-								Value: config.RegexpArr{regexp.MustCompile("^music$")},
+								Value: types.RegexpArr{regexp.MustCompile("^music$")},
 							},
 						},
 					},
-					SetField: []config.SetFieldSpec{
+					SetField: []configrules.SetFieldSpec{
 						{
 							Type:     "tag",
 							Name:     "EXTGRP",
@@ -152,9 +153,9 @@ func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
 							Template: tpl("tag:EXT-X-LOGO", `{{ index .Channel.Attrs "tvg-logo" }}`),
 						},
 					},
-					RemoveField: []config.FieldSpec{
-						{Type: "attr", Name: "tvg-group"},
-						{Type: "attr", Name: "tvg-logo"},
+					RemoveField: []map[string]types.RegexpArr{
+						{"attr": types.RegexpArr{regexp.MustCompile("tvg-group")}},
+						{"attr": types.RegexpArr{regexp.MustCompile("tvg-logo")}},
 					},
 				},
 			},
@@ -179,25 +180,25 @@ func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
 		},
 		{
 			name: "move tag to attr",
-			rules: []config.RuleAction{
+			rules: []configrules.RuleAction{
 				{
-					When: []config.Condition{
+					When: []configrules.Condition{
 						{
-							Tag: &config.TagCondition{
+							Tag: &configrules.TagCondition{
 								Name:  "EXTGRP",
-								Value: config.RegexpArr{regexp.MustCompile(".*")},
+								Value: types.RegexpArr{regexp.MustCompile(".*")},
 							},
 						},
 					},
-					SetField: []config.SetFieldSpec{
+					SetField: []configrules.SetFieldSpec{
 						{
 							Type:     "attr",
 							Name:     "group-name",
 							Template: tpl("attr:group-name", `{{ index .Channel.Tags "EXTGRP" }}`),
 						},
 					},
-					RemoveField: []config.FieldSpec{
-						{Type: "tag", Name: "EXTGRP"},
+					RemoveField: []map[string]types.RegexpArr{
+						{"tag": types.RegexpArr{regexp.MustCompile("EXTGRP")}},
 					},
 				},
 			},

@@ -1,19 +1,22 @@
 package config
 
-import "time"
+import (
+	"time"
+	"iptv-gateway/internal/config/types"
+)
 
-func defaultConfig() *Config {
+func DefaultConfig() *Config {
 	return &Config{
 		ListenAddr: ":8080",
 		LogLevel:   "info",
 		Cache: CacheConfig{
 			Path:      "cache",
-			TTL:       Duration(24 * time.Hour),
-			Retention: Duration(24 * time.Hour * 30),
+			TTL:       types.Duration(24 * time.Hour),
+			Retention: types.Duration(24 * time.Hour * 30),
 		},
 		Proxy: Proxy{
 			Stream: Handler{
-				Command: []string{
+				Command: types.StringOrArr{
 					"ffmpeg",
 					"-v", "{{ default \"fatal\" .ffmpeg_log_level }}",
 					"-i", "{{.url}}",
@@ -24,7 +27,7 @@ func defaultConfig() *Config {
 			},
 			Error: Error{
 				Handler: Handler{
-					Command: []string{
+					Command: types.StringOrArr{
 						"ffmpeg",
 						"-v", "{{ default \"fatal\" .ffmpeg_log_level }}",
 						"-f", "lavfi",

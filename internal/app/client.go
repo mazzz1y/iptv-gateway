@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/urlgen"
 
 	"golang.org/x/sync/semaphore"
@@ -14,7 +15,7 @@ type Client struct {
 	subscriptions []*Subscription
 	presets       []config.Preset
 	proxy         config.Proxy
-	rules         []config.RuleAction
+	rules         []rules.RuleAction
 	epgLink       string
 	secret        string
 }
@@ -41,7 +42,7 @@ func NewClient(name string, clientCfg config.Client, presets []config.Preset, pu
 
 func (c *Client) AddSubscription(
 	name string, conf config.Subscription, urlGen urlgen.Generator,
-	serverRules []config.RuleAction, serverProxy config.Proxy,
+	serverRules []rules.RuleAction, serverProxy config.Proxy,
 	sem *semaphore.Weighted) error {
 
 	proxy := mergeProxies(serverProxy, conf.Proxy)

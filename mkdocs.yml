@@ -1,0 +1,41 @@
+site_name: IPTV Gateway
+site_url: https://mazzz1y.github.io/iptv-gateway
+theme:
+  name: material
+  palette:
+    scheme: slate
+  features:
+    - navigation.tabs
+    - navigation.instant
+    - toc.follow
+
+markdown_extensions:
+  - toc:
+      anchorlink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.snippets
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - admonition
+
+nav:
+  - Home: index.md
+  - Configuration:
+      - Overview: config.md
+      - Rules:
+          - Overview: config/rules/index.md
+          - Rule List:
+              - Set Field: config/rules/rule_list/set_field.md
+              - Remove Field: config/rules/rule_list/remove_field.md
+              - Remove Channel: config/rules/rule_list/remove_channel.md
+              - Remove Channel Duplicates: config/rules/rule_list/remove_channel_dups.md
+          - When Conditions: config/rules/when.md
+      - Proxy: config/proxy.md
+      - Clients: config/clients.md
+      - Subscriptions: config/subscriptions.md
+      - Presets: config/presets.md
+      - Cache: config/cache.md
+  - Metrics: metrics.md

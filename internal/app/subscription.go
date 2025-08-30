@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 
@@ -16,7 +17,7 @@ type Subscription struct {
 
 	urlGenerator *urlgen.Generator
 	semaphore    *semaphore.Weighted
-	rules        []config.RuleAction
+	rules        []rules.RuleAction
 
 	proxyConfig config.Proxy
 
@@ -28,7 +29,7 @@ type Subscription struct {
 
 func NewSubscription(
 	name string, urlGen urlgen.Generator, playlists []string, epgs []string,
-	proxy config.Proxy, r []config.RuleAction, sem *semaphore.Weighted) (*Subscription, error) {
+	proxy config.Proxy, r []rules.RuleAction, sem *semaphore.Weighted) (*Subscription, error) {
 
 	streamStreamer, err := shell.NewShellStreamer(
 		proxy.Stream.Command,
@@ -96,7 +97,7 @@ func (s *Subscription) GetEPGs() []string {
 func (s *Subscription) GetURLGenerator() *urlgen.Generator {
 	return s.urlGenerator
 }
-func (s *Subscription) GetRules() []config.RuleAction {
+func (s *Subscription) GetRules() []rules.RuleAction {
 	return s.rules
 }
 

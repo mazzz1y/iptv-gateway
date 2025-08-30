@@ -2,21 +2,22 @@ package rules
 
 import (
 	"bytes"
-	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/parser/m3u8"
 )
 
 type Processor struct {
-	subscriptionRulesMap map[Subscription][]config.RuleAction
+	subscriptionRulesMap map[Subscription][]rules.RuleAction
 }
 
 func NewProcessor() *Processor {
 	return &Processor{
-		subscriptionRulesMap: make(map[Subscription][]config.RuleAction),
+		subscriptionRulesMap: make(map[Subscription][]rules.RuleAction),
 	}
 }
 
-func (p *Processor) AddSubscriptionRules(sub Subscription, rules []config.RuleAction) {
+func (p *Processor) AddSubscriptionRules(sub Subscription, rules []rules.RuleAction) {
 	p.subscriptionRulesMap[sub] = append(p.subscriptionRulesMap[sub], rules...)
 }
 
@@ -39,7 +40,7 @@ func (p *Processor) processTrackRules(store *Store) {
 	}
 }
 
-func (p *Processor) processTrackWithRules(track *m3u8.Track, rules []config.RuleAction) {
+func (p *Processor) processTrackWithRules(track *m3u8.Track, rules []rules.RuleAction) {
 	for _, action := range rules {
 		if !p.matchesConditions(track, action.When) {
 			continue
@@ -80,7 +81,7 @@ func (p *Processor) processRemoveDuplicatesRules(global *Store) {
 	}
 }
 
-func (p *Processor) matchesConditions(track *m3u8.Track, conditions []config.Condition) bool {
+func (p *Processor) matchesConditions(track *m3u8.Track, conditions []rules.Condition) bool {
 	if len(conditions) == 0 {
 		return true
 	}
@@ -93,7 +94,7 @@ func (p *Processor) matchesConditions(track *m3u8.Track, conditions []config.Con
 	return true
 }
 
-func (p *Processor) matchesCondition(track *m3u8.Track, condition config.Condition) bool {
+func (p *Processor) matchesCondition(track *m3u8.Track, condition rules.Condition) bool {
 	if condition.IsEmpty() {
 		return true
 	}
@@ -154,7 +155,7 @@ func (p *Processor) matchesCondition(track *m3u8.Track, condition config.Conditi
 	return true
 }
 
-func (p *Processor) matchesRegexps(value string, regexps config.RegexpArr) bool {
+func (p *Processor) matchesRegexps(value string, regexps types.RegexpArr) bool {
 	for _, re := range regexps {
 		if re.MatchString(value) {
 			return true
@@ -163,24 +164,36 @@ func (p *Processor) matchesRegexps(value string, regexps config.RegexpArr) bool 
 	return false
 }
 
-func (p *Processor) removeFields(track *m3u8.Track, fields []config.FieldSpec) {
+func (p *Processor) removeFields(track *m3u8.Track, fields []map[string]types.RegexpArr) {
 	for _, field := range fields {
-		switch field.Type {
-		case "attr":
-			if track.Attrs != nil {
-				delete(track.Attrs, field.Name)
+		for fieldType, regexps := range field {
+			switch fieldType {
+			case "attr":
+				if track.Attrs != nil {
+					for attrName := range track.Attrs {
+						if p.matchesRegexps(attrName, regexps) {
+							delete(track.Attrs, attrName)
+						}
+					}
+				}
+			case "tag":
+				if track.Tags != nil {
+					for tagName := range track.Tags {
+						if p.matchesRegexps(tagName, regexps) {
+							delete(track.Tags, tagName)
+						}
+					}
+				}
+			case "name":
+				if p.matchesRegexps("name", regexps) {
+					track.Name = ""
+				}
 			}
-		case "tag":
-			if track.Tags != nil {
-				delete(track.Tags, field.Name)
-			}
-		case "name":
-			track.Name = ""
 		}
 	}
 }
 
-func (p *Processor) setFields(track *m3u8.Track, fields []config.SetFieldSpec) {
+func (p *Processor) setFields(track *m3u8.Track, fields []rules.SetFieldSpec) {
 	for _, field := range fields {
 		var buf bytes.Buffer
 		_ = field.Template.Execute(&buf, map[string]any{
