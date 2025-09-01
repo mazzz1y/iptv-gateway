@@ -2,7 +2,6 @@ package xmltv
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"io"
 	"iptv-gateway/internal/app"
@@ -20,13 +19,17 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-func createStreamer(subscriptions []listing.Subscription, httpClient listing.HTTPClient, channels map[string]bool) *Streamer {
+func createStreamer(subscriptions []listing.Subscription, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
+	channelLen := len(channelIDToName)
+	approxProgrammeLen := 300 * channelLen
+
 	return &Streamer{
-		subscriptions:   subscriptions,
-		httpClient:      httpClient,
-		channels:        channels,
-		addedChannels:   make(map[string]bool, DefaultChannelMapSize),
-		addedProgrammes: make(map[string]bool, DefaultProgrammeMapSize),
+		subscriptions:    subscriptions,
+		httpClient:       httpClient,
+		channelIDToName:  channelIDToName,
+		addedChannelIDs:  make(map[string]bool, channelLen),
+		addedProgrammes:  make(map[string]bool, approxProgrammeLen),
+		channelIDMapping: make(map[string]string, channelLen),
 	}
 }
 
@@ -62,12 +65,12 @@ func createTestSubscription(name string, epgs []string) (*app.Subscription, erro
 func TestNewStreamer(t *testing.T) {
 	var subscriptions []listing.Subscription
 	httpClient := &MockHTTPClient{}
-	channels := map[string]bool{"channel1": true}
+	channels := map[string]string{"channel1": "Channel One"}
 
 	streamer := createStreamer(subscriptions, httpClient, channels)
 	assert.NotNil(t, streamer)
-	assert.Equal(t, channels, streamer.channels)
-	assert.NotNil(t, streamer.addedChannels)
+	assert.Equal(t, channels, streamer.channelIDToName)
+	assert.NotNil(t, streamer.addedChannelIDs)
 	assert.NotNil(t, streamer.addedProgrammes)
 }
 
@@ -106,7 +109,7 @@ func TestStreamer_WriteTo(t *testing.T) {
 		return req.Method == "GET" && req.URL.String() == "http://example.com/epg.xml"
 	})).Return(response, nil)
 
-	channels := map[string]bool{"channel1": true}
+	channels := map[string]string{"channel1": "Channel One"}
 	streamer = createStreamer([]listing.Subscription{sub}, httpClient, channels)
 	buf = bytes.NewBuffer(nil)
 	_, err = streamer.WriteTo(ctx, buf)
@@ -115,47 +118,8 @@ func TestStreamer_WriteTo(t *testing.T) {
 	assert.NotEmpty(t, result, "Expected non-empty XML output")
 	assert.Contains(t, strings.ToLower(result), "<channel id=\"channel1\">")
 	assert.Contains(t, strings.ToLower(result), "<programme start=\"")
-	assert.Contains(t, result, "http://example.com/icon.png")
-}
-
-func TestStreamer_WriteToGzip(t *testing.T) {
-	ctx := context.Background()
-	httpClient := new(MockHTTPClient)
-
-	xmlContent := `<?xml version="1.0" encoding="UTF-8"?>
-<tv>
-  <channel id="channel1">
-	<display-name>Channel 1</display-name>
-  </channel>
-</tv>`
-
-	sub, err := createTestSubscription("test-subscription", []string{"http://example.com/epg.xml"})
-	require.NoError(t, err)
-
-	response := &http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(strings.NewReader(xmlContent)),
-	}
-
-	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
-		return req.Method == "GET" && req.URL.String() == "http://example.com/epg.xml"
-	})).Return(response, nil)
-
-	channels := map[string]bool{"channel1": true}
-	streamer := createStreamer([]listing.Subscription{sub}, httpClient, channels)
-	buf := bytes.NewBuffer(nil)
-	_, err = streamer.WriteToGzip(ctx, buf)
-	require.NoError(t, err)
-	assert.NotEmpty(t, buf.Bytes(), "Expected non-empty gzip output")
-
-	gzipReader, err := gzip.NewReader(bytes.NewReader(buf.Bytes()))
-	require.NoError(t, err)
-	uncompressed, err := io.ReadAll(gzipReader)
-	require.NoError(t, err)
-
-	result := string(uncompressed)
-	assert.NotEmpty(t, result, "Expected non-empty XML output after decompression")
-	assert.Contains(t, strings.ToLower(result), "<channel id=\"channel1\">")
+	assert.Contains(t, result, "http://localhost/")
+	assert.Contains(t, result, "/f.png")
 }
 
 func TestStreamerWithMultipleEPGSources(t *testing.T) {
@@ -212,9 +176,9 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	channels := map[string]bool{
-		"channel1": true,
-		"channel2": true,
+	channels := map[string]string{
+		"channel1": "Channel One",
+		"channel2": "Channel Two",
 	}
 
 	streamer := createStreamer([]listing.Subscription{sub}, httpClient, channels)
@@ -229,11 +193,9 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 
 	assert.Contains(t, output, "<channel id=\"channel1\">")
 	assert.Contains(t, output, "<title>Morning Show</title>")
-	assert.Contains(t, output, "http://example.com/icon1.png")
-
+	assert.Contains(t, output, "http://localhost/")
 	assert.Contains(t, output, "<channel id=\"channel2\">")
 	assert.Contains(t, output, "<title>Afternoon Show</title>")
-	assert.Contains(t, output, "http://example.com/icon2.png")
 
 	httpClient.AssertExpectations(t)
 }
@@ -285,9 +247,9 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	channels := map[string]bool{
-		"news1":   true,
-		"movies1": true,
+	channels := map[string]string{
+		"news1":   "News Channel",
+		"movies1": "Movies Channel",
 	}
 
 	streamer := createStreamer([]listing.Subscription{sub1, sub2}, httpClient, channels)

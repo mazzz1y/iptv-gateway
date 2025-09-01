@@ -39,19 +39,16 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	return writer.WriteChannels(channels, w)
 }
 
-func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]bool, error) {
+func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]string, error) {
 	channels, err := s.getChannels(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	channelMap := make(map[string]bool)
+	channelMap := make(map[string]string)
 	for _, ch := range channels {
 		track := ch.Track()
-		if id := track.Attrs["tvg-id"]; id != "" {
-			channelMap[id] = true
-		}
-		channelMap[track.Name] = true
+		channelMap[track.Attrs["tvg-id"]] = track.Name
 	}
 
 	return channelMap, nil
@@ -110,15 +107,11 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
 
 				if track, ok := item.(*m3u8.Track); ok {
 					ch := rules.NewChannel(track, decoder.subscription)
-					output <- ch
+					store.Add(ch)
 				}
 			}
 		},
-		func(item listing.Item) error {
-			ch := item.(*rules.Channel)
-			store.Add(ch)
-			return nil
-		},
+		nil,
 	)
 
 	if err != nil {

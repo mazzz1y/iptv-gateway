@@ -45,6 +45,15 @@ func (p *Processor) Process(
 			continue
 		}
 
+		if track.Attrs["tvg-id"] == "" {
+			tvgName := track.Attrs["tvg-name"]
+			if tvgName != "" {
+				track.Attrs["tvg-id"] = listing.GenerateTvgID(tvgName)
+			} else {
+				track.Attrs["tvg-id"] = listing.GenerateTvgID(track.Name)
+			}
+		}
+
 		if p.isDuplicate(track) {
 			continue
 		}

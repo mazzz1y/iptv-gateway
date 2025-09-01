@@ -15,6 +15,6 @@ type Config struct {
 	MetricsAddr   string                  `yaml:"metrics_addr,omitempty"`
 	Clients       map[string]Client       `yaml:"clients"`
 	Subscriptions map[string]Subscription `yaml:"subscriptions"`
-	Rules         []rules.RuleAction      `yaml:"rule_list,omitempty"`
+	Rules         []rules.RuleAction      `yaml:"rules,omitempty"`
 	Presets       map[string]Preset       `yaml:"presets,omitempty"`
 }

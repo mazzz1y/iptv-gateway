@@ -3,7 +3,6 @@ package xmltv
 import (
 	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"iptv-gateway/internal/app"
@@ -13,36 +12,35 @@ import (
 	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"sync"
-	"syscall"
 	"time"
 )
 
-const (
-	DefaultChannelMapSize   = 10000
-	DefaultProgrammeMapSize = 100000
-)
-
 type Streamer struct {
-	subscriptions       []listing.Subscription
-	httpClient          listing.HTTPClient
-	channels            map[string]bool
-	addedChannels       map[string]bool
-	addedProgrammes     map[string]bool
-	currentURLGenerator listing.URLGenerator
-	mu                  sync.Mutex
+	subscriptions    []listing.Subscription
+	httpClient       listing.HTTPClient
+	channelIDToName  map[string]string
+	addedChannelIDs  map[string]bool
+	addedProgrammes  map[string]bool
+	channelIDMapping map[string]string
+	mu               sync.RWMutex
 }
 
-func NewStreamer(subs []*app.Subscription, httpClient listing.HTTPClient, channels map[string]bool) *Streamer {
+func NewStreamer(subs []*app.Subscription, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
 	subscriptions := make([]listing.Subscription, len(subs))
 	for i, sub := range subs {
 		subscriptions[i] = sub
 	}
+
+	channelLen := len(channelIDToName)
+	approxProgrammeLen := 300 * channelLen
+
 	return &Streamer{
-		subscriptions:   subscriptions,
-		httpClient:      httpClient,
-		channels:        channels,
-		addedChannels:   make(map[string]bool, DefaultChannelMapSize),
-		addedProgrammes: make(map[string]bool, DefaultProgrammeMapSize),
+		subscriptions:    subscriptions,
+		httpClient:       httpClient,
+		channelIDToName:  channelIDToName,
+		channelIDMapping: make(map[string]string, channelLen),
+		addedChannelIDs:  make(map[string]bool, channelLen),
+		addedProgrammes:  make(map[string]bool, approxProgrammeLen),
 	}
 }
 
@@ -128,12 +126,6 @@ func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapp
 		ctx,
 		decoders,
 		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
-			if decoder.subscription.IsProxied() {
-				s.mu.Lock()
-				s.currentURLGenerator = decoder.subscription.GetURLGenerator()
-				s.mu.Unlock()
-			}
-
 			for {
 				select {
 				case <-ctx.Done():
@@ -154,6 +146,7 @@ func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapp
 
 				switch v := item.(type) {
 				case xmltv.Channel:
+					v.Icons = s.processIcons(decoder.subscription, v.Icons)
 					output <- v
 
 				case xmltv.Programme:
@@ -166,16 +159,9 @@ func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapp
 		},
 		func(item listing.Item) error {
 			channel := item.(xmltv.Channel)
-
-			if !s.isChannelAllowed(channel) {
+			if !s.processChannel(&channel) {
 				return nil
 			}
-
-			s.mu.Lock()
-			if s.currentURLGenerator != nil {
-				channel.Icons = s.processIcons(channel.Icons)
-			}
-			s.mu.Unlock()
 
 			return encoder.Encode(channel)
 		},
@@ -198,12 +184,6 @@ func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderWra
 		ctx,
 		activeDecoders,
 		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
-			if decoder.subscription.IsProxied() {
-				s.mu.Lock()
-				s.currentURLGenerator = decoder.subscription.GetURLGenerator()
-				s.mu.Unlock()
-			}
-
 			for {
 				select {
 				case <-ctx.Done():
@@ -220,50 +200,58 @@ func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderWra
 					errChan <- err
 					return
 				}
-
 				if programme, ok := item.(xmltv.Programme); ok {
+					programme.Icons = s.processIcons(decoder.subscription, programme.Icons)
+					if !s.processProgramme(&programme) {
+						continue
+					}
 					output <- programme
 				}
 			}
 		},
 		func(item listing.Item) error {
-			programme := item.(xmltv.Programme)
-
-			if !s.isProgrammeAllowed(programme) {
-				return nil
-			}
-
-			s.mu.Lock()
-			if s.currentURLGenerator != nil {
-				programme.Icons = s.processIcons(programme.Icons)
-			}
-			s.mu.Unlock()
-
-			err := encoder.Encode(programme)
-			if errors.Is(err, syscall.EPIPE) {
-				return nil
-			}
-			return err
+			return encoder.Encode(item)
 		},
 	)
 }
 
-func (s *Streamer) isChannelAllowed(channel xmltv.Channel) bool {
+func (s *Streamer) processChannel(channel *xmltv.Channel) (allowed bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.addedChannels[channel.ID] {
-		return false
-	}
+	originalID := channel.ID
 
-	if s.channels[channel.ID] {
-		s.addedChannels[channel.ID] = true
-		return true
-	}
-
+	allIDs := []string{originalID}
 	for _, displayName := range channel.DisplayNames {
-		if s.channels[displayName.Value] {
-			s.addedChannels[channel.ID] = true
+		tvgID := listing.GenerateTvgID(displayName.Value)
+		allIDs = append(allIDs, tvgID)
+	}
+
+	for _, id := range allIDs {
+		if s.addedChannelIDs[id] {
+			return false
+		}
+	}
+
+	for _, id := range allIDs {
+		if channelName, exists := s.channelIDToName[id]; exists {
+			for _, processedID := range allIDs {
+				s.addedChannelIDs[processedID] = true
+			}
+
+			if id != originalID {
+				s.channelIDMapping[originalID] = id
+				channel.ID = id
+			}
+
+			if channelName != "" {
+				channel.DisplayNames = []xmltv.CommonElement{
+					{
+						Value: channelName,
+					},
+				}
+			}
+
 			return true
 		}
 	}
@@ -271,11 +259,12 @@ func (s *Streamer) isChannelAllowed(channel xmltv.Channel) bool {
 	return false
 }
 
-func (s *Streamer) isProgrammeAllowed(programme xmltv.Programme) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Streamer) processProgramme(programme *xmltv.Programme) (allowed bool) {
+	if mappedChannel, exists := s.channelIDMapping[programme.Channel]; exists {
+		programme.Channel = mappedChannel
+	}
 
-	if !s.addedChannels[programme.Channel] {
+	if !s.addedChannelIDs[programme.Channel] {
 		return false
 	}
 
@@ -287,6 +276,9 @@ func (s *Streamer) isProgrammeAllowed(programme xmltv.Programme) bool {
 		key += programme.ID
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.addedProgrammes[key] {
 		return false
 	}
@@ -295,8 +287,9 @@ func (s *Streamer) isProgrammeAllowed(programme xmltv.Programme) bool {
 	return true
 }
 
-func (s *Streamer) processIcons(icons []xmltv.Icon) []xmltv.Icon {
-	if s.currentURLGenerator == nil || len(icons) == 0 {
+func (s *Streamer) processIcons(sub listing.Subscription, icons []xmltv.Icon) []xmltv.Icon {
+	gen := sub.GetURLGenerator()
+	if gen == nil || len(icons) == 0 {
 		return icons
 	}
 
@@ -312,25 +305,22 @@ func (s *Streamer) processIcons(icons []xmltv.Icon) []xmltv.Icon {
 		return icons
 	}
 
-	result := make([]xmltv.Icon, len(icons))
-	copy(result, icons)
-
 	urlData := urlgen.Data{
 		RequestType: urlgen.File,
 	}
 
-	for i := range result {
-		if result[i].Source == "" {
+	for i := range icons {
+		if icons[i].Source == "" {
 			continue
 		}
 
-		urlData.URL = result[i].Source
-		link, err := s.currentURLGenerator.CreateURL(urlData, 0)
+		urlData.URL = icons[i].Source
+		link, err := gen.CreateURL(urlData, 0)
 		if err != nil {
 			continue
 		}
-		result[i].Source = link.String()
+		icons[i].Source = link.String()
 	}
 
-	return result
+	return icons
 }

@@ -7,6 +7,6 @@ import (
 
 type Preset struct {
 	Proxy         Proxy              `yaml:"proxy,omitempty"`
-	Rules         []rules.RuleAction `yaml:"rule_list,omitempty"`
+	Rules         []rules.RuleAction `yaml:"rules,omitempty"`
 	Subscriptions types.StringOrArr  `yaml:"subscriptions"`
 }
