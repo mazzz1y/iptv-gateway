@@ -11,13 +11,16 @@ import (
 )
 
 type Subscription struct {
-	name      string
+	name string
+
 	playlists []string
 	epgs      []string
 
 	urlGenerator *urlgen.Generator
 	semaphore    *semaphore.Weighted
-	rules        []rules.RuleAction
+
+	channelRules  []rules.ChannelRule
+	playlistRules []rules.PlaylistRule
 
 	proxyConfig config.Proxy
 
@@ -28,8 +31,10 @@ type Subscription struct {
 }
 
 func NewSubscription(
-	name string, urlGen urlgen.Generator, playlists []string, epgs []string,
-	proxy config.Proxy, r []rules.RuleAction, sem *semaphore.Weighted) (*Subscription, error) {
+	name string, urlGen urlgen.Generator,
+	playlists []string, epgs []string,
+	proxy config.Proxy, channelRules []rules.ChannelRule, playlistRules []rules.PlaylistRule,
+	sem *semaphore.Weighted) (*Subscription, error) {
 
 	streamStreamer, err := shell.NewShellStreamer(
 		proxy.Stream.Command,
@@ -74,7 +79,8 @@ func NewSubscription(
 		epgs:                  epgs,
 		semaphore:             sem,
 		proxyConfig:           proxy,
-		rules:                 r,
+		channelRules:          channelRules,
+		playlistRules:         playlistRules,
 		linkStreamer:          streamStreamer,
 		rateLimitStreamer:     rateLimitStreamer,
 		upstreamErrorStreamer: upstreamErrorStreamer,
@@ -97,8 +103,13 @@ func (s *Subscription) GetEPGs() []string {
 func (s *Subscription) GetURLGenerator() *urlgen.Generator {
 	return s.urlGenerator
 }
-func (s *Subscription) GetRules() []rules.RuleAction {
-	return s.rules
+
+func (s *Subscription) GetChannelRules() []rules.ChannelRule {
+	return s.channelRules
+}
+
+func (s *Subscription) GetPlaylistRules() []rules.PlaylistRule {
+	return s.playlistRules
 }
 
 func (s *Subscription) GetSemaphore() *semaphore.Weighted {

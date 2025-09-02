@@ -27,14 +27,8 @@ func NewProcessor() *Processor {
 	}
 }
 
-func (p *Processor) Process(
-	store *rules.Store, rulesProcessor *rules.Processor, subscriptions []listing.Subscription) ([]*rules.Channel, error) {
+func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor) ([]*rules.Channel, error) {
 	rulesProcessor.Process(store)
-
-	subscriptionMap := make(map[rules.Subscription]listing.Subscription)
-	for _, sub := range subscriptions {
-		subscriptionMap[sub] = sub
-	}
 
 	filteredChannels := make([]*rules.Channel, 0, store.Len())
 
@@ -58,11 +52,9 @@ func (p *Processor) Process(
 			continue
 		}
 
-		if sub, exists := subscriptionMap[ch.Subscription()]; exists {
-			if ch.Subscription().IsProxied() {
-				if err := p.processProxyLinks(track, sub.GetURLGenerator()); err != nil {
-					return nil, err
-				}
+		if ch.Subscription().IsProxied() {
+			if err := p.processProxyLinks(track, ch.Subscription().GetURLGenerator()); err != nil {
+				return nil, err
 			}
 		}
 

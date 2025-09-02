@@ -9,6 +9,8 @@ import (
 	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
+	"iptv-gateway/internal/shell"
+	"iptv-gateway/internal/urlgen"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/stretchr/testify/assert"
@@ -20,24 +22,53 @@ func tpl(name, s string) *template.Template {
 }
 
 type mockSubscription struct {
-	name string
+	name         string
+	channelRules []configrules.ChannelRule
 }
 
 func (m mockSubscription) IsProxied() bool {
 	return false
 }
 
+func (m mockSubscription) GetPlaylists() []string {
+	return nil
+}
+
+func (m mockSubscription) GetEPGs() []string {
+	return nil
+}
+
+func (m mockSubscription) GetURLGenerator() *urlgen.Generator {
+	return nil
+}
+
+func (m mockSubscription) GetChannelRules() []configrules.ChannelRule {
+	return m.channelRules
+}
+
+func (m mockSubscription) GetPlaylistRules() []configrules.PlaylistRule {
+	return nil
+}
+
+func (m mockSubscription) GetName() string {
+	return m.name
+}
+
+func (m mockSubscription) ExpiredCommandStreamer() *shell.Streamer {
+	return nil
+}
+
 func TestRulesProcessor_RemoveField(t *testing.T) {
 	tests := []struct {
 		name          string
-		rules         []configrules.RuleAction
+		rules         []configrules.ChannelRule
 		track         *m3u8.Track
 		shouldRemove  bool
 		expectedTrack *m3u8.Track
 	}{
 		{
 			name: "remove channel by attr",
-			rules: []configrules.RuleAction{
+			rules: []configrules.ChannelRule{
 				{
 					When: []configrules.Condition{
 						{
@@ -47,7 +78,7 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 							},
 						},
 					},
-					RemoveChannel: &configrules.RemoveChannelRule{},
+					RemoveChannel: func() *any { v := any(struct{}{}); return &v }(),
 				},
 			},
 			track: &m3u8.Track{
@@ -58,7 +89,7 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 		},
 		{
 			name: "remove fields",
-			rules: []configrules.RuleAction{
+			rules: []configrules.ChannelRule{
 				{
 					When: []configrules.Condition{
 						{
@@ -103,8 +134,8 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			processor := rules.NewProcessor()
-			sub := mockSubscription{name: "test"}
-			processor.AddSubscriptionRules(sub, tt.rules)
+			sub := &mockSubscription{name: "test", channelRules: tt.rules}
+			processor.AddSubscription(sub)
 
 			store := rules.NewStore()
 			channel := rules.NewChannel(tt.track, sub)
@@ -125,13 +156,13 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
 	tests := []struct {
 		name          string
-		rules         []configrules.RuleAction
+		rules         []configrules.ChannelRule
 		track         *m3u8.Track
 		expectedTrack *m3u8.Track
 	}{
 		{
 			name: "move attr to tag",
-			rules: []configrules.RuleAction{
+			rules: []configrules.ChannelRule{
 				{
 					When: []configrules.Condition{
 						{
@@ -180,7 +211,7 @@ func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
 		},
 		{
 			name: "move tag to attr",
-			rules: []configrules.RuleAction{
+			rules: []configrules.ChannelRule{
 				{
 					When: []configrules.Condition{
 						{
@@ -221,8 +252,8 @@ func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			processor := rules.NewProcessor()
-			sub := mockSubscription{name: "test"}
-			processor.AddSubscriptionRules(sub, tt.rules)
+			sub := &mockSubscription{name: "test", channelRules: tt.rules}
+			processor.AddSubscription(sub)
 
 			store := rules.NewStore()
 			channel := rules.NewChannel(tt.track, sub)

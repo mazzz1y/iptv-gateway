@@ -15,7 +15,7 @@ Each client can access the following endpoints:
 
 ```yaml
 clients:
-  client_name:
+  - name: client-name
     secret: "your-secret-key"
     presets: ["preset1", "preset2"]
     subscriptions: ["sub1", "sub2"]
@@ -25,6 +25,7 @@ clients:
 
 | Field           | Type       | Required | Description                                    |
 |-----------------|------------|----------|------------------------------------------------|
+| `name`          | `string`   | Yes      | Unique name identifier for this client        |
 | `secret`        | `string`   | Yes      | Authentication secret key for the client      |
 | `presets`       | `[]string` | No       | List of preset names to apply to this client  |
 | `subscriptions` | `[]string` | No       | List of subscription names for this client    |
@@ -35,7 +36,7 @@ clients:
 
 ```yaml
 clients:
-  living_room_tv:
+  - name: living-room-tv
     secret: "secret"
     subscriptions: ["sports-package"]
 ```
@@ -44,7 +45,7 @@ clients:
 
 ```yaml
 clients:
-  family_tablet:
+  - name: family-tablet
     secret: "secret"
     presets: ["family-friendly", "hd-quality"]
     subscriptions: ["basic-package", "kids-channels"]
@@ -54,12 +55,11 @@ clients:
 
 ```yaml
 clients:
-  bedroom_tv:
+  - name: bedroom-tv
     secret: "secret1"
     presets: ["adult-filter"]
     subscriptions: ["premium-sports"]
-  
-  kids_tablet:
+  - name: kids-tablet
     secret: "secret2"
     presets: ["child-safe"]
     subscriptions: ["cartoon-channels"]

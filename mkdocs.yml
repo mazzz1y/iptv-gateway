@@ -25,14 +25,15 @@ nav:
   - Home: index.md
   - Configuration:
       - Overview: config.md
-      - Rules:
-          - Overview: config/rules/index.md
-          - Rule List:
-              - Set Field: config/rules/rule_list/set_field.md
-              - Remove Field: config/rules/rule_list/remove_field.md
-              - Remove Channel: config/rules/rule_list/remove_channel.md
-              - Remove Channel Duplicates: config/rules/rule_list/remove_channel_dups.md
-          - When Conditions: config/rules/when.md
+      - Channel Rules:
+          - Overview: config/channel_rules/index.md
+          - Set Field: config/channel_rules/rule_list/set_field.md
+          - Remove Field: config/channel_rules/rule_list/remove_field.md
+          - Remove Channel: config/channel_rules/rule_list/remove_channel.md
+          - When Conditions: config/channel_rules/when.md
+      - Playlist Rules:
+          - Overview: config/playlist_rules/index.md
+          - Remove Duplicates: config/playlist_rules/remove_duplicates.md
       - Proxy: config/proxy.md
       - Clients: config/clients.md
       - Subscriptions: config/subscriptions.md

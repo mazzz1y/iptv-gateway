@@ -7,9 +7,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type PublicURL url.URL
+type URL url.URL
 
-func (pu *PublicURL) UnmarshalYAML(value *yaml.Node) error {
+func (ur *URL) UnmarshalYAML(value *yaml.Node) error {
 	var urlStr string
 	if err := value.Decode(&urlStr); err != nil {
 		return err
@@ -20,14 +20,19 @@ func (pu *PublicURL) UnmarshalYAML(value *yaml.Node) error {
 		return err
 	}
 	if u.Host == "" {
-		return fmt.Errorf("public_url must contain a host")
+		return fmt.Errorf("url must contain a host")
 	}
 
-	*pu = PublicURL(*u)
+	*ur = URL(*u)
 	return nil
 }
 
-func (pu *PublicURL) String() string {
-	u := url.URL(*pu)
+func (ur *URL) String() string {
+	u := url.URL(*ur)
 	return u.String()
+}
+
+func (ur *URL) ToURL() *url.URL {
+	u := url.URL(*ur)
+	return &u
 }

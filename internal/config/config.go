@@ -6,15 +6,16 @@ import (
 )
 
 type Config struct {
-	ListenAddr    string                  `yaml:"listen_addr"`
-	PublicURL     types.PublicURL         `yaml:"public_url"`
-	LogLevel      string                  `yaml:"log_level"`
-	Secret        string                  `yaml:"secret"`
-	Cache         CacheConfig             `yaml:"cache"`
-	Proxy         Proxy                   `yaml:"proxy"`
-	MetricsAddr   string                  `yaml:"metrics_addr,omitempty"`
-	Clients       map[string]Client       `yaml:"clients"`
-	Subscriptions map[string]Subscription `yaml:"subscriptions"`
-	Rules         []rules.RuleAction      `yaml:"rules,omitempty"`
-	Presets       map[string]Preset       `yaml:"presets,omitempty"`
+	ListenAddr    string               `yaml:"listen_addr"`
+	PublicURL     types.URL            `yaml:"public_url"`
+	LogLevel      string               `yaml:"log_level"`
+	Secret        string               `yaml:"secret"`
+	Cache         CacheConfig          `yaml:"cache"`
+	Proxy         Proxy                `yaml:"proxy"`
+	MetricsAddr   string               `yaml:"metrics_addr,omitempty"`
+	Clients       []Client             `yaml:"clients"`
+	Subscriptions []Subscription       `yaml:"subscriptions"`
+	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
+	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
+	Presets       []Preset             `yaml:"presets,omitempty"`
 }

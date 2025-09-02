@@ -1,35 +1,39 @@
 # Subscriptions
 
-Subscriptions define collections of IPTV playlists and Electronic Program Guides (EPGs) that clients can access. Each subscription can contain multiple playlist sources, EPG sources, custom proxy settings, and processing rules specific to that subscription's content.
+Subscriptions define collections of IPTV playlists and Electronic Program Guides (EPGs) that clients can access. Each
+subscription can contain multiple playlist sources, EPG sources, custom proxy settings, and processing rules specific to
+that subscription's content.
 
 ## YAML Structure
 
 ```yaml
 subscriptions:
-  subscription_name:
-    playlists:
+  - name: subscription-name
+    playlist_sources:
       - "http://example.com/playlist-1.m3u8"
-      - "http://example.com/playlist-2.m3u8"
-    epgs:
+      - "/path/to/local/playlist-2.m3u8"
+    epg_sources:
       - "http://example.com/epg-1.xml"
-      - "http://example.com/epg-2.xml.gz"
+      - "/path/to/local/epg-2.xml.gz"
     proxy:
       enabled: true
       concurrency: 2
-    rules:
-      - remove_channel: {}
+    channel_rules:
+      - remove_channel: { }
         when:
           - name: "^Test.*"
 ```
 
 ## Fields
 
-| Field       | Type       | Required | Description                                           |
-|-------------|------------|----------|-------------------------------------------------------|
-| `playlists` | `[]string` | No       | Array of playlist URLs (M3U/M3U8 format)             |
-| `epgs`      | `[]string` | No       | Array of EPG URLs (XML format, .gz compressed files supported) |
-| `proxy`     | `object`   | No       | Subscription-specific proxy configuration             |
-| `rules`     | `[]rule`   | No       | Array of processing rules applied to this subscription |
+| Field              | Type                                         | Required | Description                                                                           |
+|--------------------|----------------------------------------------|----------|---------------------------------------------------------------------------------------|
+| `name`             | `string`                                     | Yes      | Unique name identifier for this subscription                                          |
+| `playlist_sources` | `[]string`                                   | No       | Array of playlist sources (URLs or file paths, M3U/M3U8 format)                       |
+| `epg_sources`      | `[]string`                                   | No       | Array of EPG sources (URLs or file paths, XML format, .gz compressed files supported) |
+| `proxy`            | [Proxy](./proxy.md)                          | No       | Subscription-specific proxy configuration                                             |
+| `channel_rules`    | [[]Channel Rule](./channel_rules/index.md) | No       | Array of channel processing rules applied to this subscription                        |
+| `playlist_rules`   | [[]Playlist Rule](./playlist_rules/index.md) | No       | Array of playlist processing rules applied to this subscription                       |
 
 ## Examples
 
@@ -37,10 +41,10 @@ subscriptions:
 
 ```yaml
 subscriptions:
-  basic-tv:
-    playlists:
+  - name: basic-tv
+    playlist_sources:
       - "https://provider.com/basic.m3u8"
-    epgs:
+    epg_sources:
       - "https://provider.com/guide.xml"
 ```
 
@@ -48,16 +52,16 @@ subscriptions:
 
 ```yaml
 subscriptions:
-  sports-premium:
-    playlists:
+  - name: sports-premium
+    playlist_sources:
       - "https://sports-provider.com/premium.m3u8"
       - "https://sports-provider.com/international.m3u8"
-    epgs:
+    epg_sources:
       - "https://sports-provider.com/epg.xml.gz"
-    rules:
-      - remove_channel_dups:
-          - patterns: ["4K", "UHD", "FHD", "HD", ""]
-            trim_pattern: true
+    playlist_rules:
+      - remove_duplicates:
+          - patterns: [ "4K", "UHD", "FHD", "HD", "" ]
+    channel_rules:
       - set_field:
           - attr:
               name: "group-title"
@@ -70,15 +74,15 @@ subscriptions:
 
 ```yaml
 subscriptions:
-  family-safe:
-    playlists:
+  - name: family-safe
+    playlist_sources:
       - "https://family-provider.com/channels.m3u8"
-    epgs:
+    epg_sources:
       - "https://family-provider.com/schedule.xml"
     proxy:
       enabled: true
       concurrency: 5
-    rules:
+    channel_rules:
       - remove_channel: {}
         when:
           - or:
@@ -96,15 +100,15 @@ subscriptions:
 
 ```yaml
 subscriptions:
-  global-news:
-    playlists:
+  - name: global-news
+    playlist_sources:
       - "https://news-source-1.com/channels.m3u8"
       - "https://news-source-2.com/international.m3u8"
       - "https://news-source-3.com/local.m3u8"
-    epgs:
+    epg_sources:
       - "https://news-source-1.com/guide.xml"
       - "https://news-source-2.com/schedule.xml"
-    rules:
+    channel_rules:
       - set_field:
           - attr:
               name: "group-title"
@@ -115,3 +119,4 @@ subscriptions:
         when:
           - name: ".*Test.*|.*Sample.*"
 ```
+

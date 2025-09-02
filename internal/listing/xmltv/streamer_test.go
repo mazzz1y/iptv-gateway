@@ -57,7 +57,8 @@ func createTestSubscription(name string, epgs []string) (*app.Subscription, erro
 		nil,
 		epgs,
 		config.Proxy{},
-		[]rules.RuleAction{},
+		[]rules.ChannelRule{},
+		nil,
 		sem,
 	)
 }

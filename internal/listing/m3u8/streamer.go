@@ -8,13 +8,12 @@ import (
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
-	"net/http"
 )
 
 type Streamer struct {
 	subscriptions []listing.Subscription
 	httpClient    listing.HTTPClient
-	epgLink       string
+	epgURL        string
 }
 
 func NewStreamer(subs []*app.Subscription, epgLink string, httpClient listing.HTTPClient) *Streamer {
@@ -25,7 +24,7 @@ func NewStreamer(subs []*app.Subscription, epgLink string, httpClient listing.HT
 	return &Streamer{
 		subscriptions: subscriptions,
 		httpClient:    httpClient,
-		epgLink:       epgLink,
+		epgURL:        epgLink,
 	}
 }
 
@@ -35,7 +34,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	writer := NewWriter(s.epgLink)
+	writer := NewWriter(s.epgURL)
 	return writer.WriteChannels(channels, w)
 }
 
@@ -63,14 +62,10 @@ func (s *Streamer) getChannels(ctx context.Context) ([]*rules.Channel, error) {
 	rulesProcessor := s.createRulesProcessor()
 	processor := NewProcessor()
 
-	return processor.Process(store, rulesProcessor, s.subscriptions)
+	return processor.Process(store, rulesProcessor)
 }
 
 func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
-	if len(s.subscriptions) == 0 {
-		return nil, fmt.Errorf("no subscriptions found")
-	}
-
 	store := rules.NewStore()
 
 	decoders, err := s.initDecoders(ctx)
@@ -129,24 +124,18 @@ func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) 
 	var decoders []*decoderWrapper
 
 	for _, sub := range s.subscriptions {
-		for _, playlistURL := range sub.GetPlaylists() {
-			req, err := http.NewRequestWithContext(ctx, "GET", playlistURL, nil)
+		for _, src := range sub.GetPlaylists() {
+			reader, err := listing.CreateReader(ctx, s.httpClient, src)
 			if err != nil {
 				s.closeDecoders(decoders)
-				return nil, fmt.Errorf("failed to create request: %w", err)
+				return nil, err
 			}
 
-			resp, err := s.httpClient.Do(req)
-			if err != nil {
-				s.closeDecoders(decoders)
-				return nil, fmt.Errorf("failed to fetch playlist: %w", err)
-			}
-
-			decoder := m3u8.NewDecoder(resp.Body)
+			decoder := m3u8.NewDecoder(reader)
 			decoders = append(decoders, &decoderWrapper{
 				decoder:      decoder,
 				subscription: sub,
-				reader:       resp.Body,
+				reader:       reader,
 			})
 		}
 	}
@@ -164,9 +153,7 @@ func (s *Streamer) createRulesProcessor() *rules.Processor {
 	processor := rules.NewProcessor()
 
 	for _, sub := range s.subscriptions {
-		if rul := sub.GetRules(); len(rul) > 0 {
-			processor.AddSubscriptionRules(sub, rul)
-		}
+		processor.AddSubscription(sub)
 	}
 
 	return processor

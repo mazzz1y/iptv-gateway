@@ -31,14 +31,14 @@ func NewManager(cfg *config.Config) (*Manager, error) {
 		manager.semaphore = semaphore.NewWeighted(cfg.Proxy.ConcurrentStreams)
 	}
 
-	for subName := range cfg.Subscriptions {
-		metrics.SubscriptionStreamsActive.WithLabelValues(subName).Set(0)
+	for _, sub := range cfg.Subscriptions {
+		metrics.SubscriptionStreamsActive.WithLabelValues(sub.Name).Set(0)
 	}
 
 	manager.subSemaphores = make(map[string]*semaphore.Weighted, len(cfg.Subscriptions))
-	for subName, sub := range cfg.Subscriptions {
+	for _, sub := range cfg.Subscriptions {
 		if sub.Proxy.ConcurrentStreams > 0 {
-			manager.subSemaphores[subName] = semaphore.NewWeighted(sub.Proxy.ConcurrentStreams)
+			manager.subSemaphores[sub.Name] = semaphore.NewWeighted(sub.Proxy.ConcurrentStreams)
 		}
 	}
 
@@ -60,8 +60,8 @@ func (m *Manager) GetGlobalSemaphore() *semaphore.Weighted {
 func (m *Manager) initClients() error {
 	m.clients = make([]*Client, 0, len(m.config.Clients))
 
-	for clientName, clientConf := range m.config.Clients {
-		clientInstance, err := m.createClient(clientName, clientConf)
+	for _, clientConf := range m.config.Clients {
+		clientInstance, err := m.createClient(clientConf.Name, clientConf)
 		if err != nil {
 			return err
 		}
@@ -69,7 +69,7 @@ func (m *Manager) initClients() error {
 		m.clients = append(m.clients, clientInstance)
 		m.secretToClient[clientConf.Secret] = clientInstance
 
-		logging.Debug(context.TODO(), "client initialized", "name", clientName)
+		logging.Debug(context.TODO(), "client initialized", "name", clientConf.Name)
 	}
 	return nil
 }
@@ -99,7 +99,15 @@ func (m *Manager) resolvePresets(clientName string, presetNames []string) ([]con
 
 	presets := make([]config.Preset, 0, len(presetNames))
 	for _, presetName := range presetNames {
-		preset, found := m.config.Presets[presetName]
+		var preset config.Preset
+		found := false
+		for _, p := range m.config.Presets {
+			if p.Name == presetName {
+				preset = p
+				found = true
+				break
+			}
+		}
 		if !found {
 			return nil, fmt.Errorf("preset '%s' for client '%s' is not defined in config", presetName, clientName)
 		}
@@ -136,7 +144,15 @@ func (m *Manager) collectSubscriptions(clientInstance *Client, clientConf config
 }
 
 func (m *Manager) addClientSubscription(clientInstance *Client, clientName string, clientConf config.Client, subName string) error {
-	subConf, found := m.config.Subscriptions[subName]
+	var subConf config.Subscription
+	found := false
+	for _, sub := range m.config.Subscriptions {
+		if sub.Name == subName {
+			subConf = sub
+			found = true
+			break
+		}
+	}
 	if !found {
 		return fmt.Errorf("subscription '%s' for client '%s' is not defined in config", subName, clientName)
 	}
@@ -146,9 +162,10 @@ func (m *Manager) addClientSubscription(clientInstance *Client, clientName strin
 		return fmt.Errorf("failed to create URL generator: %w", err)
 	}
 
-	err = clientInstance.AddSubscription(
+	err = clientInstance.BuildSubscription(
 		subName, subConf, *urlGen,
-		m.config.Rules, m.config.Proxy,
+		m.config.ChannelRules, m.config.PlaylistRules,
+		m.config.Proxy,
 		m.subSemaphores[subName])
 	if err != nil {
 		return fmt.Errorf("failed to build subscription '%s' for client '%s': %w", subName, clientName, err)

@@ -10,7 +10,6 @@ import (
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/parser/xmltv"
 	"iptv-gateway/internal/urlgen"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -91,24 +90,18 @@ func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) 
 	var decoders []*decoderWrapper
 
 	for _, sub := range s.subscriptions {
-		for _, epgURL := range sub.GetEPGs() {
-			req, err := http.NewRequestWithContext(ctx, "GET", epgURL, nil)
+		for _, src := range sub.GetEPGs() {
+			reader, err := listing.CreateReader(ctx, s.httpClient, src)
 			if err != nil {
 				s.closeDecoders(decoders)
-				return nil, fmt.Errorf("failed to create request: %w", err)
+				return nil, err
 			}
 
-			resp, err := s.httpClient.Do(req)
-			if err != nil {
-				s.closeDecoders(decoders)
-				return nil, fmt.Errorf("failed to fetch EPG: %w", err)
-			}
-
-			decoder := xmltv.NewDecoder(resp.Body)
+			decoder := xmltv.NewDecoder(reader)
 			decoders = append(decoders, &decoderWrapper{
 				decoder:      decoder,
 				subscription: sub,
-				reader:       resp.Body,
+				reader:       reader,
 			})
 		}
 	}

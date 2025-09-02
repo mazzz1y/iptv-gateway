@@ -4,21 +4,25 @@ import (
 	"bytes"
 	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/parser/m3u8"
 )
 
 type Processor struct {
-	subscriptionRulesMap map[Subscription][]rules.RuleAction
+	subscriptionChannelRulesMap  map[listing.Subscription][]rules.ChannelRule
+	subscriptionPlaylistRulesMap map[listing.Subscription][]rules.PlaylistRule
 }
 
 func NewProcessor() *Processor {
 	return &Processor{
-		subscriptionRulesMap: make(map[Subscription][]rules.RuleAction),
+		subscriptionChannelRulesMap:  make(map[listing.Subscription][]rules.ChannelRule),
+		subscriptionPlaylistRulesMap: make(map[listing.Subscription][]rules.PlaylistRule),
 	}
 }
 
-func (p *Processor) AddSubscriptionRules(sub Subscription, rules []rules.RuleAction) {
-	p.subscriptionRulesMap[sub] = append(p.subscriptionRulesMap[sub], rules...)
+func (p *Processor) AddSubscription(sub listing.Subscription) {
+	p.subscriptionChannelRulesMap[sub] = append(p.subscriptionChannelRulesMap[sub], sub.GetChannelRules()...)
+	p.subscriptionPlaylistRulesMap[sub] = append(p.subscriptionPlaylistRulesMap[sub], sub.GetPlaylistRules()...)
 }
 
 func (p *Processor) Process(store *Store) {
@@ -34,13 +38,13 @@ func (p *Processor) processTrackRules(store *Store) {
 	for _, ch := range store.All() {
 		track := ch.Track()
 
-		if subRules, exists := p.subscriptionRulesMap[ch.Subscription()]; exists {
+		if subRules, exists := p.subscriptionChannelRulesMap[ch.Subscription()]; exists {
 			p.processTrackWithRules(track, subRules)
 		}
 	}
 }
 
-func (p *Processor) processTrackWithRules(track *m3u8.Track, rules []rules.RuleAction) {
+func (p *Processor) processTrackWithRules(track *m3u8.Track, rules []rules.ChannelRule) {
 	for _, action := range rules {
 		if !p.matchesConditions(track, action.When) {
 			continue
@@ -62,7 +66,7 @@ func (p *Processor) processTrackWithRules(track *m3u8.Track, rules []rules.RuleA
 }
 
 func (p *Processor) processRemoveDuplicatesRules(global *Store) {
-	for sub, rules := range p.subscriptionRulesMap {
+	for sub, rul := range p.subscriptionPlaylistRulesMap {
 		subStore := NewStore()
 		for _, ch := range global.All() {
 			if ch.Subscription() == sub {
@@ -70,9 +74,9 @@ func (p *Processor) processRemoveDuplicatesRules(global *Store) {
 			}
 		}
 
-		for _, action := range rules {
-			if action.RemoveChannelDups != nil {
-				for _, dupRule := range *action.RemoveChannelDups {
+		for _, action := range rul {
+			if action.RemoveDuplicates != nil {
+				for _, dupRule := range *action.RemoveDuplicates {
 					rule := NewRemoveDuplicatesRule(dupRule.Patterns, dupRule.TrimPattern)
 					rule.Apply(global, subStore)
 				}
@@ -145,11 +149,14 @@ func (p *Processor) matchesCondition(track *m3u8.Track, condition rules.Conditio
 	}
 
 	if len(condition.Not) > 0 {
+		anyMatched := false
 		for _, subCondition := range condition.Not {
 			if p.matchesCondition(track, subCondition) {
-				return false
+				anyMatched = true
+				break
 			}
 		}
+		return !anyMatched
 	}
 
 	return true

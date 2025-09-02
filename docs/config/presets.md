@@ -6,19 +6,22 @@ The presets block represents a collection of reusable configuration templates. P
 
 ```yaml
 presets:
-  preset_name:
-    rules: []
+  - name: preset-name
+    channel_rules: []
+    playlist_rules: []
     proxy: {}
     subscriptions: []
 ```
 
 ## Fields
 
-| Field           | Type                | Required | Description                                          |
-|-----------------|---------------------|----------|------------------------------------------------------|
-| `rules`         | `[]rule`            | No       | Array of processing rules to apply                   |
-| `proxy`         | [Proxy](./proxy.md) | No       | Proxy configuration settings                         |
-| `subscriptions` | `[]string`          | No       | List of subscription names to include in this preset |
+| Field            | Type                | Required | Description                                          |
+|------------------|---------------------|----------|------------------------------------------------------|
+| `name`           | `string`            | Yes      | Unique name identifier for this preset              |
+| `channel_rules`  | `[]rule`            | No       | Array of channel processing rules to apply          |
+| `playlist_rules` | `[]rule`            | No       | Array of playlist processing rules to apply         |
+| `proxy`          | [Proxy](./proxy.md) | No       | Proxy configuration settings                         |
+| `subscriptions`  | `[]string`          | No       | List of subscription names to include in this preset |
 
 ## Examples
 
@@ -26,19 +29,18 @@ presets:
 
 ```yaml
 presets:
-  hd-quality:
-    rules:
-      - remove_channel_dups:
+  - name: hd-quality
+    playlist_rules:
+      - remove_duplicates:
           - patterns: ["4K", "UHD", "FHD", "HD", ""]
-            trim_pattern: true
 ```
 
 ### Family-Friendly Preset
 
 ```yaml
 presets:
-  family-safe:
-    rules:
+  - name: family-safe
+    channel_rules:
       - remove_channel: {}
         when:
           - attr:
@@ -57,11 +59,11 @@ presets:
 
 ```yaml
 presets:
-  low-bandwidth:
+  - name: low-bandwidth
     proxy:
       enabled: true
       concurrency: 2
-    rules:
+    channel_rules:
       - remove_channel: {}
         when:
           - name: ".*(4K|UHD).*"

@@ -97,7 +97,7 @@ proxy:
   enabled: true
   concurrency: 5
   stream:
-    command: 
+    command:
       - "ffmpeg"
       - "-i"
       - "{{ .url }}"

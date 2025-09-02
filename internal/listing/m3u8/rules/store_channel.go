@@ -1,15 +1,12 @@
 package rules
 
 import (
+	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
 	"time"
 )
-
-type Subscription interface {
-	IsProxied() bool
-}
 
 type URLGenerator interface {
 	CreateURL(data urlgen.Data, ttl time.Duration) (*url.URL, error)
@@ -17,10 +14,10 @@ type URLGenerator interface {
 
 type Channel struct {
 	track        *m3u8.Track
-	subscription Subscription
+	subscription listing.Subscription
 }
 
-func NewChannel(track *m3u8.Track, subscription Subscription) *Channel {
+func NewChannel(track *m3u8.Track, subscription listing.Subscription) *Channel {
 	return &Channel{
 		track:        track,
 		subscription: subscription,
@@ -31,7 +28,7 @@ func (c *Channel) Track() *m3u8.Track {
 	return c.track
 }
 
-func (c *Channel) Subscription() Subscription {
+func (c *Channel) Subscription() listing.Subscription {
 	return c.subscription
 }
 

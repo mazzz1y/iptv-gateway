@@ -23,7 +23,7 @@ func createStreamer(subscriptions []listing.Subscription, epgLink string, httpCl
 	return &Streamer{
 		subscriptions: subscriptions,
 		httpClient:    httpClient,
-		epgLink:       epgLink,
+		epgURL:        epgLink,
 	}
 }
 
@@ -51,6 +51,7 @@ func createTestSubscription(name string, playlists []string) (*app.Subscription,
 		playlists,
 		nil,
 		config.Proxy{},
+		nil,
 		nil,
 		semaphore,
 	)

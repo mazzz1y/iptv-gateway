@@ -15,7 +15,8 @@ type Client struct {
 	subscriptions []*Subscription
 	presets       []config.Preset
 	proxy         config.Proxy
-	rules         []rules.RuleAction
+	rules         []rules.ChannelRule
+	playlistRules []rules.PlaylistRule
 	epgLink       string
 	secret        string
 }
@@ -31,30 +32,36 @@ func NewClient(name string, clientCfg config.Client, presets []config.Preset, pu
 	}
 
 	return &Client{
-		name:      name,
-		semaphore: sem,
-		presets:   presets,
-		proxy:     clientCfg.Proxy,
-		secret:    clientCfg.Secret,
-		epgLink:   fmt.Sprintf("%s/%s/epg.xml.gz", publicUrl, clientCfg.Secret),
+		name:          name,
+		semaphore:     sem,
+		presets:       presets,
+		proxy:         clientCfg.Proxy,
+		secret:        clientCfg.Secret,
+		rules:         clientCfg.ChannelRules,
+		playlistRules: clientCfg.PlaylistRules,
+		epgLink:       fmt.Sprintf("%s/%s/epg.xml.gz", publicUrl, clientCfg.Secret),
 	}, nil
 }
 
-func (c *Client) AddSubscription(
+func (c *Client) BuildSubscription(
 	name string, conf config.Subscription, urlGen urlgen.Generator,
-	serverRules []rules.RuleAction, serverProxy config.Proxy,
+	globalChannelRules []rules.ChannelRule, globalPlaylistUser []rules.PlaylistRule,
+	serverProxy config.Proxy,
 	sem *semaphore.Weighted) error {
 
 	proxy := mergeProxies(serverProxy, conf.Proxy)
-	mergedRules := mergeRules(serverRules, conf.Rules)
+	mergedChannelRules := mergeArrays(globalChannelRules, conf.ChannelRules)
+	mergedPlaylistRules := mergeArrays(globalPlaylistUser, conf.PlaylistRules)
 
 	for _, preset := range c.presets {
 		proxy = mergeProxies(proxy, preset.Proxy)
-		mergedRules = mergeRules(mergedRules, preset.Rules)
+		mergedChannelRules = mergeArrays(mergedChannelRules, preset.ChannelRules)
+		mergedPlaylistRules = mergeArrays(globalPlaylistUser, preset.PlaylistRules)
 	}
 
 	proxy = mergeProxies(proxy, c.proxy)
-	mergedRules = mergeRules(mergedRules, c.rules)
+	mergedChannelRules = mergeArrays(mergedChannelRules, c.rules)
+	mergedPlaylistRules = mergeArrays(globalPlaylistUser, c.playlistRules)
 
 	subscription, err := NewSubscription(
 		name,
@@ -62,7 +69,8 @@ func (c *Client) AddSubscription(
 		conf.Playlist,
 		conf.EPG,
 		proxy,
-		mergedRules,
+		mergedChannelRules,
+		mergedPlaylistRules,
 		sem,
 	)
 

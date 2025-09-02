@@ -50,7 +50,7 @@ func TestPublicURL_UnmarshalYAML(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var u PublicURL
+			var u URL
 			err := yaml.Unmarshal([]byte(tt.yamlData), &u)
 
 			if tt.wantErr {

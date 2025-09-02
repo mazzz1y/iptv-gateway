@@ -16,19 +16,20 @@ iptv-gateway -config ./config      # from directory
 
 ### Root Level Configuration
 
-| Field           | Type                                       | Description                                                            |
-|-----------------|--------------------------------------------|------------------------------------------------------------------------|
-| `listen_addr`   | `string`                                   | Server listening address                                               |
-| `metrics_addr`  | `string`                                   | Prometheus metrics server address                                      |
-| `public_url`    | `string`                                   | Public URL for generating links                                        |
-| `log_level`     | `string`                                   | Logging level (debug, info, warn, error)                               |
-| `secret`        | `string`                                   | Secret used as for encryption purposes                                 |
-| `proxy`         | [Proxy](./config/proxy.md)                 | Stream proxy configuration for remuxing with ffmpeg                    |
-| `cache`         | [Cache](./config/cache.md)                 | Cache configuration for playlists and EPGs                             |
-| `subscriptions` | [Subscriptions](./config/subscriptions.md) | Collection of subscription definitions with playlists, EPGs, and rules |
-| `rules`         | [Rules](./config/rules/index.md)           | Global rules                                                           |
-| `presets`       | [Presets](./config/presets.md)             | Reusable configuration templates                                       |
-| `clients`       | [Clients](./config/clients.md)             | IPTV client definitions with individual settings                       |
+| Field            | Type                                                   | Description                                                       |
+|------------------|--------------------------------------------------------|-------------------------------------------------------------------|
+| `listen_addr`    | `string`                                               | Server listening address                                          |
+| `metrics_addr`   | `string`                                               | Prometheus metrics server address                                 |
+| `public_url`     | `string`                                               | Public URL for generating links                                   |
+| `log_level`      | `string`                                               | Logging level (debug, info, warn, error)                          |
+| `secret`         | `string`                                               | Secret used as for encryption purposes                            |
+| `proxy`          | [Proxy](./config/proxy.md)                             | Stream proxy configuration for remuxing with ffmpeg               |
+| `cache`          | [Cache](./config/cache.md)                             | Cache configuration for playlists and EPGs                        |
+| `subscriptions`  | [Subscriptions](./config/subscriptions.md)             | Array of subscription definitions with playlists, EPGs, and rules |
+| `channel_rules`  | [Channel Rules](config/channel_rules/channel_rules.md) | Global channel processing rules                                   |
+| `playlist_rules` | [Playlist Rules](config/playlist_rules/index.md)       | Global playlist processing rules                                  |
+| `presets`        | [Presets](./config/presets.md)                         | Array of reusable configuration templates                         |
+| `clients`        | [Clients](./config/clients.md)                         | Array of IPTV client definitions with individual settings         |
 
 ## Example Configuration
 
@@ -37,7 +38,7 @@ iptv-gateway -config ./config      # from directory
 # https://iptv.example.com/tv-secret/epg.xml
 # https://iptv.example.com/tv-secret/epg.xml.gz
 
-listen_addr: ":8080"
+listen_addr: ":8080"l
 metrics_addr: ":9090"
 public_url: "https://iptv.example.com"
 secret: "global-secret"
@@ -47,24 +48,24 @@ proxy:
   concurrency: 10
 
 subscriptions:
-  main-subscription:
-    playlists: "http://example.com/playlist.m3u8"
-    epgs: "http://example.com/epg.xml.gz"
-    rules:
-      - remove_channel: {}
-        when:
-          - attr:
-              name: "group-title"
-              value: "(?i)adult"
+  - name: main-subscription
+    playlist_sources: "http://example.com/playlist.m3u8"
+    epg_sources: "http://example.com/epg.xml.gz"
 
-rules:
-  - remove_channel_dups:
+channel_rules:
+  - remove_channel: {}
+    when:
+      - attr:
+          name: "group-title"
+          value: "(?i)adult"
+
+playlist_rules:
+  - remove_duplicates:
       - patterns: [ "4K", "UHD", "FHD", "HD", "" ]
-        trim_pattern: true
 
 presets:
-  family-friendly:
-    rules:
+  - name: family-friendly
+    channel_rules:
       - remove_channel: {}
         when:
           - attr:
@@ -72,7 +73,7 @@ presets:
               value: "(?i)adult"
 
 clients:
-  living-room-tv:
+  - name: living-room-tv
     secret: "tv-secret"
     presets: "family-friendly"
     subscriptions: "main-subscription"

@@ -6,9 +6,11 @@ import (
 )
 
 type Client struct {
-	Secret        string             `yaml:"secret"`
-	Subscriptions types.StringOrArr  `yaml:"subscriptions"`
-	Preset        types.StringOrArr  `yaml:"presets,omitempty"`
-	Proxy         Proxy              `yaml:"proxy,omitempty"`
-	Rules         []rules.RuleAction `yaml:"rule_list,omitempty"`
+	Name          string               `yaml:"name"`
+	Secret        string               `yaml:"secret"`
+	Subscriptions types.StringOrArr    `yaml:"subscriptions"`
+	Preset        types.StringOrArr    `yaml:"presets,omitempty"`
+	Proxy         Proxy                `yaml:"proxy,omitempty"`
+	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
+	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
 }

@@ -6,8 +6,10 @@ import (
 )
 
 type Subscription struct {
-	Playlist types.StringOrArr  `yaml:"playlists"`
-	EPG      types.StringOrArr  `yaml:"epgs"`
-	Proxy    Proxy              `yaml:"proxy"`
-	Rules    []rules.RuleAction `yaml:"rule_list,omitempty"`
+	Name          string               `yaml:"name"`
+	Playlist      types.StringOrArr    `yaml:"playlist_sources"`
+	EPG           types.StringOrArr    `yaml:"epg_sources"`
+	Proxy         Proxy                `yaml:"proxy"`
+	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
+	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
 }

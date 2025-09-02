@@ -25,7 +25,8 @@ type Subscription interface {
 	GetPlaylists() []string
 	GetEPGs() []string
 	GetURLGenerator() *urlgen.Generator
-	GetRules() []rules.RuleAction
+	GetChannelRules() []rules.ChannelRule
+	GetPlaylistRules() []rules.PlaylistRule
 	IsProxied() bool
 	GetName() string
 	ExpiredCommandStreamer() *shell.Streamer
