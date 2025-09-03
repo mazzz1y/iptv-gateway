@@ -8,7 +8,8 @@ import (
 type Preset struct {
 	Name          string               `yaml:"name"`
 	Proxy         Proxy                `yaml:"proxy,omitempty"`
-	Subscriptions types.StringOrArr    `yaml:"subscriptions"`
+	Playlists     types.StringOrArr    `yaml:"playlists"`
+	EPGs          types.StringOrArr    `yaml:"epgs"`
 	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
 	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
 }

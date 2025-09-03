@@ -25,7 +25,8 @@ iptv-gateway -config ./config      # from directory
 | `secret`         | `string`                                               | Secret used as for encryption purposes                            |
 | `proxy`          | [Proxy](./config/proxy.md)                             | Stream proxy configuration for remuxing with ffmpeg               |
 | `cache`          | [Cache](./config/cache.md)                             | Cache configuration for playlists and EPGs                        |
-| `subscriptions`  | [Subscriptions](./config/subscriptions.md)             | Array of subscription definitions with playlists, EPGs, and rules |
+| `playlists`      | [Playlists](./config/playlists.md)                     | Array of playlist definitions with sources and rules              |
+| `epgs`           | [EPGs](./config/epgs.md)                               | Array of EPG definitions with sources                             |
 | `channel_rules`  | [Channel Rules](config/channel_rules/channel_rules.md) | Global channel processing rules                                   |
 | `playlist_rules` | [Playlist Rules](config/playlist_rules/index.md)       | Global playlist processing rules                                  |
 | `presets`        | [Presets](./config/presets.md)                         | Array of reusable configuration templates                         |
@@ -47,10 +48,13 @@ proxy:
   enabled: true
   concurrency: 10
 
-subscriptions:
-  - name: main-subscription
-    playlist_sources: "http://example.com/playlist.m3u8"
-    epg_sources: "http://example.com/epg.xml.gz"
+playlists:
+  - name: main-playlist
+    sources: "http://example.com/playlist.m3u8"
+
+epgs:
+  - name: main-epg
+    sources: "http://example.com/epg.xml.gz"
 
 channel_rules:
   - remove_channel: {}
@@ -76,5 +80,6 @@ clients:
   - name: living-room-tv
     secret: "tv-secret"
     presets: "family-friendly"
-    subscriptions: "main-subscription"
+    playlists: "main-playlist"
+    epgs: "main-epg"
 ```

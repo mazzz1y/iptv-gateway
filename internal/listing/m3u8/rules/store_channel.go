@@ -14,10 +14,10 @@ type URLGenerator interface {
 
 type Channel struct {
 	track        *m3u8.Track
-	subscription listing.Subscription
+	subscription listing.PlaylistSubscription
 }
 
-func NewChannel(track *m3u8.Track, subscription listing.Subscription) *Channel {
+func NewChannel(track *m3u8.Track, subscription listing.PlaylistSubscription) *Channel {
 	return &Channel{
 		track:        track,
 		subscription: subscription,
@@ -28,7 +28,7 @@ func (c *Channel) Track() *m3u8.Track {
 	return c.track
 }
 
-func (c *Channel) Subscription() listing.Subscription {
+func (c *Channel) Subscription() listing.PlaylistSubscription {
 	return c.subscription
 }
 

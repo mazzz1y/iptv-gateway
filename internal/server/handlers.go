@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"time"
+
 	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/demux"
@@ -15,8 +18,6 @@ import (
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/metrics"
 	"iptv-gateway/internal/urlgen"
-	"net/http"
-	"time"
 )
 
 const (
@@ -34,14 +35,14 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-mpegurl")
 	w.Header().Set("Cache-Control", "no-cache")
 
-	streamer := m3u8.NewStreamer(c.GetSubscriptions(), c.GetEpgLink(), s.httpClient)
+	streamer := m3u8.NewStreamer(c.PlaylistSubscriptions(), c.EpgLink(), s.httpClient)
 	if _, err := streamer.WriteTo(ctx, w); err != nil {
 		logging.Error(ctx, err, "failed to write playlist")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	metrics.ListingDownloadTotal.WithLabelValues(c.GetName(), metrics.RequestTypePlaylist).Inc()
+	metrics.ListingDownloadTotal.WithLabelValues(c.Name(), metrics.RequestTypePlaylist).Inc()
 }
 
 func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +67,7 @@ func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c := ctxutil.Client(ctx).(*app.Client)
-	metrics.ListingDownloadTotal.WithLabelValues(c.GetName(), metrics.RequestTypeEPG).Inc()
+	metrics.ListingDownloadTotal.WithLabelValues(c.Name(), metrics.RequestTypeEPG).Inc()
 }
 
 func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +93,7 @@ func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c := ctxutil.Client(ctx).(*app.Client)
-	metrics.ListingDownloadTotal.WithLabelValues(c.GetName(), metrics.RequestTypeEPG).Inc()
+	metrics.ListingDownloadTotal.WithLabelValues(c.Name(), metrics.RequestTypeEPG).Inc()
 }
 
 func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
@@ -154,24 +155,24 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error) {
 	c := ctxutil.Client(ctx).(*app.Client)
 
-	m3u8Streamer := m3u8.NewStreamer(c.GetSubscriptions(), "", s.httpClient)
+	m3u8Streamer := m3u8.NewStreamer(c.PlaylistSubscriptions(), "", s.httpClient)
 	channels, err := m3u8Streamer.GetAllChannels(ctx)
 	if err != nil {
 		logging.Error(ctx, err, "failed to get channels")
 		return nil, err
 	}
 
-	return xmltv.NewStreamer(c.GetSubscriptions(), s.httpClient, channels), nil
+	return xmltv.NewStreamer(c.EPGSubscriptions(), s.httpClient, channels), nil
 }
 
 func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	logging.Debug(ctx, "proxying stream")
 
-	subscription := ctxutil.Subscription(ctx).(*app.Subscription)
+	subscription := ctxutil.Subscription(ctx).(*app.PlaylistSubscription)
 	data := ctxutil.StreamData(ctx).(*urlgen.Data)
 	ctx = ctxutil.WithChannelID(ctx, data.ChannelID)
 	clientName := ctxutil.ClientName(ctx)
-	subscriptionName := subscription.GetName()
+	subscriptionName := subscription.Name()
 
 	streamKey := generateStreamKey(data.URL, r.URL.RawQuery)
 
@@ -198,14 +199,14 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		Context:   ctx,
 		StreamKey: streamKey,
 		Streamer:  streamSource,
-		Semaphore: subscription.GetSemaphore(),
+		Semaphore: subscription.Semaphore(),
 	}
 
 	reader, err := s.demux.GetReader(demuxReq)
 	if errors.Is(err, demux.ErrSubscriptionSemaphore) {
 		logging.Error(ctx, err, "failed to get stream")
 		metrics.StreamsFailuresTotal.WithLabelValues(
-			clientName, subscription.GetName(), data.ChannelID, metrics.FailureReasonSubscriptionLimit).Inc()
+			clientName, subscription.Name(), data.ChannelID, metrics.FailureReasonSubscriptionLimit).Inc()
 		subscription.LimitStreamer().Stream(ctx, w)
 		return
 	}
@@ -224,7 +225,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	if err == nil && written == 0 {
 		logging.Error(ctx, errors.New("no data written to response"), "")
 		metrics.StreamsFailuresTotal.WithLabelValues(
-			clientName, subscription.GetName(), data.ChannelID, metrics.FailureReasonUpstreamError).Inc()
+			clientName, subscription.Name(), data.ChannelID, metrics.FailureReasonUpstreamError).Inc()
 		subscription.UpstreamErrorStreamer().Stream(ctx, w)
 		return
 	}

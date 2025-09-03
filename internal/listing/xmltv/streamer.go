@@ -5,17 +5,17 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/app"
+	"sync"
+	"time"
+
 	"iptv-gateway/internal/ioutil"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/parser/xmltv"
 	"iptv-gateway/internal/urlgen"
-	"sync"
-	"time"
 )
 
 type Streamer struct {
-	subscriptions    []listing.Subscription
+	subscriptions    []listing.EPGSubscription
 	httpClient       listing.HTTPClient
 	channelIDToName  map[string]string
 	addedChannelIDs  map[string]bool
@@ -24,11 +24,8 @@ type Streamer struct {
 	mu               sync.RWMutex
 }
 
-func NewStreamer(subs []*app.Subscription, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
-	subscriptions := make([]listing.Subscription, len(subs))
-	for i, sub := range subs {
-		subscriptions[i] = sub
-	}
+func NewStreamer(subs []listing.EPGSubscription, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
+	subscriptions := subs
 
 	channelLen := len(channelIDToName)
 	approxProgrammeLen := 300 * channelLen
@@ -90,7 +87,7 @@ func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) 
 	var decoders []*decoderWrapper
 
 	for _, sub := range s.subscriptions {
-		for _, src := range sub.GetEPGs() {
+		for _, src := range sub.EPGs() {
 			reader, err := listing.CreateReader(ctx, s.httpClient, src)
 			if err != nil {
 				s.closeDecoders(decoders)
@@ -134,7 +131,6 @@ func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapp
 				}
 				if err != nil {
 					errChan <- err
-					return
 				}
 
 				switch v := item.(type) {
@@ -280,8 +276,8 @@ func (s *Streamer) processProgramme(programme *xmltv.Programme) (allowed bool) {
 	return true
 }
 
-func (s *Streamer) processIcons(sub listing.Subscription, icons []xmltv.Icon) []xmltv.Icon {
-	gen := sub.GetURLGenerator()
+func (s *Streamer) processIcons(sub listing.EPGSubscription, icons []xmltv.Icon) []xmltv.Icon {
+	gen := sub.URLGenerator()
 	if gen == nil || len(icons) == 0 {
 		return icons
 	}

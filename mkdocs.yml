@@ -36,7 +36,8 @@ nav:
           - Remove Duplicates: config/playlist_rules/remove_duplicates.md
       - Proxy: config/proxy.md
       - Clients: config/clients.md
-      - Subscriptions: config/subscriptions.md
+      - Playlists: config/playlists.md
+      - EPGs: config/epgs.md
       - Presets: config/presets.md
       - Cache: config/cache.md
   - Metrics: metrics.md

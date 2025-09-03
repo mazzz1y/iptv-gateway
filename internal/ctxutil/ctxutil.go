@@ -28,15 +28,15 @@ func WithRequestID(ctx context.Context) context.Context {
 }
 
 func WithClient(ctx context.Context, client any) context.Context {
-	if namer, ok := client.(interface{ GetName() string }); ok {
-		ctx = context.WithValue(ctx, clientNameKey, namer.GetName())
+	if namer, ok := client.(interface{ Name() string }); ok {
+		ctx = context.WithValue(ctx, clientNameKey, namer.Name())
 	}
 	return context.WithValue(ctx, clientKey, client)
 }
 
 func WithSubscription(ctx context.Context, sub any) context.Context {
-	if namer, ok := sub.(interface{ GetName() string }); ok {
-		ctx = context.WithValue(ctx, subscriptionNameKey, namer.GetName())
+	if namer, ok := sub.(interface{ Name() string }); ok {
+		ctx = context.WithValue(ctx, subscriptionNameKey, namer.Name())
 	}
 	return context.WithValue(ctx, subscriptionKey, sub)
 }

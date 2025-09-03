@@ -9,20 +9,20 @@ import (
 )
 
 type Processor struct {
-	subscriptionChannelRulesMap  map[listing.Subscription][]rules.ChannelRule
-	subscriptionPlaylistRulesMap map[listing.Subscription][]rules.PlaylistRule
+	subscriptionChannelRulesMap  map[listing.PlaylistSubscription][]rules.ChannelRule
+	subscriptionPlaylistRulesMap map[listing.PlaylistSubscription][]rules.PlaylistRule
 }
 
 func NewProcessor() *Processor {
 	return &Processor{
-		subscriptionChannelRulesMap:  make(map[listing.Subscription][]rules.ChannelRule),
-		subscriptionPlaylistRulesMap: make(map[listing.Subscription][]rules.PlaylistRule),
+		subscriptionChannelRulesMap:  make(map[listing.PlaylistSubscription][]rules.ChannelRule),
+		subscriptionPlaylistRulesMap: make(map[listing.PlaylistSubscription][]rules.PlaylistRule),
 	}
 }
 
-func (p *Processor) AddSubscription(sub listing.Subscription) {
-	p.subscriptionChannelRulesMap[sub] = append(p.subscriptionChannelRulesMap[sub], sub.GetChannelRules()...)
-	p.subscriptionPlaylistRulesMap[sub] = append(p.subscriptionPlaylistRulesMap[sub], sub.GetPlaylistRules()...)
+func (p *Processor) AddSubscription(sub listing.PlaylistSubscription) {
+	p.subscriptionChannelRulesMap[sub] = append(p.subscriptionChannelRulesMap[sub], sub.ChannelRules()...)
+	p.subscriptionPlaylistRulesMap[sub] = append(p.subscriptionPlaylistRulesMap[sub], sub.PlaylistRules()...)
 }
 
 func (p *Processor) Process(store *Store) {

@@ -18,7 +18,8 @@ clients:
   - name: client-name
     secret: "your-secret-key"
     presets: ["preset1", "preset2"]
-    subscriptions: ["sub1", "sub2"]
+    playlists: ["playlist1", "playlist2"]
+    epgs: ["epg1", "epg2"]
 ```
 
 ## Fields
@@ -28,7 +29,8 @@ clients:
 | `name`          | `string`   | Yes      | Unique name identifier for this client        |
 | `secret`        | `string`   | Yes      | Authentication secret key for the client      |
 | `presets`       | `[]string` | No       | List of preset names to apply to this client  |
-| `subscriptions` | `[]string` | No       | List of subscription names for this client    |
+| `playlists`     | `[]string` | No       | List of playlist names for this client        |
+| `epgs`          | `[]string` | No       | List of EPG names for this client             |
 
 ## Examples
 
@@ -38,7 +40,7 @@ clients:
 clients:
   - name: living-room-tv
     secret: "secret"
-    subscriptions: ["sports-package"]
+    playlists: ["sports-playlist"]
 ```
 
 ### Client with Multiple Presets
@@ -48,7 +50,7 @@ clients:
   - name: family-tablet
     secret: "secret"
     presets: ["family-friendly", "hd-quality"]
-    subscriptions: ["basic-package", "kids-channels"]
+    playlists: ["basic-playlist", "kids-playlist"]
 ```
 
 ### Multiple Clients
@@ -58,9 +60,9 @@ clients:
   - name: bedroom-tv
     secret: "secret1"
     presets: ["adult-filter"]
-    subscriptions: ["premium-sports"]
+    playlists: ["premium-sports-playlist"]
   - name: kids-tablet
     secret: "secret2"
     presets: ["child-safe"]
-    subscriptions: ["cartoon-channels"]
+    playlists: ["cartoon-playlist"]
 ```

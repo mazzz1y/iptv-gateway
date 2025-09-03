@@ -30,27 +30,23 @@ func (m mockSubscription) IsProxied() bool {
 	return false
 }
 
-func (m mockSubscription) GetPlaylists() []string {
+func (m mockSubscription) Playlists() []string {
 	return nil
 }
 
-func (m mockSubscription) GetEPGs() []string {
+func (m mockSubscription) URLGenerator() *urlgen.Generator {
 	return nil
 }
 
-func (m mockSubscription) GetURLGenerator() *urlgen.Generator {
-	return nil
-}
-
-func (m mockSubscription) GetChannelRules() []configrules.ChannelRule {
+func (m mockSubscription) ChannelRules() []configrules.ChannelRule {
 	return m.channelRules
 }
 
-func (m mockSubscription) GetPlaylistRules() []configrules.PlaylistRule {
+func (m mockSubscription) PlaylistRules() []configrules.PlaylistRule {
 	return nil
 }
 
-func (m mockSubscription) GetName() string {
+func (m mockSubscription) Name() string {
 	return m.name
 }
 

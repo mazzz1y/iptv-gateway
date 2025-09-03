@@ -53,7 +53,7 @@ func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor)
 		}
 
 		if ch.Subscription().IsProxied() {
-			if err := p.processProxyLinks(track, ch.Subscription().GetURLGenerator()); err != nil {
+			if err := p.processProxyLinks(track, ch.Subscription().URLGenerator()); err != nil {
 				return nil, err
 			}
 		}

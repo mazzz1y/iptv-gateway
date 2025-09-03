@@ -31,14 +31,14 @@ func NewManager(cfg *config.Config) (*Manager, error) {
 		manager.semaphore = semaphore.NewWeighted(cfg.Proxy.ConcurrentStreams)
 	}
 
-	for _, sub := range cfg.Subscriptions {
-		metrics.SubscriptionStreamsActive.WithLabelValues(sub.Name).Set(0)
+	for _, playlist := range cfg.Playlists {
+		metrics.SubscriptionStreamsActive.WithLabelValues(playlist.Name).Set(0)
 	}
 
-	manager.subSemaphores = make(map[string]*semaphore.Weighted, len(cfg.Subscriptions))
-	for _, sub := range cfg.Subscriptions {
-		if sub.Proxy.ConcurrentStreams > 0 {
-			manager.subSemaphores[sub.Name] = semaphore.NewWeighted(sub.Proxy.ConcurrentStreams)
+	manager.subSemaphores = make(map[string]*semaphore.Weighted, len(cfg.Playlists))
+	for _, playlist := range cfg.Playlists {
+		if playlist.Proxy.ConcurrentStreams > 0 {
+			manager.subSemaphores[playlist.Name] = semaphore.NewWeighted(int64(playlist.Proxy.ConcurrentStreams))
 		}
 	}
 
@@ -53,7 +53,7 @@ func (m *Manager) GetClient(secret string) *Client {
 	return m.secretToClient[secret]
 }
 
-func (m *Manager) GetGlobalSemaphore() *semaphore.Weighted {
+func (m *Manager) GlobalSemaphore() *semaphore.Weighted {
 	return m.semaphore
 }
 
@@ -117,58 +117,98 @@ func (m *Manager) resolvePresets(clientName string, presetNames []string) ([]con
 }
 
 func (m *Manager) addSubscriptionsToClient(clientInstance *Client, clientName string, clientConf config.Client) error {
-	clientSubs := m.collectSubscriptions(clientInstance, clientConf)
-
-	if len(clientSubs) == 0 {
-		return fmt.Errorf("no subscriptions specified for %s", clientName)
-	}
-
-	for _, subName := range clientSubs {
-		if err := m.addClientSubscription(clientInstance, clientName, clientConf, subName); err != nil {
+	clientPlaylistNames := m.collectPlaylists(clientInstance, clientConf)
+	for _, playlistName := range clientPlaylistNames {
+		if err := m.addPlaylistSubscription(clientInstance, clientName, clientConf, playlistName); err != nil {
 			return err
 		}
+	}
+
+	clientEPGNames := m.collectEPGs(clientInstance, clientConf)
+	for _, epgName := range clientEPGNames {
+		if err := m.addEPGSubscription(clientInstance, clientName, clientConf, epgName); err != nil {
+			return err
+		}
+	}
+
+	if len(clientPlaylistNames) == 0 && len(clientEPGNames) == 0 {
+		return fmt.Errorf("no playlists or EPGs specified for %s", clientName)
 	}
 
 	return nil
 }
 
-func (m *Manager) collectSubscriptions(clientInstance *Client, clientConf config.Client) []string {
-	clientSubs := make([]string, 0, len(clientConf.Subscriptions)+len(clientInstance.presets)*2)
-	clientSubs = append(clientSubs, clientConf.Subscriptions...)
-
-	for _, preset := range clientInstance.presets {
-		clientSubs = append(clientSubs, preset.Subscriptions...)
-	}
-
-	return clientSubs
+func (m *Manager) collectPlaylists(clientInstance *Client, clientConf config.Client) []string {
+	return collectNames(clientConf, clientInstance,
+		func(c config.Client) []string { return c.Playlists },
+		func(p config.Preset) []string { return p.Playlists },
+	)
 }
 
-func (m *Manager) addClientSubscription(clientInstance *Client, clientName string, clientConf config.Client, subName string) error {
-	var subConf config.Subscription
+func (m *Manager) collectEPGs(clientInstance *Client, clientConf config.Client) []string {
+	return collectNames(clientConf, clientInstance,
+		func(c config.Client) []string { return c.EPGs },
+		func(p config.Preset) []string { return p.EPGs },
+	)
+}
+
+func (m *Manager) addPlaylistSubscription(
+	clientInstance *Client, clientName string, clientConf config.Client, playlistName string) error {
+	var playlistConf config.Playlist
+
 	found := false
-	for _, sub := range m.config.Subscriptions {
-		if sub.Name == subName {
-			subConf = sub
+	for _, playlist := range m.config.Playlists {
+		if playlist.Name == playlistName {
+			playlistConf = playlist
 			found = true
 			break
 		}
 	}
 	if !found {
-		return fmt.Errorf("subscription '%s' for client '%s' is not defined in config", subName, clientName)
+		return fmt.Errorf("playlist '%s' for client '%s' is not defined in config", playlistName, clientName)
 	}
 
-	urlGen, err := m.createURLGenerator(clientConf.Secret, subName)
+	urlGen, err := m.createURLGenerator(clientConf.Secret, playlistName)
 	if err != nil {
 		return fmt.Errorf("failed to create URL generator: %w", err)
 	}
 
-	err = clientInstance.BuildSubscription(
-		subName, subConf, *urlGen,
+	err = clientInstance.BuildPlaylistSubscription(
+		playlistConf, *urlGen,
 		m.config.ChannelRules, m.config.PlaylistRules,
 		m.config.Proxy,
-		m.subSemaphores[subName])
+		m.subSemaphores[playlistName])
 	if err != nil {
-		return fmt.Errorf("failed to build subscription '%s' for client '%s': %w", subName, clientName, err)
+		return fmt.Errorf("failed to build playlist subscription '%s' for client '%s': %w", playlistName, clientName, err)
+	}
+
+	return nil
+}
+
+func (m *Manager) addEPGSubscription(
+	clientInstance *Client, clientName string, clientConf config.Client, epgName string) error {
+	var epgConf config.EPG
+
+	found := false
+	for _, epg := range m.config.EPGs {
+		if epg.Name == epgName {
+			epgConf = epg
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("EPG '%s' for client '%s' is not defined in config", epgName, clientName)
+	}
+
+	urlGen, err := m.createURLGenerator(clientConf.Secret, epgName)
+	if err != nil {
+		return fmt.Errorf("failed to create URL generator: %w", err)
+	}
+
+	err = clientInstance.BuildEPGSubscription(epgConf, *urlGen, m.config.Proxy)
+	if err != nil {
+		return fmt.Errorf("failed to build EPG subscription '%s' for client '%s': %w", epgName, clientName, err)
 	}
 
 	return nil
@@ -179,4 +219,28 @@ func (m *Manager) createURLGenerator(clientSecret, subName string) (*urlgen.Gene
 	secretKey := m.config.Secret + subName + clientSecret
 
 	return urlgen.NewGenerator(baseURL, secretKey)
+}
+
+func collectNames(clientConf config.Client, clientInstance *Client,
+	getClientNames func(config.Client) []string,
+	getPresetNames func(config.Preset) []string) []string {
+
+	nameSet := make(map[string]bool)
+
+	for _, name := range getClientNames(clientConf) {
+		nameSet[name] = true
+	}
+
+	for _, preset := range clientInstance.presets {
+		for _, name := range getPresetNames(preset) {
+			nameSet[name] = true
+		}
+	}
+
+	names := make([]string, 0, len(nameSet))
+	for name := range nameSet {
+		names = append(names, name)
+	}
+
+	return names
 }

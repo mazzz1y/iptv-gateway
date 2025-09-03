@@ -14,7 +14,8 @@ type Config struct {
 	Proxy         Proxy                `yaml:"proxy"`
 	MetricsAddr   string               `yaml:"metrics_addr,omitempty"`
 	Clients       []Client             `yaml:"clients"`
-	Subscriptions []Subscription       `yaml:"subscriptions"`
+	Playlists     []Playlist           `yaml:"playlists"`
+	EPGs          []EPG                `yaml:"epgs"`
 	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
 	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
 	Presets       []Preset             `yaml:"presets,omitempty"`

@@ -2,6 +2,7 @@ package config
 
 import (
 	"iptv-gateway/internal/config/types"
+
 	"gopkg.in/yaml.v3"
 )
 

@@ -25,16 +25,16 @@ func (s *Server) acquireSemaphores(ctx context.Context) bool {
 				return nil
 			}
 			metrics.StreamsFailuresTotal.WithLabelValues(
-				c.GetName(), ctxutil.SubscriptionName(ctx), data.ChannelID, reason).Inc()
+				c.Name(), ctxutil.SubscriptionName(ctx), data.ChannelID, reason).Inc()
 			return fmt.Errorf("failed to acquire semaphore: %s", reason)
 		}
 	}
 
-	if managerSem := s.manager.GetGlobalSemaphore(); managerSem != nil {
+	if managerSem := s.manager.GlobalSemaphore(); managerSem != nil {
 		g.Go(acquireSem(managerSem, metrics.FailureReasonGlobalLimit))
 	}
 
-	if clientSem := c.GetSemaphore(); clientSem != nil {
+	if clientSem := c.Semaphore(); clientSem != nil {
 		g.Go(acquireSem(clientSem, metrics.FailureReasonClientLimit))
 	}
 
@@ -44,11 +44,11 @@ func (s *Server) acquireSemaphores(ctx context.Context) bool {
 func (s *Server) releaseSemaphores(ctx context.Context) {
 	c := ctxutil.Client(ctx).(*app.Client)
 
-	if managerSem := s.manager.GetGlobalSemaphore(); managerSem != nil {
+	if managerSem := s.manager.GlobalSemaphore(); managerSem != nil {
 		managerSem.Release(1)
 	}
 
-	if clientSem := c.GetSemaphore(); clientSem != nil {
+	if clientSem := c.Semaphore(); clientSem != nil {
 		clientSem.Release(1)
 	}
 }

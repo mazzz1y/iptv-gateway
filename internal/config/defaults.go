@@ -1,8 +1,8 @@
 package config
 
 import (
-	"time"
 	"iptv-gateway/internal/config/types"
+	"time"
 )
 
 func DefaultConfig() *Config {

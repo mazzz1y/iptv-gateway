@@ -2,6 +2,7 @@ package listing
 
 import (
 	"context"
+	"iptv-gateway/internal/logging"
 	"sync"
 )
 
@@ -52,7 +53,7 @@ func Process[S any](
 			}
 
 		case err := <-errChan:
-			return err
+			logging.Error(ctx, err, "failed to process item")
 
 		case <-ctx.Done():
 			return ctx.Err()

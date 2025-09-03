@@ -21,13 +21,19 @@ type URLGenerator interface {
 	CreateURL(data urlgen.Data, ttl time.Duration) (*url.URL, error)
 }
 
-type Subscription interface {
-	GetPlaylists() []string
-	GetEPGs() []string
-	GetURLGenerator() *urlgen.Generator
-	GetChannelRules() []rules.ChannelRule
-	GetPlaylistRules() []rules.PlaylistRule
+type PlaylistSubscription interface {
+	Playlists() []string
+	URLGenerator() *urlgen.Generator
+	ChannelRules() []rules.ChannelRule
+	PlaylistRules() []rules.PlaylistRule
 	IsProxied() bool
-	GetName() string
+	Name() string
 	ExpiredCommandStreamer() *shell.Streamer
+}
+
+type EPGSubscription interface {
+	EPGs() []string
+	URLGenerator() *urlgen.Generator
+	IsProxied() bool
+	Name() string
 }

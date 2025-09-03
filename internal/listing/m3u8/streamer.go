@@ -4,25 +4,21 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/app"
+
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 )
 
 type Streamer struct {
-	subscriptions []listing.Subscription
+	subscriptions []listing.PlaylistSubscription
 	httpClient    listing.HTTPClient
 	epgURL        string
 }
 
-func NewStreamer(subs []*app.Subscription, epgLink string, httpClient listing.HTTPClient) *Streamer {
-	subscriptions := make([]listing.Subscription, len(subs))
-	for i, sub := range subs {
-		subscriptions[i] = sub
-	}
+func NewStreamer(subs []listing.PlaylistSubscription, epgLink string, httpClient listing.HTTPClient) *Streamer {
 	return &Streamer{
-		subscriptions: subscriptions,
+		subscriptions: subs,
 		httpClient:    httpClient,
 		epgURL:        epgLink,
 	}
@@ -124,7 +120,7 @@ func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) 
 	var decoders []*decoderWrapper
 
 	for _, sub := range s.subscriptions {
-		for _, src := range sub.GetPlaylists() {
+		for _, src := range sub.Playlists() {
 			reader, err := listing.CreateReader(ctx, s.httpClient, src)
 			if err != nil {
 				s.closeDecoders(decoders)

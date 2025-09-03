@@ -19,7 +19,7 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-func createStreamer(subscriptions []listing.Subscription, epgLink string, httpClient listing.HTTPClient) *Streamer {
+func createStreamer(subscriptions []listing.PlaylistSubscription, epgLink string, httpClient listing.HTTPClient) *Streamer {
 	return &Streamer{
 		subscriptions: subscriptions,
 		httpClient:    httpClient,
@@ -39,20 +39,19 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
-func createTestSubscription(name string, playlists []string) (*app.Subscription, error) {
+func createTestSubscription(name string, playlists []string) (*app.PlaylistSubscription, error) {
 	semaphore := semaphore.NewWeighted(1)
 	generator, err := urlgen.NewGenerator("http://localhost", "secret")
 	if err != nil {
 		return nil, err
 	}
-	return app.NewSubscription(
+	return app.NewPlaylistSubscription(
 		name,
 		*generator,
 		playlists,
-		nil,
-		config.Proxy{},
-		nil,
-		nil,
+		config.Proxy{}, // playlist proxy
+		nil, // channel rules
+		nil, // playlist rules
 		semaphore,
 	)
 }
@@ -82,7 +81,7 @@ http://example.com/stream2`
 	)
 	require.NoError(t, err)
 
-	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.PlaylistSubscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -127,7 +126,7 @@ http://example.com/movies1`
 	)
 	require.NoError(t, err)
 
-	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.PlaylistSubscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -167,7 +166,7 @@ http://example.com/stream1_duplicate`
 	)
 	require.NoError(t, err)
 
-	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.PlaylistSubscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -202,7 +201,7 @@ func TestStreamerErrorHandling(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.PlaylistSubscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -254,7 +253,7 @@ http://example.com/sports1`
 	)
 	require.NoError(t, err)
 
-	streamer := createStreamer([]listing.Subscription{sub1, sub2}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.PlaylistSubscription{sub1, sub2}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 
@@ -310,7 +309,7 @@ http://example.com/music1`
 	)
 	require.NoError(t, err)
 
-	streamer := createStreamer([]listing.Subscription{sub}, "http://example.com/epg.xml", httpClient)
+	streamer := createStreamer([]listing.PlaylistSubscription{sub}, "http://example.com/epg.xml", httpClient)
 
 	buffer := &bytes.Buffer{}
 

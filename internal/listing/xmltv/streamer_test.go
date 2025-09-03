@@ -6,7 +6,6 @@ import (
 	"io"
 	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
@@ -16,10 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/semaphore"
 )
 
-func createStreamer(subscriptions []listing.Subscription, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
+func createStreamer(subscriptions []listing.EPGSubscription, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
 	channelLen := len(channelIDToName)
 	approxProgrammeLen := 300 * channelLen
 
@@ -45,26 +43,21 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
-func createTestSubscription(name string, epgs []string) (*app.Subscription, error) {
-	sem := semaphore.NewWeighted(1)
+func createTestSubscription(name string, epgs []string) (*app.EPGSubscription, error) {
 	generator, err := urlgen.NewGenerator("http://localhost", "secret")
 	if err != nil {
 		return nil, err
 	}
-	return app.NewSubscription(
+	return app.NewEPGSubscription(
 		name,
 		*generator,
-		nil,
 		epgs,
 		config.Proxy{},
-		[]rules.ChannelRule{},
-		nil,
-		sem,
 	)
 }
 
 func TestNewStreamer(t *testing.T) {
-	var subscriptions []listing.Subscription
+	var subscriptions []listing.EPGSubscription
 	httpClient := &MockHTTPClient{}
 	channels := map[string]string{"channel1": "Channel One"}
 
@@ -77,7 +70,7 @@ func TestNewStreamer(t *testing.T) {
 
 func TestStreamer_WriteTo(t *testing.T) {
 	ctx := context.Background()
-	streamer := createStreamer([]listing.Subscription{}, &MockHTTPClient{}, nil)
+	streamer := createStreamer([]listing.EPGSubscription{}, &MockHTTPClient{}, nil)
 	buf := bytes.NewBuffer(nil)
 	_, err := streamer.WriteTo(ctx, buf)
 	assert.Error(t, err)
@@ -111,7 +104,7 @@ func TestStreamer_WriteTo(t *testing.T) {
 	})).Return(response, nil)
 
 	channels := map[string]string{"channel1": "Channel One"}
-	streamer = createStreamer([]listing.Subscription{sub}, httpClient, channels)
+	streamer = createStreamer([]listing.EPGSubscription{sub}, httpClient, channels)
 	buf = bytes.NewBuffer(nil)
 	_, err = streamer.WriteTo(ctx, buf)
 	require.NoError(t, err)
@@ -182,7 +175,7 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 		"channel2": "Channel Two",
 	}
 
-	streamer := createStreamer([]listing.Subscription{sub}, httpClient, channels)
+	streamer := createStreamer([]listing.EPGSubscription{sub}, httpClient, channels)
 
 	buffer := &bytes.Buffer{}
 
@@ -253,7 +246,7 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
 		"movies1": "Movies Channel",
 	}
 
-	streamer := createStreamer([]listing.Subscription{sub1, sub2}, httpClient, channels)
+	streamer := createStreamer([]listing.EPGSubscription{sub1, sub2}, httpClient, channels)
 
 	buffer := &bytes.Buffer{}
 

@@ -8,7 +8,8 @@ import (
 type Client struct {
 	Name          string               `yaml:"name"`
 	Secret        string               `yaml:"secret"`
-	Subscriptions types.StringOrArr    `yaml:"subscriptions"`
+	Playlists     types.StringOrArr    `yaml:"playlists"`
+	EPGs          types.StringOrArr    `yaml:"epgs"`
 	Preset        types.StringOrArr    `yaml:"presets,omitempty"`
 	Proxy         Proxy                `yaml:"proxy,omitempty"`
 	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
