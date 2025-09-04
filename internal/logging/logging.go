@@ -17,12 +17,13 @@ import (
 var logger *slog.Logger
 
 func init() {
-	SetLevel("info")
+	SetLevelAndFormat("debug", "text")
 }
 
-func SetLevel(l string) {
+func SetLevelAndFormat(l, f string) {
 	var level slog.Level
-	switch strings.ToLower(l) {
+	levelLower := strings.ToLower(l)
+	switch levelLower {
 	case "debug":
 		level = slog.LevelDebug
 	case "info":
@@ -33,8 +34,28 @@ func SetLevel(l string) {
 		level = slog.LevelError
 	default:
 		level = slog.LevelInfo
+		if logger != nil {
+			logger.Warn("invalid log level, defaulting to 'info'")
+		}
 	}
-	logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+
+	var handler slog.Handler
+	opts := &slog.HandlerOptions{Level: level}
+
+	formatLower := strings.ToLower(f)
+	switch formatLower {
+	case "json":
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+	case "text":
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	default:
+		handler = slog.NewTextHandler(os.Stdout, opts)
+		if logger != nil {
+			logger.Warn("invalid log format, defaulting to 'text'")
+		}
+	}
+
+	logger = slog.New(handler)
 }
 
 func Info(ctx context.Context, msg string, args ...any) {

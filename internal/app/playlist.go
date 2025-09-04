@@ -90,6 +90,10 @@ func (ps *PlaylistSubscription) Name() string {
 	return ps.name
 }
 
+func (ps *PlaylistSubscription) Type() string {
+	return "playlist"
+}
+
 func (ps *PlaylistSubscription) Playlists() []string {
 	return ps.sources
 }
@@ -133,5 +137,3 @@ func (ps *PlaylistSubscription) UpstreamErrorStreamer() *shell.Streamer {
 func (ps *PlaylistSubscription) ExpiredCommandStreamer() *shell.Streamer {
 	return ps.expiredLinkStreamer
 }
-
-

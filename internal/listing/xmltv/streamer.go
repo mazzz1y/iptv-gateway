@@ -14,6 +14,11 @@ import (
 	"iptv-gateway/internal/urlgen"
 )
 
+type epgDecoderInput struct {
+	url string
+	sub listing.EPGSubscription
+}
+
 type Streamer struct {
 	subscriptions    []listing.EPGSubscription
 	httpClient       listing.HTTPClient
@@ -84,35 +89,59 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 }
 
 func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) {
-	var decoders []*decoderWrapper
-
+	var inputs []epgDecoderInput
 	for _, sub := range s.subscriptions {
 		for _, src := range sub.EPGs() {
-			reader, err := listing.CreateReader(ctx, s.httpClient, src)
+			inputs = append(inputs, epgDecoderInput{url: src, sub: sub})
+		}
+	}
+
+	if len(inputs) == 0 {
+		return nil, nil
+	}
+
+	var decoders []*decoderWrapper
+
+	err := listing.ProcessConcurrently(
+		ctx,
+		inputs,
+		func(ctx context.Context, input epgDecoderInput, output chan<- listing.Item, errChan chan<- error) {
+			reader, err := listing.CreateReader(ctx, s.httpClient, input.url)
 			if err != nil {
-				s.closeDecoders(decoders)
-				return nil, err
+				errChan <- err
+				return
 			}
 
 			decoder := xmltv.NewDecoder(reader)
-			decoders = append(decoders, &decoderWrapper{
+			wrapper := &decoderWrapper{
 				decoder:      decoder,
-				subscription: sub,
+				subscription: input.sub,
 				reader:       reader,
-			})
+			}
+			output <- wrapper
+		},
+		func(item listing.Item) error {
+			wrapper := item.(*decoderWrapper)
+			decoders = append(decoders, wrapper)
+			return nil
+		},
+		true,
+	)
+
+	if err != nil {
+		for _, decoder := range decoders {
+			if decoder != nil {
+				decoder.Close()
+			}
 		}
+		return nil, err
 	}
 
 	return decoders, nil
 }
 
-func (s *Streamer) closeDecoders(decoders []*decoderWrapper) {
-	for _, d := range decoders {
-		d.Close()
-	}
-}
 func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapper, encoder xmltv.Encoder) error {
-	return listing.Process(
+	return listing.ProcessConcurrently(
 		ctx,
 		decoders,
 		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
@@ -154,6 +183,7 @@ func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapp
 
 			return encoder.Encode(channel)
 		},
+		false,
 	)
 }
 
@@ -169,7 +199,7 @@ func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderWra
 		return nil
 	}
 
-	return listing.Process(
+	return listing.ProcessConcurrently(
 		ctx,
 		activeDecoders,
 		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
@@ -201,6 +231,7 @@ func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderWra
 		func(item listing.Item) error {
 			return encoder.Encode(item)
 		},
+		false,
 	)
 }
 

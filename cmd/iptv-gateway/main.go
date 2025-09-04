@@ -24,7 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logging.SetLevel(c.LogLevel)
+	logging.SetLevelAndFormat(c.Log.Level, c.Log.Format)
 
 	s, err := server.NewServer(c)
 	if err != nil {

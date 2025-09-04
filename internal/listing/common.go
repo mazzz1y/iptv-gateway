@@ -19,12 +19,12 @@ func CreateReader(ctx context.Context, httpClient HTTPClient, resourceURL string
 	if isURL(resourceURL) {
 		req, err := http.NewRequestWithContext(ctx, "GET", resourceURL, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
+			return nil, err
 		}
 
 		resp, err := httpClient.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch %s: %w", resourceURL, err)
+			return nil, err
 		}
 
 		return resp.Body, nil
@@ -32,7 +32,7 @@ func CreateReader(ctx context.Context, httpClient HTTPClient, resourceURL string
 
 	reader, err := openLocalFile(resourceURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open local file %s: %w", resourceURL, err)
+		return nil, err
 	}
 
 	return reader, nil

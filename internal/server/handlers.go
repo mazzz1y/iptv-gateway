@@ -168,17 +168,17 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	logging.Debug(ctx, "proxying stream")
 
-	subscription := ctxutil.Subscription(ctx).(*app.PlaylistSubscription)
+	playlist := ctxutil.Provider(ctx).(*app.PlaylistSubscription)
 	data := ctxutil.StreamData(ctx).(*urlgen.Data)
 	ctx = ctxutil.WithChannelID(ctx, data.ChannelID)
 	clientName := ctxutil.ClientName(ctx)
-	subscriptionName := subscription.Name()
+	playlistName := playlist.Name()
 
 	streamKey := generateStreamKey(data.URL, r.URL.RawQuery)
 
 	if !s.acquireSemaphores(ctx) {
 		logging.Error(ctx, errors.New("failed to acquire semaphores"), "")
-		subscription.LimitStreamer().Stream(ctx, w)
+		playlist.LimitStreamer().Stream(ctx, w)
 		return
 	}
 	defer s.releaseSemaphores(ctx)
@@ -188,7 +188,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		url += "?" + r.URL.RawQuery
 	}
 
-	streamSource := subscription.LinkStreamer(url)
+	streamSource := playlist.LinkStreamer(url)
 	if streamSource == nil {
 		logging.Error(ctx, errors.New("failed to create stream source"), "")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -199,15 +199,15 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		Context:   ctx,
 		StreamKey: streamKey,
 		Streamer:  streamSource,
-		Semaphore: subscription.Semaphore(),
+		Semaphore: playlist.Semaphore(),
 	}
 
 	reader, err := s.demux.GetReader(demuxReq)
 	if errors.Is(err, demux.ErrSubscriptionSemaphore) {
 		logging.Error(ctx, err, "failed to get stream")
 		metrics.StreamsFailuresTotal.WithLabelValues(
-			clientName, subscription.Name(), data.ChannelID, metrics.FailureReasonSubscriptionLimit).Inc()
-		subscription.LimitStreamer().Stream(ctx, w)
+			clientName, playlist.Name(), data.ChannelID, metrics.FailureReasonPlaylistLimit).Inc()
+		playlist.LimitStreamer().Stream(ctx, w)
 		return
 	}
 	if err != nil {
@@ -217,16 +217,16 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	}
 	defer reader.Close()
 
-	metrics.ClientStreamsActive.WithLabelValues(clientName, subscriptionName, data.ChannelID).Inc()
-	defer metrics.ClientStreamsActive.WithLabelValues(clientName, subscriptionName, data.ChannelID).Dec()
+	metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.ChannelID).Inc()
+	defer metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.ChannelID).Dec()
 	w.Header().Set("Content-Type", streamContentType)
 	written, err := io.Copy(w, reader)
 
 	if err == nil && written == 0 {
 		logging.Error(ctx, errors.New("no data written to response"), "")
 		metrics.StreamsFailuresTotal.WithLabelValues(
-			clientName, subscription.Name(), data.ChannelID, metrics.FailureReasonUpstreamError).Inc()
-		subscription.UpstreamErrorStreamer().Stream(ctx, w)
+			clientName, playlist.Name(), data.ChannelID, metrics.FailureReasonUpstreamError).Inc()
+		playlist.UpstreamErrorStreamer().Stream(ctx, w)
 		return
 	}
 

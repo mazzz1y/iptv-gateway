@@ -10,6 +10,11 @@ import (
 	"iptv-gateway/internal/parser/m3u8"
 )
 
+type playlistDecoderInput struct {
+	url string
+	sub listing.PlaylistSubscription
+}
+
 type Streamer struct {
 	subscriptions []listing.PlaylistSubscription
 	httpClient    listing.HTTPClient
@@ -71,14 +76,19 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
 
 	defer func() {
 		for _, decoder := range decoders {
-			decoder.Close()
+			if decoder != nil {
+				decoder.Close()
+			}
 		}
 	}()
 
-	err = listing.Process(
+	err = listing.ProcessConcurrently(
 		ctx,
 		decoders,
 		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
+			if decoder == nil {
+				return
+			}
 			for {
 				select {
 				case <-ctx.Done():
@@ -103,6 +113,7 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
 			}
 		},
 		nil,
+		false,
 	)
 
 	if err != nil {
@@ -117,32 +128,63 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
 }
 
 func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) {
-	var decoders []*decoderWrapper
-
+	var inputs []playlistDecoderInput
 	for _, sub := range s.subscriptions {
 		for _, src := range sub.Playlists() {
-			reader, err := listing.CreateReader(ctx, s.httpClient, src)
-			if err != nil {
-				s.closeDecoders(decoders)
-				return nil, err
-			}
-
-			decoder := m3u8.NewDecoder(reader)
-			decoders = append(decoders, &decoderWrapper{
-				decoder:      decoder,
-				subscription: sub,
-				reader:       reader,
-			})
+			inputs = append(inputs, playlistDecoderInput{url: src, sub: sub})
 		}
 	}
 
-	return decoders, nil
-}
-
-func (s *Streamer) closeDecoders(decoders []*decoderWrapper) {
-	for _, d := range decoders {
-		d.Close()
+	if len(inputs) == 0 {
+		return nil, nil
 	}
+
+	var decoders []*decoderWrapper
+	var initError error
+
+	err := listing.ProcessConcurrently(
+		ctx,
+		inputs,
+		func(ctx context.Context, input playlistDecoderInput, output chan<- listing.Item, errChan chan<- error) {
+			reader, err := listing.CreateReader(ctx, s.httpClient, input.url)
+			if err != nil {
+				if initError == nil {
+					initError = err
+				}
+				errChan <- err
+				return
+			}
+
+			decoder := m3u8.NewDecoder(reader)
+			wrapper := &decoderWrapper{
+				decoder:      decoder,
+				subscription: input.sub,
+				reader:       reader,
+			}
+			output <- wrapper
+		},
+		func(item listing.Item) error {
+			wrapper := item.(*decoderWrapper)
+			decoders = append(decoders, wrapper)
+			return nil
+		},
+		true,
+	)
+
+	if len(decoders) == 0 && initError != nil {
+		return nil, initError
+	}
+
+	if err != nil {
+		for _, decoder := range decoders {
+			if decoder != nil {
+				decoder.Close()
+			}
+		}
+		return nil, err
+	}
+
+	return decoders, nil
 }
 
 func (s *Streamer) createRulesProcessor() *rules.Processor {

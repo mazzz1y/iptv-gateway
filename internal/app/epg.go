@@ -31,6 +31,10 @@ func (es *EPGSubscription) Name() string {
 	return es.name
 }
 
+func (es *EPGSubscription) Type() string {
+	return "epg"
+}
+
 func (es *EPGSubscription) EPGs() []string {
 	return es.sources
 }

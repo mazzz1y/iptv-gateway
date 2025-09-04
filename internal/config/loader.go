@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -11,7 +10,7 @@ import (
 func Load(path string) (*Config, error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		return nil, fmt.Errorf("accessing path %q: %w", path, err)
+		return nil, err
 	}
 
 	c := DefaultConfig()
@@ -22,7 +21,7 @@ func Load(path string) (*Config, error) {
 	} else {
 		entries, err := os.ReadDir(path)
 		if err != nil {
-			return nil, fmt.Errorf("reading directory %q: %w", path, err)
+			return nil, err
 		}
 
 		for _, entry := range entries {
@@ -40,14 +39,14 @@ func Load(path string) (*Config, error) {
 	for _, file := range files {
 		f, err := os.Open(file)
 		if err != nil {
-			return nil, fmt.Errorf("opening file %q: %w", file, err)
+			return nil, err
 		}
 
 		dec := yaml.NewDecoder(f)
 		dec.KnownFields(true)
 		if err := dec.Decode(c); err != nil {
 			f.Close()
-			return nil, fmt.Errorf("decoding yaml %q: %w", file, err)
+			return nil, err
 		}
 		f.Close()
 	}

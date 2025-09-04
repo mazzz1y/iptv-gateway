@@ -9,17 +9,23 @@ import (
 type contextKey string
 
 const (
-	clientKey           contextKey = "client"
-	clientNameKey       contextKey = "client_name"
-	requestIDKey        contextKey = "request_id"
-	requestTypeKey      contextKey = "request_type"
-	streamDataKey       contextKey = "stream_data"
-	subscriptionKey     contextKey = "subscription"
-	subscriptionNameKey contextKey = "subscription_name"
-	streamIDKey         contextKey = "stream_id"
-	channelIDKey        contextKey = "channel_id"
-	semaphoreNameKey    contextKey = "semaphore_name"
+	clientKey        contextKey = "client"
+	clientNameKey    contextKey = "client_name"
+	requestIDKey     contextKey = "request_id"
+	requestTypeKey   contextKey = "request_type"
+	streamDataKey    contextKey = "stream_data"
+	providerKey      contextKey = "provider"
+	providerTypeKey  contextKey = "provider_type"
+	providerNameKey  contextKey = "provider_name"
+	streamIDKey      contextKey = "stream_id"
+	channelIDKey     contextKey = "channel_id"
+	semaphoreNameKey contextKey = "semaphore_name"
 )
+
+type Listing interface {
+	Name() string
+	Type() string
+}
 
 func WithRequestID(ctx context.Context) context.Context {
 	b := make([]byte, 4)
@@ -34,11 +40,10 @@ func WithClient(ctx context.Context, client any) context.Context {
 	return context.WithValue(ctx, clientKey, client)
 }
 
-func WithSubscription(ctx context.Context, sub any) context.Context {
-	if namer, ok := sub.(interface{ Name() string }); ok {
-		ctx = context.WithValue(ctx, subscriptionNameKey, namer.Name())
-	}
-	return context.WithValue(ctx, subscriptionKey, sub)
+func WithProvider(ctx context.Context, src Listing) context.Context {
+	ctx = context.WithValue(ctx, providerNameKey, src.Name())
+	ctx = context.WithValue(ctx, providerTypeKey, src.Type())
+	return context.WithValue(ctx, providerKey, src)
 }
 
 func WithStreamData(ctx context.Context, data any) context.Context {
@@ -79,12 +84,19 @@ func ClientName(ctx context.Context) string {
 	return ""
 }
 
-func Subscription(ctx context.Context) any {
-	return ctx.Value(subscriptionKey)
+func Provider(ctx context.Context) any {
+	return ctx.Value(providerKey)
 }
 
-func SubscriptionName(ctx context.Context) string {
-	if v := ctx.Value(subscriptionNameKey); v != nil {
+func ProviderName(ctx context.Context) string {
+	if v := ctx.Value(providerNameKey); v != nil {
+		return v.(string)
+	}
+	return ""
+}
+
+func ProviderType(ctx context.Context) string {
+	if v := ctx.Value(providerTypeKey); v != nil {
 		return v.(string)
 	}
 	return ""
@@ -131,8 +143,11 @@ func LogFields(ctx context.Context) []any {
 	if name := ClientName(ctx); name != "" {
 		fields = append(fields, "client_name", name)
 	}
-	if name := SubscriptionName(ctx); name != "" {
-		fields = append(fields, "subscription_name", name)
+	if prName := ProviderName(ctx); prName != "" {
+		fields = append(fields, "provider_name", prName)
+	}
+	if pr := ProviderType(ctx); pr != "" {
+		fields = append(fields, "provider_type", pr)
 	}
 	if id := StreamID(ctx); id != "" {
 		fields = append(fields, "stream_id", id)

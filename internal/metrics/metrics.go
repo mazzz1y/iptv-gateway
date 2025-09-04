@@ -18,27 +18,27 @@ const (
 )
 
 const (
-	FailureReasonGlobalLimit       = "global_limit"
-	FailureReasonSubscriptionLimit = "subscription_limit"
-	FailureReasonClientLimit       = "client_limit"
-	FailureReasonUpstreamError     = "upstream_error"
+	FailureReasonGlobalLimit   = "global_limit"
+	FailureReasonPlaylistLimit = "playlist_limit"
+	FailureReasonClientLimit   = "client_limit"
+	FailureReasonUpstreamError = "upstream_error"
 )
 
 var (
 	Registry = prometheus.NewRegistry()
 
-	SubscriptionStreamsActive = prometheus.NewGaugeVec(
+	PlaylistStreamsActive = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "iptv_subscription_streams_active",
-			Help: "Currently active subscription streams",
+			Name: "iptv_playlist_streams_active",
+			Help: "Currently active playlist streams",
 		},
-		[]string{"subscription_name"},
+		[]string{"playlist_name"},
 	)
 
 	ClientStreamsActive = NewAutoCleanGauge(
 		"iptv_client_streams_active",
 		"Currently active client streams",
-		[]string{"client_name", "subscription_name", "channel_id"},
+		[]string{"client_name", "playlist_name", "channel_id"},
 	)
 
 	StreamsReusedTotal = prometheus.NewCounterVec(
@@ -46,7 +46,7 @@ var (
 			Name: "iptv_streams_reused_total",
 			Help: "Total number of reused streams",
 		},
-		[]string{"subscription_name", "channel_id"},
+		[]string{"playlist_name", "channel_id"},
 	)
 
 	StreamsFailuresTotal = prometheus.NewCounterVec(
@@ -54,7 +54,7 @@ var (
 			Name: "iptv_streams_failures_total",
 			Help: "Total number of stream failures",
 		},
-		[]string{"client_name", "subscription_name", "channel_id", "reason"},
+		[]string{"client_name", "playlist_name", "channel_id", "reason"},
 	)
 
 	ListingDownloadTotal = prometheus.NewCounterVec(
@@ -76,7 +76,7 @@ var (
 
 func init() {
 	Registry.MustRegister(ClientStreamsActive)
-	Registry.MustRegister(SubscriptionStreamsActive)
+	Registry.MustRegister(PlaylistStreamsActive)
 	Registry.MustRegister(StreamsReusedTotal)
 	Registry.MustRegister(StreamsFailuresTotal)
 	Registry.MustRegister(ListingDownloadTotal)

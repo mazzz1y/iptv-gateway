@@ -62,8 +62,8 @@ func (s *Server) decryptProxyDataMiddleware(next http.Handler) http.Handler {
 
 		client := ctxutil.Client(r.Context()).(*app.Client)
 
-		for sub := range client.URLGenerators() {
-			if s.tryDecryptWithSubscription(r, w, next, token, sub) {
+		for pr := range client.URLProviders() {
+			if s.tryDecryptWithURLProvider(r, w, next, token, pr) {
 				return
 			}
 		}
@@ -72,20 +72,20 @@ func (s *Server) decryptProxyDataMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) tryDecryptWithSubscription(r *http.Request, w http.ResponseWriter,
-	next http.Handler, token string, sub app.URLGeneratorSubscription) bool {
-	data, err := sub.URLGen.Decrypt(token)
+func (s *Server) tryDecryptWithURLProvider(r *http.Request, w http.ResponseWriter,
+	next http.Handler, token string, pr app.ProviderWithURLGen) bool {
+	data, err := pr.URLGen.Decrypt(token)
 	if err == nil {
-		ctx := ctxutil.WithSubscription(r.Context(), sub.Subscription)
+		ctx := ctxutil.WithProvider(r.Context(), pr.Provider)
 		ctx = ctxutil.WithStreamData(ctx, data)
 		next.ServeHTTP(w, r.WithContext(ctx))
 		return true
 	}
 
 	if errors.Is(err, urlgen.ErrExpiredStreamURL) {
-		ctx := ctxutil.WithSubscription(r.Context(), sub.Subscription)
-		if sub.ExpiredStreamer != nil {
-			sub.ExpiredStreamer.Stream(ctx, w)
+		ctx := ctxutil.WithProvider(r.Context(), pr.Provider)
+		if pr.ExpiredStreamer != nil {
+			pr.ExpiredStreamer.Stream(ctx, w)
 		} else {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}

@@ -25,6 +25,7 @@ nav:
   - Home: index.md
   - Configuration:
       - Overview: config.md
+      - Log: config/log.md
       - Channel Rules:
           - Overview: config/channel_rules/index.md
           - Set Field: config/channel_rules/rule_list/set_field.md

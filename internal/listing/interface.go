@@ -2,7 +2,6 @@ package listing
 
 import (
 	"iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"net/url"
@@ -27,13 +26,10 @@ type PlaylistSubscription interface {
 	ChannelRules() []rules.ChannelRule
 	PlaylistRules() []rules.PlaylistRule
 	IsProxied() bool
-	Name() string
-	ExpiredCommandStreamer() *shell.Streamer
 }
 
 type EPGSubscription interface {
 	EPGs() []string
 	URLGenerator() *urlgen.Generator
 	IsProxied() bool
-	Name() string
 }

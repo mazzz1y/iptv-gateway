@@ -24,10 +24,15 @@ type Client struct {
 	secret                string
 }
 
-type URLGeneratorSubscription struct {
-	Subscription    interface{}
+type ProviderWithURLGen struct {
+	Provider        Provider
 	URLGen          *urlgen.Generator
 	ExpiredStreamer *shell.Streamer
+}
+
+type Provider interface {
+	Name() string
+	Type() string
 }
 
 func NewClient(name string, clientCfg config.Client, presets []config.Preset, publicUrl string) (*Client, error) {
@@ -145,23 +150,23 @@ func (c *Client) Semaphore() *semaphore.Weighted {
 	return c.semaphore
 }
 
-func (c *Client) URLGenerators() <-chan URLGeneratorSubscription {
-	ch := make(chan URLGeneratorSubscription)
+func (c *Client) URLProviders() <-chan ProviderWithURLGen {
+	ch := make(chan ProviderWithURLGen)
 
 	go func() {
 		defer close(ch)
 
 		for _, ps := range c.playlistSubscriptions {
-			ch <- URLGeneratorSubscription{
-				Subscription:    ps,
+			ch <- ProviderWithURLGen{
+				Provider:        ps,
 				URLGen:          ps.urlGenerator,
 				ExpiredStreamer: ps.expiredLinkStreamer,
 			}
 		}
 
 		for _, es := range c.epgSubscriptions {
-			ch <- URLGeneratorSubscription{
-				Subscription:    es,
+			ch <- ProviderWithURLGen{
+				Provider:        es,
 				URLGen:          es.urlGenerator,
 				ExpiredStreamer: nil,
 			}

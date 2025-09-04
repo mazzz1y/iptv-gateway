@@ -8,7 +8,10 @@ import (
 func DefaultConfig() *Config {
 	return &Config{
 		ListenAddr: ":8080",
-		LogLevel:   "info",
+		Log: Logs{
+			"info",
+			"text",
+		},
 		Cache: CacheConfig{
 			Path:      "cache",
 			TTL:       types.Duration(24 * time.Hour),

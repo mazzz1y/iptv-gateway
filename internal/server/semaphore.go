@@ -25,7 +25,7 @@ func (s *Server) acquireSemaphores(ctx context.Context) bool {
 				return nil
 			}
 			metrics.StreamsFailuresTotal.WithLabelValues(
-				c.Name(), ctxutil.SubscriptionName(ctx), data.ChannelID, reason).Inc()
+				c.Name(), ctxutil.ProviderName(ctx), data.ChannelID, reason).Inc()
 			return fmt.Errorf("failed to acquire semaphore: %s", reason)
 		}
 	}

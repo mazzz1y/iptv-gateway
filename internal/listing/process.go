@@ -2,6 +2,7 @@ package listing
 
 import (
 	"context"
+	"fmt"
 	"iptv-gateway/internal/logging"
 	"sync"
 )
@@ -14,8 +15,8 @@ type Processor func(Item) error
 
 type WorkerFunc[S any] func(ctx context.Context, input S, output chan<- Item, errChan chan<- error)
 
-func Process[S any](
-	ctx context.Context, inputs []S, workerFunc WorkerFunc[S], processResult Processor) error {
+func ProcessConcurrently[S any](
+	ctx context.Context, inputs []S, workerFunc WorkerFunc[S], processResult Processor, failFast bool) error {
 	if len(inputs) == 0 {
 		return nil
 	}
@@ -53,8 +54,11 @@ func Process[S any](
 			}
 
 		case err := <-errChan:
-			logging.Error(ctx, err, "failed to process item")
-
+			if failFast {
+				return fmt.Errorf("failed to process item: %w", err)
+			} else {
+				logging.Error(ctx, err, "failed to process item")
+			}
 		case <-ctx.Done():
 			return ctx.Err()
 		}

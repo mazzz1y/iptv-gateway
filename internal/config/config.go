@@ -8,7 +8,7 @@ import (
 type Config struct {
 	ListenAddr    string               `yaml:"listen_addr"`
 	PublicURL     types.URL            `yaml:"public_url"`
-	LogLevel      string               `yaml:"log_level"`
+	Log           Logs                 `yaml:"log"`
 	Secret        string               `yaml:"secret"`
 	Cache         CacheConfig          `yaml:"cache"`
 	Proxy         Proxy                `yaml:"proxy"`

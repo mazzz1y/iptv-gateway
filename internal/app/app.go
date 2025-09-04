@@ -32,7 +32,7 @@ func NewManager(cfg *config.Config) (*Manager, error) {
 	}
 
 	for _, playlist := range cfg.Playlists {
-		metrics.SubscriptionStreamsActive.WithLabelValues(playlist.Name).Set(0)
+		metrics.PlaylistStreamsActive.WithLabelValues(playlist.Name).Set(0)
 	}
 
 	manager.subSemaphores = make(map[string]*semaphore.Weighted, len(cfg.Playlists))

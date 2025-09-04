@@ -3,7 +3,7 @@ package rules
 import "iptv-gateway/internal/config/types"
 
 type Condition struct {
-	Name types.RegexpArr           `yaml:"name,omitempty"`
+	Name types.RegexpArr     `yaml:"name,omitempty"`
 	Attr *AttributeCondition `yaml:"attr,omitempty"`
 	Tag  *TagCondition       `yaml:"tag,omitempty"`
 	And  []Condition         `yaml:"and,omitempty"`
@@ -12,12 +12,12 @@ type Condition struct {
 }
 
 type AttributeCondition struct {
-	Name  string    `yaml:"name"`
+	Name  string          `yaml:"name"`
 	Value types.RegexpArr `yaml:"value"`
 }
 
 type TagCondition struct {
-	Name  string    `yaml:"name"`
+	Name  string          `yaml:"name"`
 	Value types.RegexpArr `yaml:"value"`
 }
 

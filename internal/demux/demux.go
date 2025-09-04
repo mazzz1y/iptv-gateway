@@ -90,7 +90,7 @@ func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
 		go m.startStream(ctx, req, pw)
 		logging.Info(ctx, "started new stream")
 	} else {
-		subscriptionName := ctxutil.SubscriptionName(ctx)
+		subscriptionName := ctxutil.ProviderName(ctx)
 		channelID := ctxutil.ChannelID(ctx)
 		metrics.StreamsReusedTotal.WithLabelValues(subscriptionName, channelID).Inc()
 		logging.Info(ctx, "joined existing stream")
@@ -102,9 +102,9 @@ func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
 func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 	key := req.StreamKey
 
-	subscriptionName := ctxutil.SubscriptionName(ctx)
-	metrics.SubscriptionStreamsActive.WithLabelValues(subscriptionName).Inc()
-	defer metrics.SubscriptionStreamsActive.WithLabelValues(subscriptionName).Dec()
+	subscriptionName := ctxutil.ProviderName(ctx)
+	metrics.PlaylistStreamsActive.WithLabelValues(subscriptionName).Inc()
+	defer metrics.PlaylistStreamsActive.WithLabelValues(subscriptionName).Dec()
 
 	unlock := m.LockStream(key)
 	writer := m.pool.GetWriter(key)
