@@ -151,7 +151,8 @@ func (c *Client) Semaphore() *semaphore.Weighted {
 }
 
 func (c *Client) URLProviders() <-chan ProviderWithURLGen {
-	ch := make(chan ProviderWithURLGen)
+	totalProviders := len(c.playlistSubscriptions) + len(c.epgSubscriptions)
+	ch := make(chan ProviderWithURLGen, totalProviders)
 
 	go func() {
 		defer close(ch)
