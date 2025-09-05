@@ -7,7 +7,7 @@ import (
 
 type decoderWrapper struct {
 	decoder         listing.Decoder
-	subscription    listing.EPGSubscription
+	subscription    listing.EPG
 	reader          io.ReadCloser
 	channelsDone    bool
 	done            bool

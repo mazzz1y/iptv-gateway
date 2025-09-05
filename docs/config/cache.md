@@ -1,7 +1,6 @@
 # Cache
 
-The cache block configures the caching system for IPTV streams and metadata. Caching improves performance by storing
-frequently accessed data locally, reducing load on upstream sources and providing faster response times to clients.
+The cache block configures the caching system for IPTV streams and metadata.
 
 ## Key Concepts
 
@@ -9,6 +8,8 @@ frequently accessed data locally, reducing load on upstream sources and providin
   Last-Modified, and ETag headers), the TTL will be renewed.
 - Retention is used to clean up expired cache files that have not been accessed or renewed for the specified time
   period.
+- Compression can be enabled to reduce disk usage by gzipping cached files. Slightly increased CPU usage is expected
+  when compression is enabled.
 
 ## YAML Structure
 
@@ -17,15 +18,14 @@ cache:
   path: "/cache"
   ttl: "24h"
   retention: "30d"
+  compression: false
 ```
 
 ## Fields
 
-| Field       | Type     | Required | Description                                             |
-|-------------|----------|----------|---------------------------------------------------------|
-| `path`      | `string` | No       | Directory path where cache files will be stored         |
-| `ttl`       | `string` | No       | Cache expiration time (e.g., "1h", "30m")               |
-| `retention` | `string` | No       | How long to keep unaccessed files on disk (e.g., "7d"). |
-
-
-
+| Field         | Type      | Required | Description                                                 |
+|---------------|-----------|----------|-------------------------------------------------------------|
+| `path`        | `string`  | No       | Directory path where cache files will be stored             |
+| `ttl`         | `string`  | No       | Cache expiration time (e.g., "1h", "30m")                   |
+| `retention`   | `string`  | No       | How long to keep unaccessed files on disk (e.g., "7d")      |
+| `compression` | `boolean` | No       | Enable gzip compression for cached files (default: `false`) |

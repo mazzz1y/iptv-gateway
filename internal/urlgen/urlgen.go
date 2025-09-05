@@ -39,6 +39,7 @@ type Data struct {
 	URL         string
 	Playlist    string
 	ChannelID   string
+	Hidden      bool
 }
 
 func NewGenerator(publicURL, secret string) (*Generator, error) {
@@ -62,6 +63,12 @@ func (g *Generator) CreateURL(d Data, ttl time.Duration) (*url.URL, error) {
 	g.writeString(buf, d.URL)
 	g.writeString(buf, d.Playlist)
 	g.writeString(buf, d.ChannelID)
+
+	if d.Hidden {
+		buf.WriteByte(1)
+	} else {
+		buf.WriteByte(0)
+	}
 
 	var expireAt int64
 	if ttl != 0 {
@@ -140,6 +147,12 @@ func (g *Generator) Decrypt(token string) (*Data, error) {
 		return nil, ErrInvalidData
 	}
 
+	hiddenByte, err := buf.ReadByte()
+	if err != nil {
+		return nil, ErrInvalidData
+	}
+	hidden := hiddenByte == 1
+
 	var expireAt int64
 	if err := binary.Read(buf, binary.LittleEndian, &expireAt); err != nil {
 		return nil, ErrInvalidData
@@ -157,6 +170,7 @@ func (g *Generator) Decrypt(token string) (*Data, error) {
 		URL:         url,
 		Playlist:    playlist,
 		ChannelID:   channelID,
+		Hidden:      hidden,
 	}, nil
 }
 

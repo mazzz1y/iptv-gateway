@@ -11,21 +11,6 @@ var forwardedHeaders = []string{
 	"Cache-Control", "Expires", "Last-Modified", "ETag", "Content-Type",
 }
 
-func readMetadata(metaPath string) (Metadata, error) {
-	metaFile, err := os.Open(metaPath)
-	if err != nil {
-		return Metadata{}, err
-	}
-	defer metaFile.Close()
-
-	var m Metadata
-	if err := json.NewDecoder(metaFile).Decode(&m); err != nil {
-		return Metadata{}, fmt.Errorf("invalid meta file format: %w", err)
-	}
-
-	return m, nil
-}
-
 func (r *Reader) SaveMetadata() error {
 	metaFile, err := os.Create(r.MetaPath)
 	if err != nil {
@@ -52,4 +37,19 @@ func (r *Reader) SaveMetadata() error {
 func (r *Reader) Cleanup() {
 	os.Remove(r.FilePath)
 	os.Remove(r.MetaPath)
+}
+
+func readMetadata(metaPath string) (Metadata, error) {
+	metaFile, err := os.Open(metaPath)
+	if err != nil {
+		return Metadata{}, err
+	}
+	defer metaFile.Close()
+
+	var m Metadata
+	if err := json.NewDecoder(metaFile).Decode(&m); err != nil {
+		return Metadata{}, fmt.Errorf("invalid meta file format: %w", err)
+	}
+
+	return m, nil
 }

@@ -4,6 +4,9 @@ The `when` clause is a conditional system used to apply rules only to specific c
 provides a powerful filtering mechanism using regex patterns and logical operators to precisely target channels for rule
 application.
 
+When conditions support named condition references for reusable condition definitions. You can reference conditions
+directly by name as a string or array.
+
 ## YAML Structure
 
 ```yaml
@@ -24,11 +27,11 @@ when:
 
 ### Condition Fields
 
-| Field  | Type     | Required | Description                                        |
-|--------|----------|----------|----------------------------------------------------|
-| `name` | `regex`  | No       | Match against channel name using regex             |
-| `tag`  | `object` | No       | Match against M3U tags (e.g., "EXTGRP")            |
-| `attr` | `object` | No       | Match against M3U attributes (e.g., "group-title") |
+| Field  | Type                 | Required | Description                                        |
+|--------|----------------------|----------|----------------------------------------------------|
+| `name` | `regex` or `[]regex` | No       | Match against channel name using regex             |
+| `tag`  | `object`             | No       | Match against M3U tags (e.g., "EXTGRP")            |
+| `attr` | `object`             | No       | Match against M3U attributes (e.g., "group-title") |
 
 ### Logical Operators
 
@@ -40,10 +43,10 @@ when:
 
 ### Tag and Attribute Objects
 
-| Field   | Type    | Required | Description                            |
-|---------|---------|----------|----------------------------------------|
-| `name`  | `regex` | Yes      | Tag or attribute name (regex pattern)  |
-| `value` | `regex` | Yes      | Tag or attribute value (regex pattern) |
+| Field   | Type                 | Required | Description                            |
+|---------|----------------------|----------|----------------------------------------|
+| `name`  | `regex`              | Yes      | Tag or attribute name (regex pattern)  |
+| `value` | `regex` or `[]regex` | Yes      | Tag or attribute value (regex pattern) |
 
 **Note:** The default behavior for multiple conditions in a `when` array is OR.
 
@@ -64,7 +67,7 @@ when:
 when:
   - attr:
       name: "group-title"
-      value: "Sports"
+      value: "^Sports$"
 ```
 
 ### Multiple Conditions (OR - Default)
@@ -121,12 +124,11 @@ when:
 ```yaml
 # Exclude specific patterns
 when:
-  - not:
-      - name: ".*[Tt]est.*"
-      - name: ".*[Ss]ample.*"
-      - attr:
-          name: "group-title"
-          value: "(?i)(adult|xxx|18\\+)"
+  - name: ".*[Tt]est.*"
+  - name: ".*[Ss]ample.*"
+  - attr:
+      name: "group-title"
+      value: "(?i)(adult|xxx|18\\+)"
 ```
 
 ### Tag-Based Conditions
@@ -137,4 +139,16 @@ when:
   - tag:
       name: "EXTGRP"
       value: "Entertainment"
+```
+
+### Named Condition Reference
+
+Named conditions defined in the [Conditions](../conditions.md) section can be referenced directly:
+
+```yaml
+# Using named conditions directly by name (as string)
+when: adult
+
+# Using named conditions as array
+when: ["adult", "test"]
 ```

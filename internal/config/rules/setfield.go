@@ -29,6 +29,21 @@ func (sfs *SetFieldSpec) UnmarshalYAML(value *yaml.Node) error {
 
 		fieldType := keyNode.Value
 
+		if valueNode.Kind == yaml.ScalarNode {
+			templateStr := valueNode.Value
+
+			tmpl, err := template.New("name").Funcs(sprig.TxtFuncMap()).Parse(templateStr)
+			if err != nil {
+				return fmt.Errorf("failed to parse template: %w", err)
+			}
+
+			sfs.Type = "name"
+			sfs.Name = ""
+			sfs.Template = tmpl
+
+			return nil
+		}
+
 		type fieldContent struct {
 			Name     string `yaml:"name"`
 			Template string `yaml:"template"`

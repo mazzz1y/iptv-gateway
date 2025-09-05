@@ -15,15 +15,15 @@ import (
 var StreamLinkTTL = time.Hour * 24 * 30
 
 type Processor struct {
-	addedTrackIDs   map[string]bool
-	addedTrackNames map[string]bool
-	mu              sync.Mutex
+	addedTrackIDs   map[string]struct{}
+	addedTrackNames map[string]struct{}
+	mu              sync.RWMutex
 }
 
 func NewProcessor() *Processor {
 	return &Processor{
-		addedTrackIDs:   make(map[string]bool),
-		addedTrackNames: make(map[string]bool),
+		addedTrackIDs:   make(map[string]struct{}),
+		addedTrackNames: make(map[string]struct{}),
 	}
 }
 
@@ -33,27 +33,18 @@ func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor)
 	filteredChannels := make([]*rules.Channel, 0, store.Len())
 
 	for _, ch := range store.All() {
-		track := ch.Track()
-
-		if track.IsRemoved {
+		if ch.IsRemoved() {
 			continue
 		}
 
-		if track.Attrs["tvg-id"] == "" {
-			tvgName := track.Attrs["tvg-name"]
-			if tvgName != "" {
-				track.Attrs["tvg-id"] = listing.GenerateTvgID(tvgName)
-			} else {
-				track.Attrs["tvg-id"] = listing.GenerateTvgID(track.Name)
-			}
-		}
+		p.ensureTvgID(ch)
 
-		if p.isDuplicate(track) {
+		if p.isDuplicate(ch) {
 			continue
 		}
 
 		if ch.Subscription().IsProxied() {
-			if err := p.processProxyLinks(track, ch.Subscription().URLGenerator()); err != nil {
+			if err := p.processProxyLinks(ch); err != nil {
 				return nil, err
 			}
 		}
@@ -64,58 +55,94 @@ func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor)
 	return filteredChannels, nil
 }
 
-func (p *Processor) isDuplicate(track *m3u8.Track) bool {
+func (p *Processor) ensureTvgID(ch *rules.Channel) {
+	if tvgID, exists := ch.GetAttr("tvg-id"); exists && tvgID != "" {
+		return
+	}
+	if tvgName, exists := ch.GetAttr("tvg-name"); exists && tvgName != "" {
+		ch.SetAttr("tvg-id", listing.GenerateTvgID(tvgName))
+	} else {
+		ch.SetAttr("tvg-id", listing.GenerateTvgID(ch.Name()))
+	}
+}
+
+func (p *Processor) isDuplicate(ch *rules.Channel) bool {
+	id, hasID := ch.GetAttr(m3u8.AttrTvgID)
+	trackName := strings.ToLower(ch.Name())
+
+	p.mu.RLock()
+	if hasID && id != "" {
+		if _, exists := p.addedTrackIDs[id]; exists {
+			p.mu.RUnlock()
+			return true
+		}
+	} else {
+		if _, exists := p.addedTrackNames[trackName]; exists {
+			p.mu.RUnlock()
+			return true
+		}
+	}
+	p.mu.RUnlock()
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	id, hasID := track.Attrs[m3u8.AttrTvgID]
-	trackName := strings.ToLower(track.Name)
-
 	if hasID && id != "" {
-		if p.addedTrackIDs[id] {
+		if _, exists := p.addedTrackIDs[id]; exists {
 			return true
 		}
-		p.addedTrackIDs[id] = true
+		p.addedTrackIDs[id] = struct{}{}
 		return false
 	}
 
-	if p.addedTrackNames[trackName] {
+	if _, exists := p.addedTrackNames[trackName]; exists {
 		return true
 	}
-	p.addedTrackNames[trackName] = true
+	p.addedTrackNames[trackName] = struct{}{}
 	return false
 }
 
-func (p *Processor) processProxyLinks(track *m3u8.Track, urlGenerator listing.URLGenerator) error {
-	for key, value := range track.Attrs {
+func (p *Processor) processProxyLinks(ch *rules.Channel) error {
+	subscription := ch.Subscription()
+	urlGen := subscription.URLGenerator()
+
+	for key, value := range ch.Attrs() {
 		if isURL(value) {
-			encURL, err := urlGenerator.CreateURL(urlgen.Data{
+			encURL, err := urlGen.CreateURL(urlgen.Data{
 				RequestType: urlgen.File,
 				URL:         value,
 			}, 0)
 			if err != nil {
 				return fmt.Errorf("failed to encode attribute URL: %w", err)
 			}
-			track.Attrs[key] = encURL.String()
+			ch.SetAttr(key, encURL.String())
 		}
 	}
 
-	if track.URI != nil && isURL(track.URI.String()) {
-		newURL, err := urlGenerator.CreateURL(urlgen.Data{
-			RequestType: urlgen.Stream,
-			ChannelID:   track.Name,
-			URL:         track.URI.String(),
-		}, StreamLinkTTL)
-		if err != nil {
-			return fmt.Errorf("failed to encode stream URL: %w", err)
+	if ch.URI() != nil {
+		uriStr := ch.URI().String()
+		if isURL(uriStr) {
+			newURL, err := urlGen.CreateURL(urlgen.Data{
+				RequestType: urlgen.Stream,
+				ChannelID:   ch.Name(),
+				URL:         uriStr,
+				Hidden:      ch.IsHidden(),
+			}, StreamLinkTTL)
+			if err != nil {
+				return fmt.Errorf("failed to encode stream URL: %w", err)
+			}
+			ch.SetURI(newURL)
 		}
-		track.URI = newURL
 	}
 
 	return nil
 }
 
 func isURL(str string) bool {
+	if str == "" {
+		return false
+	}
+
 	u, err := url.Parse(str)
 	return err == nil && u.Host != ""
 }

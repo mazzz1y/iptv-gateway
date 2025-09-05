@@ -21,12 +21,13 @@ iptv-gateway -config ./config      # from directory
 | `listen_addr`    | `string`                                         | Server listening address                                  |
 | `metrics_addr`   | `string`                                         | Prometheus metrics server address                         |
 | `public_url`     | `string`                                         | Public URL for generating links                           |
-| `secret`         | `string`                                         | Secret used as for encryption purposes                    |
+| `secret`         | `string`                                         | Secret used for encryption purposes                       |
 | `log`            | [Log](./config/log.md)                           | Logging configuration                                     |
 | `proxy`          | [Proxy](./config/proxy.md)                       | Stream proxy configuration for remuxing with ffmpeg       |
 | `cache`          | [Cache](./config/cache.md)                       | Cache configuration for playlists and EPGs                |
 | `playlists`      | [Playlists](./config/playlists.md)               | Array of playlist definitions with sources and rules      |
 | `epgs`           | [EPGs](./config/epgs.md)                         | Array of EPG definitions with sources                     |
+| `conditions`     | [Conditions](./config/conditions.md)             | Named condition definitions for reuse in rules            |
 | `channel_rules`  | [Channel Rules](config/channel_rules/index.md)   | Global channel processing rules                           |
 | `playlist_rules` | [Playlist Rules](config/playlist_rules/index.md) | Global playlist processing rules                          |
 | `presets`        | [Presets](./config/presets.md)                   | Array of reusable configuration templates                 |
@@ -34,11 +35,15 @@ iptv-gateway -config ./config      # from directory
 
 ## Example Configuration
 
-```yaml
-# https://iptv.example.com/tv-secret/playlist.m3u8
-# https://iptv.example.com/tv-secret/epg.xml
-# https://iptv.example.com/tv-secret/epg.xml.gz
+!!! note "Client Links"
 
+    Each client can access the following endpoints:
+
+    - `{public_url}/{client_secret}/playlist.m3u8`
+    - `{public_url}/{client_secret}/epg.xml`
+    - `{public_url}/{client_secret}/epg.xml.gz`
+
+```yaml
 listen_addr: ":8080"
 metrics_addr: ":9090"
 public_url: "https://iptv.example.com"
@@ -54,36 +59,37 @@ proxy:
 
 playlists:
   - name: main-playlist
-    sources: "http://example.com/playlist.m3u8"
+    source: "http://example.com/playlist.m3u8"
 
 epgs:
   - name: main-epg
-    sources: "http://example.com/epg.xml.gz"
+    source: "http://example.com/epg.xml.gz"
 
-channel_rules:
-  - remove_channel: {}
+conditions:
+  - name: "adult"
     when:
       - attr:
           name: "group-title"
           value: "(?i)adult"
 
+channel_rules:
+  - remove_channel: true
+    when: adult
+
 playlist_rules:
   - remove_duplicates:
-      - patterns: [ "4K", "UHD", "FHD", "HD", "" ]
+      - patterns: ["4K", "UHD", "FHD", "HD", ""]
 
 presets:
   - name: family-friendly
     channel_rules:
-      - remove_channel: {}
-        when:
-          - attr:
-              name: "group-title"
-              value: "(?i)adult"
+      - remove_channel: true
+        when: adult
 
 clients:
   - name: living-room-tv
     secret: "tv-secret"
-    presets: "family-friendly"
-    playlists: "main-playlist"
-    epgs: "main-epg"
+    preset: "family-friendly"
+    playlist: "main-playlist"
+    epg: "main-epg"
 ```

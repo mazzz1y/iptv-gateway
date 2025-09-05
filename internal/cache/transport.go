@@ -31,7 +31,7 @@ func (t *cachingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 				resp.Header.Set(header, value)
 			}
 		}
-	} else if cachedHeaders := reader.getCachedHeaders(); cachedHeaders != nil && len(cachedHeaders) > 0 {
+	} else if cachedHeaders := reader.getCachedHeaders(); len(cachedHeaders) > 0 {
 		for key, value := range cachedHeaders {
 			resp.Header.Set(key, value)
 		}

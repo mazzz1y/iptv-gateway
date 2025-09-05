@@ -18,7 +18,7 @@ func TestNewCache(t *testing.T) {
 		ttl := time.Hour
 		retention := 24 * time.Hour
 
-		cache, err := NewCache(tmpDir, ttl, retention)
+		cache, err := NewCache(tmpDir, ttl, retention, true)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -49,7 +49,7 @@ func TestNewCache(t *testing.T) {
 	t.Run("creates cache directory", func(t *testing.T) {
 		tmpDir := filepath.Join(t.TempDir(), "nested", "cache")
 
-		cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour)
+		cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour, true)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -71,7 +71,7 @@ func TestNewCache(t *testing.T) {
 		}
 
 		invalidDir := filepath.Join(tmpFile, "cache")
-		_, err := NewCache(invalidDir, time.Hour, 24*time.Hour)
+		_, err := NewCache(invalidDir, time.Hour, 24*time.Hour, true)
 		if err == nil {
 			t.Error("expected error for invalid directory")
 		}
@@ -79,7 +79,7 @@ func TestNewCache(t *testing.T) {
 }
 
 func TestCache_NewCachedHTTPClient(t *testing.T) {
-	cache, err := NewCache(t.TempDir(), time.Hour, 24*time.Hour)
+	cache, err := NewCache(t.TempDir(), time.Hour, 24*time.Hour, true)
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestCache_NewCachedHTTPClient(t *testing.T) {
 
 func TestCache_NewReader(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour)
+	cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour, true)
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}
@@ -196,14 +196,14 @@ func TestCache_CleanExpired(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			cache, err := NewCache(tmpDir, tc.ttl, tc.retention)
+			cache, err := NewCache(tmpDir, tc.ttl, tc.retention, true)
 			if err != nil {
 				t.Fatalf("failed to create cache: %v", err)
 			}
 			defer cache.Close()
 
 			validName := "valid"
-			validFile := filepath.Join(tmpDir, validName+fileExtension)
+			validFile := filepath.Join(tmpDir, validName+compressedExtension)
 			validMeta := filepath.Join(tmpDir, validName+metaExtension)
 			if err := os.WriteFile(validFile, []byte("valid content"), 0644); err != nil {
 				t.Fatalf("failed to create valid file: %v", err)
@@ -213,7 +213,7 @@ func TestCache_CleanExpired(t *testing.T) {
 			}
 
 			expiredName := "expired"
-			expiredFile := filepath.Join(tmpDir, expiredName+fileExtension)
+			expiredFile := filepath.Join(tmpDir, expiredName+compressedExtension)
 			expiredMeta := filepath.Join(tmpDir, expiredName+metaExtension)
 			if err := os.WriteFile(expiredFile, []byte("expired content"), 0644); err != nil {
 				t.Fatalf("failed to create expired file: %v", err)
@@ -223,7 +223,7 @@ func TestCache_CleanExpired(t *testing.T) {
 			}
 
 			orphanedName := "orphaned"
-			orphanedFile := filepath.Join(tmpDir, orphanedName+fileExtension)
+			orphanedFile := filepath.Join(tmpDir, orphanedName+compressedExtension)
 			if err := os.WriteFile(orphanedFile, []byte("orphaned content"), 0644); err != nil {
 				t.Fatalf("failed to create orphaned file: %v", err)
 			}
@@ -243,14 +243,14 @@ func TestCache_CleanExpired(t *testing.T) {
 
 func TestCache_RemoveEntry(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour)
+	cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour, true)
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}
 	defer cache.Close()
 
 	name := "test"
-	dataPath := filepath.Join(tmpDir, name+fileExtension)
+	dataPath := filepath.Join(tmpDir, name+compressedExtension)
 	metaPath := filepath.Join(tmpDir, name+metaExtension)
 
 	if err := os.WriteFile(dataPath, []byte("test data"), 0644); err != nil {

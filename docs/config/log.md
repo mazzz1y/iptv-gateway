@@ -12,10 +12,10 @@ log:
 
 ## Configuration Fields
 
-| Field    | Type     | Description                              |
-|----------|----------|------------------------------------------|
-| `level`  | `string` | Logging level (debug, info, warn, error) |
-| `format` | `string` | Log output format (text, json)           |
+| Field    | Type     | Required | Description                              |
+|----------|----------|----------|------------------------------------------|
+| `level`  | `string` | No       | Logging level (debug, info, warn, error) |
+| `format` | `string` | No       | Log output format (text, json)           |
 
 ## Log Levels
 

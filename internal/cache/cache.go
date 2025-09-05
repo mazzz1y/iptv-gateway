@@ -16,6 +16,12 @@ import (
 	"time"
 )
 
+const (
+	compressedExtension   = ".gz"
+	uncompressedExtension = ".cache"
+	metaExtension         = ".meta"
+)
+
 type Cache struct {
 	directHttpClient *http.Client
 	dir              string
@@ -23,9 +29,10 @@ type Cache struct {
 	doneCh           chan struct{}
 	ttl              time.Duration
 	retention        time.Duration
+	compression      bool
 }
 
-func NewCache(cacheDir string, ttl, retention time.Duration) (*Cache, error) {
+func NewCache(cacheDir string, ttl, retention time.Duration, compression bool) (*Cache, error) {
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
@@ -37,6 +44,7 @@ func NewCache(cacheDir string, ttl, retention time.Duration) (*Cache, error) {
 		directHttpClient: newDirectHTTPClient(),
 		ttl:              ttl,
 		retention:        retention,
+		compression:      compression,
 	}
 
 	if retention > 0 {
@@ -62,13 +70,16 @@ func (c *Cache) NewCachedHTTPClient() *http.Client {
 func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
 	hash := sha256.Sum256([]byte(url))
 	name := hex.EncodeToString(hash[:16])
+	fileExt := c.fileExt()
+
 	reader := &Reader{
-		URL:      url,
-		Name:     name,
-		FilePath: filepath.Join(c.dir, name+fileExtension),
-		MetaPath: filepath.Join(c.dir, name+metaExtension),
-		client:   c.directHttpClient,
-		ttl:      c.ttl,
+		URL:         url,
+		Name:        name,
+		FilePath:    filepath.Join(c.dir, name+fileExt),
+		MetaPath:    filepath.Join(c.dir, name+metaExtension),
+		client:      c.directHttpClient,
+		ttl:         c.ttl,
+		compression: c.compression,
 	}
 
 	var err error
@@ -136,9 +147,16 @@ func newDirectHTTPClient() *http.Client {
 	}
 }
 
+func (c *Cache) fileExt() string {
+	if c.compression {
+		return compressedExtension
+	}
+	return uncompressedExtension
+}
+
 func (c *Cache) removeEntry(name string) error {
-	dataPath := filepath.Join(c.dir, name+fileExtension)
-	metaPath := filepath.Join(c.dir, name+metaExtension)
+	dataPath := filepath.Join(c.dir, name+c.fileExt())
+	metaPath := filepath.Join(c.dir, name+".meta")
 
 	dataErr := os.Remove(dataPath)
 	if dataErr != nil && !os.IsNotExist(dataErr) {
@@ -177,14 +195,16 @@ func (c *Cache) cleanExpired() error {
 	orphanedRemoved := 0
 	now := time.Now()
 
+	expectedExt := c.fileExt()
+
 	for _, file := range allFiles {
 		fileName := file.Name()
 		filePath := filepath.Join(c.dir, fileName)
 
 		switch {
-		case strings.HasSuffix(fileName, fileExtension):
-			name := strings.TrimSuffix(fileName, fileExtension)
-			metaPath := filepath.Join(c.dir, name+metaExtension)
+		case strings.HasSuffix(fileName, expectedExt):
+			name := strings.TrimSuffix(fileName, expectedExt)
+			metaPath := filepath.Join(c.dir, name+".meta")
 
 			_, err := os.Stat(metaPath)
 			if os.IsNotExist(err) {
@@ -194,8 +214,8 @@ func (c *Cache) cleanExpired() error {
 				orphanedRemoved++
 			}
 
-		case strings.HasSuffix(fileName, metaExtension):
-			name := strings.TrimSuffix(fileName, metaExtension)
+		case strings.HasSuffix(fileName, ".meta"):
+			name := strings.TrimSuffix(fileName, ".meta")
 
 			isExpired := false
 			metaPath := filepath.Join(c.dir, fileName)
@@ -218,8 +238,8 @@ func (c *Cache) cleanExpired() error {
 			orphanedRemoved++
 		}
 	}
+
 	args := []any{"total_files", len(allFiles), "expired", expiredRemoved}
 	logging.Info(context.Background(), "cache cleanup", args...)
-
 	return nil
 }

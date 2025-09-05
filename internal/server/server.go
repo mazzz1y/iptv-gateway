@@ -46,7 +46,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	}
 
 	c, err := cache.NewCache(cfg.Cache.Path,
-		time.Duration(cfg.Cache.TTL), time.Duration(cfg.Cache.Retention))
+		time.Duration(cfg.Cache.TTL), time.Duration(cfg.Cache.Retention), cfg.Cache.Compression)
 	if err != nil {
 		return nil, err
 	}

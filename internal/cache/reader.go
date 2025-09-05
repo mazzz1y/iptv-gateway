@@ -19,9 +19,6 @@ const (
 	statusExpired
 	statusRenewed
 	statusNotFound
-
-	fileExtension = ".gz"
-	metaExtension = ".meta"
 )
 
 type Metadata struct {
@@ -30,38 +27,27 @@ type Metadata struct {
 }
 
 type Reader struct {
-	URL            string
-	Name           string
-	FilePath       string
-	MetaPath       string
-	ReadCloser     io.ReadCloser
-	file           *os.File
-	gzipWriter     *gzip.Writer
-	originResponse *http.Response
-	client         *http.Client
-	bytesDownload  int64
-	expectedSize   int64
-	contentType    string
-	ttl            time.Duration
+	URL             string
+	Name            string
+	FilePath        string
+	MetaPath        string
+	ReadCloser      io.ReadCloser
+	file            *os.File
+	gzipWriter      *gzip.Writer
+	originResponse  *http.Response
+	client          *http.Client
+	contentLength   int64
+	downloadedBytes int64
+	contentType     string
+	ttl             time.Duration
+	compression     bool
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
 	if r.ReadCloser == nil {
 		return 0, io.EOF
 	}
-	n, err = r.ReadCloser.Read(p)
-
-	if (err == io.EOF || r.bytesDownload == r.expectedSize) && r.originResponse != nil {
-		if r.isDownloadComplete() {
-			err := r.SaveMetadata()
-			if err != nil {
-				return 0, err
-			}
-		} else {
-			r.Cleanup()
-		}
-	}
-	return n, err
+	return r.ReadCloser.Read(p)
 }
 
 func (r *Reader) Close() error {
@@ -89,6 +75,19 @@ func (r *Reader) Close() error {
 		if e := r.file.Close(); e != nil && err == nil {
 			err = e
 		}
+	}
+
+	if r.originResponse != nil {
+		if err == nil {
+			if r.isDownloadComplete() {
+				err := r.SaveMetadata()
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		r.Cleanup()
 	}
 
 	return err
@@ -122,7 +121,10 @@ func (r *Reader) isGzippedContent(resp *http.Response) bool {
 }
 
 func (r *Reader) isDownloadComplete() bool {
-	return r.expectedSize <= 0 || r.bytesDownload == r.expectedSize
+	if r.contentLength <= 0 {
+		return true
+	}
+	return r.downloadedBytes == r.contentLength
 }
 
 func (r *Reader) checkCacheStatus() status {
@@ -150,9 +152,7 @@ func (r *Reader) checkCacheStatus() status {
 		if expires, err := time.Parse(time.RFC1123, exp); err == nil && expires.Before(time.Now()) {
 			return r.tryRenewal(&meta)
 		}
-		if err := r.SaveMetadata(); err != nil {
-			return statusExpired
-		}
+		_ = r.SaveMetadata()
 		return statusRenewed
 	}
 
@@ -231,14 +231,18 @@ func (r *Reader) newCachedReader() (io.ReadCloser, error) {
 		return nil, fmt.Errorf("failed to open cached file: %w", err)
 	}
 
-	gzipR, err := gzip.NewReader(file)
-	if err != nil {
-		file.Close()
-		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
-	}
-
 	r.file = file
-	return ioutil.NewReaderWithCloser(gzipR, gzipR.Close), nil
+
+	if r.compression {
+		gzipR, err := gzip.NewReader(file)
+		if err != nil {
+			file.Close()
+			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		return ioutil.NewReaderWithCloser(gzipR, gzipR.Close), nil
+	} else {
+		return file, nil
+	}
 }
 
 func (r *Reader) newDirectReader(ctx context.Context) (io.ReadCloser, error) {
@@ -290,10 +294,7 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 
 	r.originResponse = resp
 	r.contentType = resp.Header.Get("Content-Type")
-
-	if r.originResponse.ContentLength > 0 {
-		r.expectedSize = r.originResponse.ContentLength
-	}
+	r.contentLength = resp.ContentLength
 
 	err = r.createCacheFile()
 	if err != nil {
@@ -302,26 +303,40 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 	}
 
 	var reader io.ReadCloser
-	if r.isGzippedContent(resp) {
-		sc := ioutil.NewCountReadCloser(resp.Body, &r.bytesDownload)
-		tee := io.TeeReader(sc, r.file)
-		gzipReader, err := gzip.NewReader(tee)
-		if err != nil {
-			_ = r.file.Close()
-			_ = sc.Close()
-			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+	countReader := ioutil.NewCountReadCloser(resp.Body, &r.downloadedBytes)
+
+	if r.compression {
+		if r.isGzippedContent(resp) {
+			tee := io.TeeReader(countReader, r.file)
+			gzipReader, err := gzip.NewReader(tee)
+			if err != nil {
+				_ = r.file.Close()
+				_ = countReader.Close()
+				return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+			}
+			reader = ioutil.NewReaderWithCloser(gzipReader, gzipReader.Close)
+		} else {
+			gzipW, err := gzip.NewWriterLevel(r.file, gzip.BestSpeed)
+			if err != nil {
+				_ = r.file.Close()
+				_ = countReader.Close()
+				return nil, fmt.Errorf("failed to create gzip writer: %w", err)
+			}
+			r.gzipWriter = gzipW
+			reader = ioutil.NewReaderWithCloser(io.TeeReader(countReader, gzipW), gzipW.Close)
 		}
-		reader = ioutil.NewReaderWithCloser(gzipReader, gzipReader.Close)
 	} else {
-		sc := ioutil.NewCountReadCloser(resp.Body, &r.bytesDownload)
-		gzipW, err := gzip.NewWriterLevel(r.file, gzip.BestSpeed)
-		if err != nil {
-			_ = r.file.Close()
-			_ = sc.Close()
-			return nil, fmt.Errorf("failed to create gzip writer: %w", err)
+		if r.isGzippedContent(resp) {
+			gzipReader, err := gzip.NewReader(countReader)
+			if err != nil {
+				_ = r.file.Close()
+				_ = countReader.Close()
+				return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+			}
+			reader = ioutil.NewReaderWithCloser(io.TeeReader(gzipReader, r.file), gzipReader.Close)
+		} else {
+			reader = ioutil.NewReaderWithCloser(io.TeeReader(countReader, r.file), countReader.Close)
 		}
-		r.gzipWriter = gzipW
-		reader = ioutil.NewReaderWithCloser(io.TeeReader(sc, gzipW), gzipW.Close)
 	}
 
 	return reader, nil

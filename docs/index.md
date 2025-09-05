@@ -2,7 +2,7 @@
 
 > ⚠️ **Warning**: This project is currently under construction. Some features might be unstable or incomplete.
 
-A minimal, functional IPTV Gateway for your TV
+A minimal, functional IPTV Gateway for your TV.
 
 ## Features
 

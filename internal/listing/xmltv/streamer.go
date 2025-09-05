@@ -16,11 +16,11 @@ import (
 
 type epgDecoderInput struct {
 	url string
-	sub listing.EPGSubscription
+	sub listing.EPG
 }
 
 type Streamer struct {
-	subscriptions    []listing.EPGSubscription
+	subscriptions    []listing.EPG
 	httpClient       listing.HTTPClient
 	channelIDToName  map[string]string
 	addedChannelIDs  map[string]bool
@@ -29,7 +29,7 @@ type Streamer struct {
 	mu               sync.RWMutex
 }
 
-func NewStreamer(subs []listing.EPGSubscription, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
+func NewStreamer(subs []listing.EPG, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
 	subscriptions := subs
 
 	channelLen := len(channelIDToName)
@@ -241,7 +241,8 @@ func (s *Streamer) processChannel(channel *xmltv.Channel) (allowed bool) {
 
 	originalID := channel.ID
 
-	allIDs := []string{originalID}
+	allIDs := make([]string, 0, 1+len(channel.DisplayNames))
+	allIDs = append(allIDs, originalID)
 	for _, displayName := range channel.DisplayNames {
 		tvgID := listing.GenerateTvgID(displayName.Value)
 		allIDs = append(allIDs, tvgID)
@@ -307,7 +308,7 @@ func (s *Streamer) processProgramme(programme *xmltv.Programme) (allowed bool) {
 	return true
 }
 
-func (s *Streamer) processIcons(sub listing.EPGSubscription, icons []xmltv.Icon) []xmltv.Icon {
+func (s *Streamer) processIcons(sub listing.EPG, icons []xmltv.Icon) []xmltv.Icon {
 	gen := sub.URLGenerator()
 	if gen == nil || len(icons) == 0 {
 		return icons

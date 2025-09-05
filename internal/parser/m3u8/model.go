@@ -5,12 +5,11 @@ import (
 )
 
 type Track struct {
-	Name      string
-	Length    float64
-	URI       *url.URL
-	Attrs     map[string]string
-	Tags      map[string]string
-	IsRemoved bool
+	Name   string
+	Length float64
+	URI    *url.URL
+	Attrs  map[string]string
+	Tags   map[string]string
 }
 
 const (

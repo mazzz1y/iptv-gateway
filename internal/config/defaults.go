@@ -13,9 +13,10 @@ func DefaultConfig() *Config {
 			"text",
 		},
 		Cache: CacheConfig{
-			Path:      "cache",
-			TTL:       types.Duration(24 * time.Hour),
-			Retention: types.Duration(24 * time.Hour * 30),
+			Path:        "cache",
+			TTL:         types.Duration(24 * time.Hour),
+			Retention:   types.Duration(24 * time.Hour * 30),
+			Compression: false,
 		},
 		Proxy: Proxy{
 			Stream: Handler{

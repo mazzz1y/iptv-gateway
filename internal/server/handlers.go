@@ -171,6 +171,8 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	playlist := ctxutil.Provider(ctx).(*app.PlaylistSubscription)
 	data := ctxutil.StreamData(ctx).(*urlgen.Data)
 	ctx = ctxutil.WithChannelID(ctx, data.ChannelID)
+	ctx = ctxutil.WithChannelHidden(ctx, data.Hidden)
+
 	clientName := ctxutil.ClientName(ctx)
 	playlistName := playlist.Name()
 
@@ -205,8 +207,10 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	reader, err := s.demux.GetReader(demuxReq)
 	if errors.Is(err, demux.ErrSubscriptionSemaphore) {
 		logging.Error(ctx, err, "failed to get stream")
-		metrics.StreamsFailuresTotal.WithLabelValues(
-			clientName, playlist.Name(), data.ChannelID, metrics.FailureReasonPlaylistLimit).Inc()
+		if !data.Hidden {
+			metrics.StreamsFailuresTotal.WithLabelValues(
+				clientName, playlist.Name(), data.ChannelID, metrics.FailureReasonPlaylistLimit).Inc()
+		}
 		playlist.LimitStreamer().Stream(ctx, w)
 		return
 	}
@@ -217,16 +221,21 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	}
 	defer reader.Close()
 
-	metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.ChannelID).Inc()
-	defer metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.ChannelID).Dec()
+	if !data.Hidden {
+		metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.ChannelID).Inc()
+		defer metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.ChannelID).Dec()
+	}
+
 	w.Header().Set("Content-Type", streamContentType)
 	written, err := io.Copy(w, reader)
 
 	if err == nil && written == 0 {
-		logging.Error(ctx, errors.New("no data written to response"), "")
-		metrics.StreamsFailuresTotal.WithLabelValues(
-			clientName, playlist.Name(), data.ChannelID, metrics.FailureReasonUpstreamError).Inc()
-		playlist.UpstreamErrorStreamer().Stream(ctx, w)
+		if !data.Hidden {
+			logging.Error(ctx, errors.New("no data written to response"), "")
+			metrics.StreamsFailuresTotal.WithLabelValues(
+				clientName, playlist.Name(), data.ChannelID, metrics.FailureReasonUpstreamError).Inc()
+			playlist.UpstreamErrorStreamer().Stream(ctx, w)
+		}
 		return
 	}
 

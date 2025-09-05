@@ -35,7 +35,7 @@ remove_duplicates:
 # Input: CNN, CNN HD, CNN 4K, ESPN, ESPN FHD, ESPN UHD, Fox News
 # Output: CNN 4K, ESPN UHD, Fox News
 remove_channel_dups:
-  - patterns: [ "4K", "UHD", "FHD", "HD", "" ]
+  - patterns: ["4K", "UHD", "FHD", "HD", ""]
 ```
 
 ### With Pattern Trimming Enabled
@@ -44,7 +44,7 @@ remove_channel_dups:
 # Input: Discovery Channel HD, Discovery Channel 4K, National Geographic UHD, National Geographic
 # Output: Discovery Channel, National Geographic
 remove_channel_dups:
-  - patterns: [ "4K", "UHD", "FHD", "HD", "" ]
+  - patterns: ["4K", "UHD", "FHD", "HD", ""]
     trim_pattern: true
 ```
 
@@ -53,9 +53,9 @@ remove_channel_dups:
 ```yaml
 remove_channel_dups:
   # First pass: Remove quality duplicates
-  - patterns: [ "4K", "UHD", "FHD", "HD", "" ]
+  - patterns: ["4K", "UHD", "FHD", "HD", ""]
     trim_pattern: true
   # Second pass: Remove language duplicates
-  - patterns: [ "EN", "DE", "" ]
+  - patterns: ["EN", "DE", ""]
     trim_pattern: true
 ```

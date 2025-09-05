@@ -31,6 +31,7 @@ nav:
           - Set Field: config/channel_rules/rule_list/set_field.md
           - Remove Field: config/channel_rules/rule_list/remove_field.md
           - Remove Channel: config/channel_rules/rule_list/remove_channel.md
+          - Mark Hidden: config/channel_rules/rule_list/mark_hidden.md
           - When Conditions: config/channel_rules/when.md
       - Playlist Rules:
           - Overview: config/playlist_rules/index.md
@@ -40,5 +41,6 @@ nav:
       - Playlists: config/playlists.md
       - EPGs: config/epgs.md
       - Presets: config/presets.md
+      - Conditions: config/conditions.md
       - Cache: config/cache.md
   - Metrics: metrics.md

@@ -1,7 +1,7 @@
 # Clients
 
-The clients block represents a list of IPTV clients. Each client typically corresponds to a single device or user accessing the IPTV service. Clients are identified by their unique name and authenticated using a secret key.
-
+The clients block represents a list of IPTV clients. Each client typically corresponds to a single device or user
+accessing the IPTV service. Clients are identified by their unique name and authenticated using a secret key.
 
 ## Client Links
 
@@ -17,20 +17,20 @@ Each client can access the following endpoints:
 clients:
   - name: client-name
     secret: "your-secret-key"
-    presets: ["preset1", "preset2"]
-    playlists: ["playlist1", "playlist2"]
-    epgs: ["epg1", "epg2"]
+    preset: preset1
+    playlist: ["playlist1", "playlist2"]
+    epg: ["epg1", "epg2"]
 ```
 
 ## Fields
 
-| Field           | Type       | Required | Description                                    |
-|-----------------|------------|----------|------------------------------------------------|
-| `name`          | `string`   | Yes      | Unique name identifier for this client        |
-| `secret`        | `string`   | Yes      | Authentication secret key for the client      |
-| `presets`       | `[]string` | No       | List of preset names to apply to this client  |
-| `playlists`     | `[]string` | No       | List of playlist names for this client        |
-| `epgs`          | `[]string` | No       | List of EPG names for this client             |
+| Field      | Type                   | Required | Description                                  |
+|------------|------------------------|----------|----------------------------------------------|
+| `name`     | `string`               | Yes      | Unique name identifier for this client       |
+| `secret`   | `string`               | Yes      | Authentication secret key for the client     |
+| `preset`   | `string` or `[]string` | No       | List of preset names to apply to this client |
+| `playlist` | `string` or `[]string` | No       | List of playlist names for this client       |
+| `epg`      | `string` or `[]string` | No       | List of EPG names for this client            |
 
 ## Examples
 
@@ -40,7 +40,7 @@ clients:
 clients:
   - name: living-room-tv
     secret: "secret"
-    playlists: ["sports-playlist"]
+    playlist: "sports-playlist"
 ```
 
 ### Client with Multiple Presets
@@ -49,20 +49,6 @@ clients:
 clients:
   - name: family-tablet
     secret: "secret"
-    presets: ["family-friendly", "hd-quality"]
-    playlists: ["basic-playlist", "kids-playlist"]
-```
-
-### Multiple Clients
-
-```yaml
-clients:
-  - name: bedroom-tv
-    secret: "secret1"
-    presets: ["adult-filter"]
-    playlists: ["premium-sports-playlist"]
-  - name: kids-tablet
-    secret: "secret2"
-    presets: ["child-safe"]
-    playlists: ["cartoon-playlist"]
+    preset: ["family-friendly", "hd-quality"]
+    playlist: ["basic-playlist", "kids-playlist"]
 ```

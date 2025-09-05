@@ -70,6 +70,7 @@ func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
 	pr, pw := io.Pipe()
 
 	ctx := ctxutil.WithStreamID(req.Context, req.StreamKey)
+	hidden := ctxutil.ChannelHidden(ctx)
 
 	go func() {
 		<-ctx.Done()
@@ -88,12 +89,16 @@ func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
 		}
 
 		go m.startStream(ctx, req, pw)
-		logging.Info(ctx, "started new stream")
+		if !hidden {
+			logging.Info(ctx, "started new stream")
+		}
 	} else {
 		subscriptionName := ctxutil.ProviderName(ctx)
 		channelID := ctxutil.ChannelID(ctx)
-		metrics.StreamsReusedTotal.WithLabelValues(subscriptionName, channelID).Inc()
-		logging.Info(ctx, "joined existing stream")
+		if !hidden {
+			metrics.StreamsReusedTotal.WithLabelValues(subscriptionName, channelID).Inc()
+			logging.Info(ctx, "joined existing stream")
+		}
 	}
 
 	return pr, nil
@@ -101,10 +106,13 @@ func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
 
 func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 	key := req.StreamKey
+	hidden := ctxutil.ChannelHidden(ctx)
 
 	subscriptionName := ctxutil.ProviderName(ctx)
-	metrics.PlaylistStreamsActive.WithLabelValues(subscriptionName).Inc()
-	defer metrics.PlaylistStreamsActive.WithLabelValues(subscriptionName).Dec()
+	if !hidden {
+		metrics.PlaylistStreamsActive.WithLabelValues(subscriptionName).Inc()
+		defer metrics.PlaylistStreamsActive.WithLabelValues(subscriptionName).Dec()
+	}
 
 	unlock := m.LockStream(key)
 	writer := m.pool.GetWriter(key)
@@ -146,14 +154,14 @@ func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			logging.Info(streamCtx, "stream canceled")
+			logging.Debug(streamCtx, "stream canceled")
 		} else {
 			logging.Error(streamCtx, err, "stream failed")
 		}
 	} else if bytesWritten == 0 {
 		logging.Error(streamCtx, nil, "stream produced no output")
 	} else {
-		logging.Info(streamCtx, "stream ended")
+		logging.Debug(streamCtx, "stream ended")
 	}
 
 	if closer, ok := w.(io.Closer); ok {

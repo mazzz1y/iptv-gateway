@@ -177,7 +177,8 @@ func (m *Manager) addPlaylistSubscription(
 		playlistConf, *urlGen,
 		m.config.ChannelRules, m.config.PlaylistRules,
 		m.config.Proxy,
-		m.subSemaphores[playlistName])
+		m.subSemaphores[playlistName],
+		m.config.Conditions)
 	if err != nil {
 		return fmt.Errorf("failed to build playlist subscription '%s' for client '%s': %w", playlistName, clientName, err)
 	}

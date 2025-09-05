@@ -1,6 +1,7 @@
 # Remove Field
 
-The `remove_field` rule allows you to delete specific fields from channels, including the channel name, M3U tags, and attributes. This is useful for cleaning up unwanted metadata or removing problematic fields.
+The `remove_field` rule allows you to delete specific fields from channels, including the channel name, M3U tags, and
+attributes. This is useful for cleaning up unwanted metadata or removing problematic fields.
 
 ## YAML Structure
 
@@ -13,11 +14,11 @@ remove_field:
 
 ## Fields
 
-| Field  | Type      | Required | Description                                           |
-|--------|-----------|----------|-------------------------------------------------------|
-| `name` | `any`     | No       | Remove the channel name (set to any value to remove)  |
-| `tag`  | `[]regex` | No       | Array of regex patterns for tag names to remove       |
-| `attr` | `[]regex` | No       | Array of regex patterns for attribute names to remove |
+| Field  | Type                 | Required | Description                                           |
+|--------|----------------------|----------|-------------------------------------------------------|
+| `name` | `any`                | No       | Remove the channel name (set to any value to remove)  |
+| `tag`  | `regex` or `[]regex` | No       | Array of regex patterns for tag names to remove       |
+| `attr` | `regex` or `[]regex` | No       | Array of regex patterns for attribute names to remove |
 
 ## Examples
 
@@ -54,7 +55,7 @@ when:
 
 ```yaml
 remove_field:
-  - attr: [".*logo.*"]
+  - attr: ".*logo.*"
 ```
 
 ### Remove Country-Specific Attributes

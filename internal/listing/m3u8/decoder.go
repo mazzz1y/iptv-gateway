@@ -7,7 +7,7 @@ import (
 
 type decoderWrapper struct {
 	decoder      listing.Decoder
-	subscription listing.PlaylistSubscription
+	subscription listing.Playlist
 	reader       io.ReadCloser
 	done         bool
 	err          error

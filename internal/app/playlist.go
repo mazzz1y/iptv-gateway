@@ -18,8 +18,9 @@ type PlaylistSubscription struct {
 	urlGenerator *urlgen.Generator
 	semaphore    *semaphore.Weighted
 
-	channelRules  []rules.ChannelRule
-	playlistRules []rules.PlaylistRule
+	channelRules    []rules.ChannelRule
+	playlistRules   []rules.PlaylistRule
+	namedConditions []rules.NamedCondition
 
 	proxyConfig config.Proxy
 
@@ -33,7 +34,7 @@ func NewPlaylistSubscription(
 	name string, urlGen urlgen.Generator,
 	sources []string,
 	proxy config.Proxy, channelRules []rules.ChannelRule, playlistRules []rules.PlaylistRule,
-	sem *semaphore.Weighted) (*PlaylistSubscription, error) {
+	sem *semaphore.Weighted, namedConditions []rules.NamedCondition) (*PlaylistSubscription, error) {
 
 	streamStreamer, err := shell.NewShellStreamer(
 		proxy.Stream.Command,
@@ -79,6 +80,7 @@ func NewPlaylistSubscription(
 		proxyConfig:           proxy,
 		channelRules:          channelRules,
 		playlistRules:         playlistRules,
+		namedConditions:       namedConditions,
 		linkStreamer:          streamStreamer,
 		rateLimitStreamer:     rateLimitStreamer,
 		upstreamErrorStreamer: upstreamErrorStreamer,
@@ -108,6 +110,10 @@ func (ps *PlaylistSubscription) ChannelRules() []rules.ChannelRule {
 
 func (ps *PlaylistSubscription) PlaylistRules() []rules.PlaylistRule {
 	return ps.playlistRules
+}
+
+func (ps *PlaylistSubscription) NamedConditions() []rules.NamedCondition {
+	return ps.namedConditions
 }
 
 func (ps *PlaylistSubscription) Semaphore() *semaphore.Weighted {

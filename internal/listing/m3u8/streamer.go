@@ -12,16 +12,16 @@ import (
 
 type playlistDecoderInput struct {
 	url string
-	sub listing.PlaylistSubscription
+	sub listing.Playlist
 }
 
 type Streamer struct {
-	subscriptions []listing.PlaylistSubscription
+	subscriptions []listing.Playlist
 	httpClient    listing.HTTPClient
 	epgURL        string
 }
 
-func NewStreamer(subs []listing.PlaylistSubscription, epgLink string, httpClient listing.HTTPClient) *Streamer {
+func NewStreamer(subs []listing.Playlist, epgLink string, httpClient listing.HTTPClient) *Streamer {
 	return &Streamer{
 		subscriptions: subs,
 		httpClient:    httpClient,
@@ -47,8 +47,9 @@ func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]string, error
 
 	channelMap := make(map[string]string)
 	for _, ch := range channels {
-		track := ch.Track()
-		channelMap[track.Attrs["tvg-id"]] = track.Name
+		if tvgID, exists := ch.GetAttr("tvg-id"); exists {
+			channelMap[tvgID] = ch.Name()
+		}
 	}
 
 	return channelMap, nil

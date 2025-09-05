@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createStreamer(subscriptions []listing.EPGSubscription, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
+func createStreamer(subscriptions []listing.EPG, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
 	channelLen := len(channelIDToName)
 	approxProgrammeLen := 300 * channelLen
 
@@ -57,7 +57,7 @@ func createTestSubscription(name string, epgs []string) (*app.EPGSubscription, e
 }
 
 func TestNewStreamer(t *testing.T) {
-	var subscriptions []listing.EPGSubscription
+	var subscriptions []listing.EPG
 	httpClient := &MockHTTPClient{}
 	channels := map[string]string{"channel1": "Channel One"}
 
@@ -70,7 +70,7 @@ func TestNewStreamer(t *testing.T) {
 
 func TestStreamer_WriteTo(t *testing.T) {
 	ctx := context.Background()
-	streamer := createStreamer([]listing.EPGSubscription{}, &MockHTTPClient{}, nil)
+	streamer := createStreamer([]listing.EPG{}, &MockHTTPClient{}, nil)
 	buf := bytes.NewBuffer(nil)
 	_, err := streamer.WriteTo(ctx, buf)
 	assert.Error(t, err)
@@ -104,7 +104,7 @@ func TestStreamer_WriteTo(t *testing.T) {
 	})).Return(response, nil)
 
 	channels := map[string]string{"channel1": "Channel One"}
-	streamer = createStreamer([]listing.EPGSubscription{sub}, httpClient, channels)
+	streamer = createStreamer([]listing.EPG{sub}, httpClient, channels)
 	buf = bytes.NewBuffer(nil)
 	_, err = streamer.WriteTo(ctx, buf)
 	require.NoError(t, err)
@@ -175,7 +175,7 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 		"channel2": "Channel Two",
 	}
 
-	streamer := createStreamer([]listing.EPGSubscription{sub}, httpClient, channels)
+	streamer := createStreamer([]listing.EPG{sub}, httpClient, channels)
 
 	buffer := &bytes.Buffer{}
 
@@ -246,7 +246,7 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
 		"movies1": "Movies Channel",
 	}
 
-	streamer := createStreamer([]listing.EPGSubscription{sub1, sub2}, httpClient, channels)
+	streamer := createStreamer([]listing.EPG{sub1, sub2}, httpClient, channels)
 
 	buffer := &bytes.Buffer{}
 

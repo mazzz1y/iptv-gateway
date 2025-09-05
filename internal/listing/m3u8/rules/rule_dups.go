@@ -74,7 +74,7 @@ func (r *RemoveDuplicatesRule) processDuplicateGroups(globalGroupedByBaseName ma
 				if ch == bestChannel {
 					bestFromSubscription = true
 					if r.trimPattern {
-						ch.Track().Name = baseName
+						ch.SetName(baseName)
 					}
 					break
 				}
@@ -82,7 +82,7 @@ func (r *RemoveDuplicatesRule) processDuplicateGroups(globalGroupedByBaseName ma
 
 			for _, ch := range subscriptionChannelsInGroup {
 				if !bestFromSubscription || ch != bestChannel {
-					ch.Track().IsRemoved = true
+					ch.MarkRemoved()
 				}
 			}
 		}

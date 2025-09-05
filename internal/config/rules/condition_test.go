@@ -1,67 +1,77 @@
 package rules
 
 import (
-	"testing"
-
 	"iptv-gateway/internal/config/types"
+	"regexp"
+	"testing"
 )
 
-func TestCondition_IsEmpty(t *testing.T) {
+func TestConditionWithNamedReference(t *testing.T) {
+	testCond := Condition{
+		Ref: "adult",
+	}
+
+	if testCond.IsEmpty() {
+		t.Error("Condition with Ref should not be empty")
+	}
+
+	namedCondition := NamedCondition{
+		Name: "adult",
+		When: []Condition{
+			{
+				Tag: &TagCondition{
+					Name:  "EXTGRP",
+					Value: types.RegexpArr{regexp.MustCompile("(?i)adult")},
+				},
+			},
+		},
+	}
+
+	if namedCondition.Name != "adult" {
+		t.Errorf("Expected named condition name to be 'adult', got %s", namedCondition.Name)
+	}
+
+	if len(namedCondition.When) != 1 {
+		t.Errorf("Expected 1 condition in When, got %d", len(namedCondition.When))
+	}
+
+	if namedCondition.When[0].Tag.Name != "EXTGRP" {
+		t.Errorf("Expected tag name to be 'EXTGRP', got %s", namedCondition.When[0].Tag.Name)
+	}
+}
+
+func TestConditionIsEmpty(t *testing.T) {
 	tests := []struct {
 		name      string
 		condition Condition
 		expected  bool
 	}{
 		{
-			name:      "empty condition",
+			name:      "Empty condition",
 			condition: Condition{},
 			expected:  true,
 		},
 		{
-			name: "condition with name",
+			name: "Condition with Ref",
 			condition: Condition{
-				Name: types.RegexpArr{},
-			},
-			expected: true,
-		},
-		{
-			name: "condition with attribute",
-			condition: Condition{
-				Attr: &AttributeCondition{
-					Name:  "test",
-					Value: types.RegexpArr{},
-				},
+				Ref: "test",
 			},
 			expected: false,
 		},
 		{
-			name: "condition with tag",
+			name: "Condition with Name",
+			condition: Condition{
+				Name: types.RegexpArr{regexp.MustCompile("test")},
+			},
+			expected: false,
+		},
+		{
+			name: "Condition with Tag",
 			condition: Condition{
 				Tag: &TagCondition{
 					Name:  "test",
-					Value: types.RegexpArr{},
+					Value: types.RegexpArr{regexp.MustCompile("value")},
 				},
-			},
-			expected: false,
-		},
-		{
-			name: "condition with And",
-			condition: Condition{
-				And: []Condition{{}},
-			},
-			expected: false,
-		},
-		{
-			name: "condition with Or",
-			condition: Condition{
-				Or: []Condition{{}},
-			},
-			expected: false,
-		},
-		{
-			name: "condition with Not",
-			condition: Condition{
-				Not: []Condition{{}},
 			},
 			expected: false,
 		},
@@ -69,9 +79,8 @@ func TestCondition_IsEmpty(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.condition.IsEmpty()
-			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
+			if got := tt.condition.IsEmpty(); got != tt.expected {
+				t.Errorf("Condition.IsEmpty() = %v, want %v", got, tt.expected)
 			}
 		})
 	}

@@ -20,15 +20,16 @@ type URLGenerator interface {
 	CreateURL(data urlgen.Data, ttl time.Duration) (*url.URL, error)
 }
 
-type PlaylistSubscription interface {
+type Playlist interface {
 	Playlists() []string
 	URLGenerator() *urlgen.Generator
 	ChannelRules() []rules.ChannelRule
 	PlaylistRules() []rules.PlaylistRule
+	NamedConditions() []rules.NamedCondition
 	IsProxied() bool
 }
 
-type EPGSubscription interface {
+type EPG interface {
 	EPGs() []string
 	URLGenerator() *urlgen.Generator
 	IsProxied() bool

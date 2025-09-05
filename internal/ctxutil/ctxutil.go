@@ -12,7 +12,7 @@ const (
 	clientKey        contextKey = "client"
 	clientNameKey    contextKey = "client_name"
 	requestIDKey     contextKey = "request_id"
-	requestTypeKey   contextKey = "request_type"
+	channelHiddenKey contextKey = "channel_hidden"
 	streamDataKey    contextKey = "stream_data"
 	providerKey      contextKey = "provider"
 	providerTypeKey  contextKey = "provider_type"
@@ -58,12 +58,16 @@ func WithChannelID(ctx context.Context, channelID string) context.Context {
 	return context.WithValue(ctx, channelIDKey, channelID)
 }
 
+func WithChannelHidden(ctx context.Context, hidden bool) context.Context {
+	return context.WithValue(ctx, channelHiddenKey, hidden)
+}
+
 func WithSemaphoreName(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, semaphoreNameKey, name)
 }
 
 func WithRequestType(ctx context.Context, requestType string) context.Context {
-	return context.WithValue(ctx, requestTypeKey, requestType)
+	return context.WithValue(ctx, channelHiddenKey, requestType)
 }
 
 func RequestID(ctx context.Context) string {
@@ -120,6 +124,13 @@ func ChannelID(ctx context.Context) string {
 	return ""
 }
 
+func ChannelHidden(ctx context.Context) bool {
+	if v := ctx.Value(channelHiddenKey); v != nil {
+		return v.(bool)
+	}
+	return false
+}
+
 func SemaphoreName(ctx context.Context) string {
 	if v := ctx.Value(semaphoreNameKey); v != nil {
 		return v.(string)
@@ -128,7 +139,7 @@ func SemaphoreName(ctx context.Context) string {
 }
 
 func RequestType(ctx context.Context) string {
-	if reqType, ok := ctx.Value(requestTypeKey).(string); ok {
+	if reqType, ok := ctx.Value(channelHiddenKey).(string); ok {
 		return reqType
 	}
 	return "unknown"

@@ -7,7 +7,7 @@ import (
 
 type Playlist struct {
 	Name          string               `yaml:"name"`
-	Sources       types.StringOrArr    `yaml:"sources"`
+	Sources       types.StringOrArr    `yaml:"source"`
 	Proxy         Proxy                `yaml:"proxy,omitempty"`
 	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
 	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`

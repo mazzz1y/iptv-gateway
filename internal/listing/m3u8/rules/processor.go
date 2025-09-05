@@ -5,23 +5,23 @@ import (
 	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/listing"
-	"iptv-gateway/internal/parser/m3u8"
 )
 
 type Processor struct {
-	subscriptionChannelRulesMap  map[listing.PlaylistSubscription][]rules.ChannelRule
-	subscriptionPlaylistRulesMap map[listing.PlaylistSubscription][]rules.PlaylistRule
+	subscriptionChannelRulesMap  map[listing.Playlist][]rules.ChannelRule
+	subscriptionPlaylistRulesMap map[listing.Playlist][]rules.PlaylistRule
 }
 
 func NewProcessor() *Processor {
 	return &Processor{
-		subscriptionChannelRulesMap:  make(map[listing.PlaylistSubscription][]rules.ChannelRule),
-		subscriptionPlaylistRulesMap: make(map[listing.PlaylistSubscription][]rules.PlaylistRule),
+		subscriptionChannelRulesMap:  make(map[listing.Playlist][]rules.ChannelRule),
+		subscriptionPlaylistRulesMap: make(map[listing.Playlist][]rules.PlaylistRule),
 	}
 }
 
-func (p *Processor) AddSubscription(sub listing.PlaylistSubscription) {
-	p.subscriptionChannelRulesMap[sub] = append(p.subscriptionChannelRulesMap[sub], sub.ChannelRules()...)
+func (p *Processor) AddSubscription(sub listing.Playlist) {
+	expandedChannelRules := p.expandNamedConditions(sub.ChannelRules(), sub.NamedConditions())
+	p.subscriptionChannelRulesMap[sub] = append(p.subscriptionChannelRulesMap[sub], expandedChannelRules...)
 	p.subscriptionPlaylistRulesMap[sub] = append(p.subscriptionPlaylistRulesMap[sub], sub.PlaylistRules()...)
 }
 
@@ -36,31 +36,33 @@ func (p *Processor) processStoreRules(store *Store) {
 
 func (p *Processor) processTrackRules(store *Store) {
 	for _, ch := range store.All() {
-		track := ch.Track()
-
 		if subRules, exists := p.subscriptionChannelRulesMap[ch.Subscription()]; exists {
-			p.processTrackWithRules(track, subRules)
+			p.processChannelWithRules(ch, subRules)
 		}
 	}
 }
 
-func (p *Processor) processTrackWithRules(track *m3u8.Track, rules []rules.ChannelRule) {
+func (p *Processor) processChannelWithRules(ch *Channel, rules []rules.ChannelRule) {
 	for _, action := range rules {
-		if !p.matchesConditions(track, action.When) {
+		if !p.matchesConditions(ch, action.When) {
 			continue
 		}
 
 		if action.RemoveChannel != nil {
-			track.IsRemoved = true
+			ch.MarkRemoved()
 			return
 		}
 
+		if action.MarkHidden != nil {
+			ch.MarkHidden()
+		}
+
 		if action.SetField != nil {
-			p.setFields(track, action.SetField)
+			p.setFields(ch, action.SetField)
 		}
 
 		if action.RemoveField != nil {
-			p.removeFields(track, action.RemoveField)
+			p.removeFields(ch, action.RemoveField)
 		}
 	}
 }
@@ -85,47 +87,39 @@ func (p *Processor) processRemoveDuplicatesRules(global *Store) {
 	}
 }
 
-func (p *Processor) matchesConditions(track *m3u8.Track, conditions []rules.Condition) bool {
+func (p *Processor) matchesConditions(ch *Channel, conditions []rules.Condition) bool {
 	if len(conditions) == 0 {
 		return true
 	}
 
 	for _, condition := range conditions {
-		if !p.matchesCondition(track, condition) {
-			return false
+		if p.matchesCondition(ch, condition) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
-func (p *Processor) matchesCondition(track *m3u8.Track, condition rules.Condition) bool {
+func (p *Processor) matchesCondition(ch *Channel, condition rules.Condition) bool {
 	if condition.IsEmpty() {
 		return true
 	}
 
 	if len(condition.Name) > 0 {
-		if !p.matchesRegexps(track.Name, condition.Name) {
+		if !p.matchesRegexps(ch.Name(), condition.Name) {
 			return false
 		}
 	}
 
 	if condition.Attr != nil {
-		var actual string
-		var exists bool
-		if track.Attrs != nil {
-			actual, exists = track.Attrs[condition.Attr.Name]
-		}
+		actual, exists := ch.GetAttr(condition.Attr.Name)
 		if !exists || !p.matchesRegexps(actual, condition.Attr.Value) {
 			return false
 		}
 	}
 
 	if condition.Tag != nil {
-		var actual string
-		var exists bool
-		if track.Tags != nil {
-			actual, exists = track.Tags[condition.Tag.Name]
-		}
+		actual, exists := ch.GetTag(condition.Tag.Name)
 		if !exists || !p.matchesRegexps(actual, condition.Tag.Value) {
 			return false
 		}
@@ -133,7 +127,7 @@ func (p *Processor) matchesCondition(track *m3u8.Track, condition rules.Conditio
 
 	if len(condition.And) > 0 {
 		for _, subCondition := range condition.And {
-			if !p.matchesCondition(track, subCondition) {
+			if !p.matchesCondition(ch, subCondition) {
 				return false
 			}
 		}
@@ -141,7 +135,7 @@ func (p *Processor) matchesCondition(track *m3u8.Track, condition rules.Conditio
 
 	if len(condition.Or) > 0 {
 		for _, subCondition := range condition.Or {
-			if p.matchesCondition(track, subCondition) {
+			if p.matchesCondition(ch, subCondition) {
 				return true
 			}
 		}
@@ -151,7 +145,7 @@ func (p *Processor) matchesCondition(track *m3u8.Track, condition rules.Conditio
 	if len(condition.Not) > 0 {
 		anyMatched := false
 		for _, subCondition := range condition.Not {
-			if p.matchesCondition(track, subCondition) {
+			if p.matchesCondition(ch, subCondition) {
 				anyMatched = true
 				break
 			}
@@ -171,62 +165,98 @@ func (p *Processor) matchesRegexps(value string, regexps types.RegexpArr) bool {
 	return false
 }
 
-func (p *Processor) removeFields(track *m3u8.Track, fields []map[string]types.RegexpArr) {
+func (p *Processor) removeFields(ch *Channel, fields []map[string]types.RegexpArr) {
 	for _, field := range fields {
 		for fieldType, regexps := range field {
 			switch fieldType {
 			case "attr":
-				if track.Attrs != nil {
-					for attrName := range track.Attrs {
+				if ch.Attrs() != nil {
+					for attrName := range ch.Attrs() {
 						if p.matchesRegexps(attrName, regexps) {
-							delete(track.Attrs, attrName)
+							ch.DeleteAttr(attrName)
 						}
 					}
 				}
 			case "tag":
-				if track.Tags != nil {
-					for tagName := range track.Tags {
+				if ch.Tags() != nil {
+					for tagName := range ch.Tags() {
 						if p.matchesRegexps(tagName, regexps) {
-							delete(track.Tags, tagName)
+							ch.DeleteTag(tagName)
 						}
 					}
 				}
 			case "name":
 				if p.matchesRegexps("name", regexps) {
-					track.Name = ""
+					ch.SetName("")
 				}
 			}
 		}
 	}
 }
 
-func (p *Processor) setFields(track *m3u8.Track, fields []rules.SetFieldSpec) {
+func (p *Processor) setFields(ch *Channel, fields []rules.SetFieldSpec) {
 	for _, field := range fields {
 		var buf bytes.Buffer
 		_ = field.Template.Execute(&buf, map[string]any{
 			"Channel": map[string]any{
-				"Name":  track.Name,
-				"Attrs": track.Attrs,
-				"Tags":  track.Tags,
+				"Name":  ch.Name(),
+				"Attrs": ch.Attrs(),
+				"Tags":  ch.Tags(),
 			},
 		})
-		p.setValue(track, field.Type, field.Name, buf.String())
+		p.setValue(ch, field.Type, field.Name, buf.String())
 	}
 }
 
-func (p *Processor) setValue(track *m3u8.Track, fieldType, fieldName, value string) {
+func (p *Processor) setValue(ch *Channel, fieldType, fieldName, value string) {
 	switch fieldType {
 	case "attr":
-		if track.Attrs == nil {
-			track.Attrs = make(map[string]string)
-		}
-		track.Attrs[fieldName] = value
+		ch.SetAttr(fieldName, value)
 	case "tag":
-		if track.Tags == nil {
-			track.Tags = make(map[string]string)
-		}
-		track.Tags[fieldName] = value
+		ch.SetTag(fieldName, value)
 	case "name":
-		track.Name = value
+		ch.SetName(value)
 	}
+}
+
+func (p *Processor) expandNamedConditions(
+	channelRules []rules.ChannelRule, namedConditions []rules.NamedCondition) []rules.ChannelRule {
+	if len(namedConditions) == 0 {
+		return channelRules
+	}
+
+	conditionMap := make(map[string][]rules.Condition)
+	for _, namedCondition := range namedConditions {
+		conditionMap[namedCondition.Name] = namedCondition.When
+	}
+
+	expandedRules := make([]rules.ChannelRule, len(channelRules))
+	for i, rule := range channelRules {
+		expandedRules[i] = rule
+		expandedRules[i].When = p.expandConditions(rule.When, conditionMap)
+	}
+
+	return expandedRules
+}
+
+func (p *Processor) expandConditions(
+	conditions []rules.Condition, conditionMap map[string][]rules.Condition) []rules.Condition {
+	var expanded []rules.Condition
+
+	for _, condition := range conditions {
+		if condition.Ref != "" {
+			if namedConditions, exists := conditionMap[condition.Ref]; exists {
+				expandedNamed := p.expandConditions(namedConditions, conditionMap)
+				expanded = append(expanded, expandedNamed...)
+			}
+			continue
+		}
+
+		condition.And = p.expandConditions(condition.And, conditionMap)
+		condition.Or = p.expandConditions(condition.Or, conditionMap)
+		condition.Not = p.expandConditions(condition.Not, conditionMap)
+		expanded = append(expanded, condition)
+	}
+
+	return expanded
 }

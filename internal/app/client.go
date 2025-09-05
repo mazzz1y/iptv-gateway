@@ -61,7 +61,8 @@ func (c *Client) BuildPlaylistSubscription(
 	playlistConf config.Playlist, urlGen urlgen.Generator,
 	globalChannelRules []rules.ChannelRule, globalPlaylistUser []rules.PlaylistRule,
 	serverProxy config.Proxy,
-	sem *semaphore.Weighted) error {
+	sem *semaphore.Weighted,
+	namedConditions []rules.NamedCondition) error {
 
 	playlistProxy := mergeProxies(serverProxy, playlistConf.Proxy)
 	mergedChannelRules := mergeArrays(globalChannelRules, playlistConf.ChannelRules)
@@ -85,6 +86,7 @@ func (c *Client) BuildPlaylistSubscription(
 		mergedChannelRules,
 		mergedPlaylistRules,
 		sem,
+		namedConditions,
 	)
 
 	if err != nil {
@@ -130,16 +132,16 @@ func (c *Client) Name() string {
 	return c.name
 }
 
-func (c *Client) PlaylistSubscriptions() []listing.PlaylistSubscription {
-	result := make([]listing.PlaylistSubscription, len(c.playlistSubscriptions))
+func (c *Client) PlaylistSubscriptions() []listing.Playlist {
+	result := make([]listing.Playlist, len(c.playlistSubscriptions))
 	for i, ps := range c.playlistSubscriptions {
 		result[i] = ps
 	}
 	return result
 }
 
-func (c *Client) EPGSubscriptions() []listing.EPGSubscription {
-	result := make([]listing.EPGSubscription, len(c.epgSubscriptions))
+func (c *Client) EPGSubscriptions() []listing.EPG {
+	result := make([]listing.EPG, len(c.epgSubscriptions))
 	for i, es := range c.epgSubscriptions {
 		result[i] = es
 	}
