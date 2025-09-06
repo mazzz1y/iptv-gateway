@@ -30,7 +30,7 @@ func TestNewGenerator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g, err := NewGenerator(tt.publicURL, tt.secret)
+			g, err := NewGenerator(tt.publicURL, tt.secret, time.Hour, time.Hour)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("newGenerator() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -46,7 +46,7 @@ func TestNewGenerator(t *testing.T) {
 }
 
 func TestGenerator_CreateURL(t *testing.T) {
-	g, err := NewGenerator("https://example.com", "test-secret")
+	g, err := NewGenerator("https://example.com", "test-secret", time.Hour, time.Hour)
 	if err != nil {
 		t.Fatalf("Failed to create generator: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestGenerator_CreateURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u, err := g.CreateURL(tt.data, tt.ttl)
+			u, err := g.CreateURL(tt.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -174,7 +174,7 @@ func TestGenerator_CreateURL(t *testing.T) {
 }
 
 func TestGenerator_Decrypt(t *testing.T) {
-	g, err := NewGenerator("https://example.com", "test-secret")
+	g, err := NewGenerator("https://example.com", "test-secret", time.Hour, time.Hour)
 	if err != nil {
 		t.Fatalf("Failed to create generator: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestGenerator_Decrypt(t *testing.T) {
 		ChannelID:   "channel1",
 	}
 
-	u, err := g.CreateURL(validData, time.Hour)
+	u, err := g.CreateURL(validData)
 	if err != nil {
 		t.Fatalf("Failed to create URL: %v", err)
 	}
@@ -246,12 +246,12 @@ func TestGenerator_Decrypt(t *testing.T) {
 }
 
 func TestGenerator_CrossSecretDecryption(t *testing.T) {
-	g1, err := NewGenerator("https://example.com", "secret1")
+	g1, err := NewGenerator("https://example.com", "secret1", time.Hour, time.Hour)
 	if err != nil {
 		t.Fatalf("failed to create generator1: %v", err)
 	}
 
-	g2, err := NewGenerator("https://example.com", "secret2")
+	g2, err := NewGenerator("https://example.com", "secret2", time.Hour, time.Hour)
 	if err != nil {
 		t.Fatalf("failed to create generator2: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestGenerator_CrossSecretDecryption(t *testing.T) {
 		ChannelID:   "channel1",
 	}
 
-	u, err := g1.CreateURL(data, time.Hour)
+	u, err := g1.CreateURL(data)
 	if err != nil {
 		t.Fatalf("Failed to create URL: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestGenerator_CrossSecretDecryption(t *testing.T) {
 }
 
 func TestGenerator_LinkExpiration(t *testing.T) {
-	g, err := NewGenerator("https://example.com", "test-secret")
+	g, err := NewGenerator("https://example.com", "test-secret", time.Hour, time.Hour)
 	if err != nil {
 		t.Fatalf("Failed to create generator: %v", err)
 	}
@@ -319,7 +319,7 @@ func TestGenerator_LinkExpiration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u, err := g.CreateURL(data, tt.ttl)
+			u, err := g.CreateURL(data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -332,7 +332,7 @@ func TestGenerator_LinkExpiration(t *testing.T) {
 }
 
 func TestGenerator_ExpiredLinkDecryption(t *testing.T) {
-	g, err := NewGenerator("https://example.com", "test-secret")
+	g, err := NewGenerator("https://example.com", "test-secret", time.Millisecond, time.Millisecond)
 	if err != nil {
 		t.Fatalf("Failed to create generator: %v", err)
 	}
@@ -344,7 +344,7 @@ func TestGenerator_ExpiredLinkDecryption(t *testing.T) {
 		ChannelID:   "channel1",
 	}
 
-	u, err := g.CreateURL(data, time.Millisecond)
+	u, err := g.CreateURL(data)
 	if err != nil {
 		t.Fatalf("Failed to create URL: %v", err)
 	}
@@ -365,11 +365,6 @@ func TestGenerator_ExpiredLinkDecryption(t *testing.T) {
 }
 
 func TestGenerator_ExpiredLinkEdgeCases(t *testing.T) {
-	g, err := NewGenerator("https://example.com", "test-secret")
-	if err != nil {
-		t.Fatalf("Failed to create generator: %v", err)
-	}
-
 	data := Data{
 		RequestType: Stream,
 		URL:         "https://example.com/video",
@@ -379,28 +374,32 @@ func TestGenerator_ExpiredLinkEdgeCases(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		ttl         time.Duration
+		streamTTL   time.Duration
+		fileTTL     time.Duration
 		sleepTime   time.Duration
 		expectError bool
 		errorType   error
 	}{
 		{
 			name:        "valid token - no sleep",
-			ttl:         time.Second,
+			streamTTL:   time.Second,
+			fileTTL:     time.Second,
 			sleepTime:   0,
 			expectError: false,
 			errorType:   nil,
 		},
 		{
 			name:        "expired token",
-			ttl:         10 * time.Millisecond,
+			streamTTL:   10 * time.Millisecond,
+			fileTTL:     10 * time.Millisecond,
 			sleepTime:   50 * time.Millisecond,
 			expectError: true,
 			errorType:   ErrExpiredStreamURL,
 		},
 		{
 			name:        "zero TTL - no expiration",
-			ttl:         0,
+			streamTTL:   0,
+			fileTTL:     0,
 			sleepTime:   100 * time.Millisecond,
 			expectError: false,
 			errorType:   nil,
@@ -409,7 +408,12 @@ func TestGenerator_ExpiredLinkEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u, err := g.CreateURL(data, tt.ttl)
+			g, err := NewGenerator("https://example.com", "test-secret", tt.streamTTL, tt.fileTTL)
+			if err != nil {
+				t.Fatalf("Failed to create generator: %v", err)
+			}
+
+			u, err := g.CreateURL(data)
 			if err != nil {
 				t.Fatalf("Failed to create URL: %v", err)
 			}

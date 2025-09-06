@@ -12,6 +12,11 @@ func DefaultConfig() *Config {
 			"info",
 			"text",
 		},
+		URLGenerator: URLGeneratorConfig{
+			Secret:    "xxx",
+			StreamTTL: types.Duration(30 * 24 * time.Hour),
+			FileTTL:   types.Duration(0),
+		},
 		Cache: CacheConfig{
 			Path:        "cache",
 			TTL:         types.Duration(24 * time.Hour),

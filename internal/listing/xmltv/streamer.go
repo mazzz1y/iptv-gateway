@@ -336,7 +336,7 @@ func (s *Streamer) processIcons(sub listing.EPG, icons []xmltv.Icon) []xmltv.Ico
 		}
 
 		urlData.URL = icons[i].Source
-		link, err := gen.CreateURL(urlData, 0)
+		link, err := gen.CreateURL(urlData)
 		if err != nil {
 			continue
 		}

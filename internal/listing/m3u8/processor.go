@@ -9,10 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 )
-
-var StreamLinkTTL = time.Hour * 24 * 30
 
 type Processor struct {
 	addedTrackIDs   map[string]struct{}
@@ -111,7 +108,7 @@ func (p *Processor) processProxyLinks(ch *rules.Channel) error {
 			encURL, err := urlGen.CreateURL(urlgen.Data{
 				RequestType: urlgen.File,
 				URL:         value,
-			}, 0)
+			})
 			if err != nil {
 				return fmt.Errorf("failed to encode attribute URL: %w", err)
 			}
@@ -127,7 +124,7 @@ func (p *Processor) processProxyLinks(ch *rules.Channel) error {
 				ChannelID:   ch.Name(),
 				URL:         uriStr,
 				Hidden:      ch.IsHidden(),
-			}, StreamLinkTTL)
+			})
 			if err != nil {
 				return fmt.Errorf("failed to encode stream URL: %w", err)
 			}

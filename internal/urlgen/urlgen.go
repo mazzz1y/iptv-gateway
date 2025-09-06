@@ -32,6 +32,8 @@ var (
 type Generator struct {
 	PublicURL string
 	aead      cipher.AEAD
+	streamTTL time.Duration
+	fileTTL   time.Duration
 }
 
 type Data struct {
@@ -42,7 +44,7 @@ type Data struct {
 	Hidden      bool
 }
 
-func NewGenerator(publicURL, secret string) (*Generator, error) {
+func NewGenerator(publicURL, secret string, streamTTL, fileTTL time.Duration) (*Generator, error) {
 	key := sha256.Sum256([]byte(secret))
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
@@ -52,10 +54,10 @@ func NewGenerator(publicURL, secret string) (*Generator, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCM: %w", err)
 	}
-	return &Generator{PublicURL: publicURL, aead: aead}, nil
+	return &Generator{PublicURL: publicURL, aead: aead, streamTTL: streamTTL, fileTTL: fileTTL}, nil
 }
 
-func (g *Generator) CreateURL(d Data, ttl time.Duration) (*url.URL, error) {
+func (g *Generator) CreateURL(d Data) (*url.URL, error) {
 	buf := &bytes.Buffer{}
 
 	buf.WriteByte(byte(d.RequestType))
@@ -70,11 +72,7 @@ func (g *Generator) CreateURL(d Data, ttl time.Duration) (*url.URL, error) {
 		buf.WriteByte(0)
 	}
 
-	var expireAt int64
-	if ttl != 0 {
-		expireAt = time.Now().Add(ttl).Unix()
-	}
-	binary.Write(buf, binary.LittleEndian, expireAt)
+	binary.Write(buf, binary.LittleEndian, g.expireInt64(d.RequestType))
 
 	hash := sha256.Sum256(buf.Bytes())
 	nonce := hash[:g.aead.NonceSize()]
@@ -172,6 +170,23 @@ func (g *Generator) Decrypt(token string) (*Data, error) {
 		ChannelID:   channelID,
 		Hidden:      hidden,
 	}, nil
+}
+
+func (g *Generator) expireInt64(r RequestType) int64 {
+	switch r {
+	case Stream:
+		if g.streamTTL == 0 {
+			return 0
+		}
+		return time.Now().Add(g.streamTTL).Unix()
+	case File:
+		if g.fileTTL == 0 {
+			return 0
+		}
+		return time.Now().Add(g.fileTTL).Unix()
+	default:
+		return 0
+	}
 }
 
 func determineExtension(d Data) string {

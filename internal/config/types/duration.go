@@ -17,16 +17,20 @@ func (t *Duration) UnmarshalYAML(value *yaml.Node) error {
 		return err
 	}
 
+	if ttlStr == "0" {
+		return nil
+	}
+
 	re := regexp.MustCompile(`^(\d+)([smhdwMy])$`)
 	matches := re.FindStringSubmatch(ttlStr)
 
 	if matches == nil {
-		return fmt.Errorf("invalid Duration format: %s", ttlStr)
+		return fmt.Errorf("invalid duration format: %s", ttlStr)
 	}
 
 	val, err := strconv.Atoi(matches[1])
 	if err != nil {
-		return fmt.Errorf("invalid Duration value: %s", matches[1])
+		return fmt.Errorf("invalid duration value: %s", matches[1])
 	}
 
 	unit := matches[2]

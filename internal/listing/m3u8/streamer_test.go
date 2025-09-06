@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -41,7 +42,7 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 func createTestSubscription(name string, playlists []string) (*app.PlaylistSubscription, error) {
 	semaphore := semaphore.NewWeighted(1)
-	generator, err := urlgen.NewGenerator("http://localhost", "secret")
+	generator, err := urlgen.NewGenerator("http://localhost", "secret", time.Hour, time.Hour)
 	if err != nil {
 		return nil, err
 	}

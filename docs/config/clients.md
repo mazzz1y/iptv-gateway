@@ -16,7 +16,7 @@ Each client can access the following endpoints:
 ```yaml
 clients:
   - name: client-name
-    secret: "your-secret-key"
+    secret: "your-client-secret-key"
     preset: preset1
     playlist: ["playlist1", "playlist2"]
     epg: ["epg1", "epg2"]
@@ -39,7 +39,7 @@ clients:
 ```yaml
 clients:
   - name: living-room-tv
-    secret: "secret"
+    secret: "living-room-secret-123"
     playlist: "sports-playlist"
 ```
 
@@ -48,7 +48,7 @@ clients:
 ```yaml
 clients:
   - name: family-tablet
-    secret: "secret"
+    secret: "family-tablet-secret-456"
     preset: ["family-friendly", "hd-quality"]
     playlist: ["basic-playlist", "kids-playlist"]
 ```

@@ -21,7 +21,7 @@ iptv-gateway -config ./config      # from directory
 | `listen_addr`    | `string`                                         | Server listening address                                  |
 | `metrics_addr`   | `string`                                         | Prometheus metrics server address                         |
 | `public_url`     | `string`                                         | Public URL for generating links                           |
-| `secret`         | `string`                                         | Secret used for encryption purposes                       |
+| `url_generator`  | [URL Generator](./config/url_generator.md)       | URL generation and encryption configuration               |
 | `log`            | [Log](./config/log.md)                           | Logging configuration                                     |
 | `proxy`          | [Proxy](./config/proxy.md)                       | Stream proxy configuration for remuxing with ffmpeg       |
 | `cache`          | [Cache](./config/cache.md)                       | Cache configuration for playlists and EPGs                |
@@ -47,7 +47,6 @@ iptv-gateway -config ./config      # from directory
 listen_addr: ":8080"
 metrics_addr: ":9090"
 public_url: "https://iptv.example.com"
-secret: "global-secret"
 
 log:
   level: info
@@ -88,7 +87,7 @@ presets:
 
 clients:
   - name: living-room-tv
-    secret: "tv-secret"
+    secret: "living-room-tv-secret-789"
     preset: "family-friendly"
     playlist: "main-playlist"
     epg: "main-epg"

@@ -7,6 +7,7 @@ import (
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/metrics"
 	"iptv-gateway/internal/urlgen"
+	"time"
 
 	"golang.org/x/sync/semaphore"
 )
@@ -215,11 +216,15 @@ func (m *Manager) addEPGSubscription(
 	return nil
 }
 
-func (m *Manager) createURLGenerator(clientSecret, subName string) (*urlgen.Generator, error) {
+func (m *Manager) createURLGenerator(clientSecret, srcName string) (*urlgen.Generator, error) {
 	baseURL := fmt.Sprintf("%s/%s", m.publicURLBase, clientSecret)
-	secretKey := m.config.Secret + subName + clientSecret
+	secretKey := m.config.URLGenerator.Secret + srcName + clientSecret
 
-	return urlgen.NewGenerator(baseURL, secretKey)
+	return urlgen.NewGenerator(
+		baseURL, secretKey,
+		time.Duration(m.config.URLGenerator.StreamTTL),
+		time.Duration(m.config.URLGenerator.FileTTL),
+	)
 }
 
 func collectNames(clientConf config.Client, clientInstance *Client,
