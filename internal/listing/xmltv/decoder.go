@@ -1,34 +1,31 @@
 package xmltv
 
 import (
+	"context"
 	"io"
+
 	"iptv-gateway/internal/listing"
+	"iptv-gateway/internal/parser/xmltv"
 )
 
 type decoderWrapper struct {
-	decoder         listing.Decoder
-	subscription    listing.EPG
-	reader          io.ReadCloser
-	channelsDone    bool
-	done            bool
-	err             error
-	bufferedItem    any
-	hasBufferedItem bool
+	*listing.BaseDecoder
+	subscription listing.EPG
+	channelsDone bool
 }
 
-func (d *decoderWrapper) nextItem() (any, error) {
-	if d.hasBufferedItem {
-		item := d.bufferedItem
-		d.bufferedItem = nil
-		d.hasBufferedItem = false
-		return item, nil
+func newDecoderWrapper(subscription listing.EPG, httpClient listing.HTTPClient, url string) *decoderWrapper {
+	initializer := func(ctx context.Context, url string) (listing.Decoder, io.ReadCloser, error) {
+		reader, err := listing.CreateReader(ctx, httpClient, url)
+		if err != nil {
+			return nil, nil, err
+		}
+		decoder := xmltv.NewDecoder(reader)
+		return decoder, reader, nil
 	}
-	return d.decoder.Decode()
-}
 
-func (d *decoderWrapper) Close() error {
-	if d.reader != nil {
-		return d.reader.Close()
+	return &decoderWrapper{
+		BaseDecoder:  listing.NewLazyBaseDecoder(url, initializer),
+		subscription: subscription,
 	}
-	return nil
 }

@@ -137,7 +137,7 @@ func (g *AutoCleanGauge) Collect(ch chan<- prometheus.Metric) {
 	defer g.mu.RUnlock()
 
 	for key, value := range g.values {
-		labelValues := strings.Split(key, "|")
+		labelValues := strings.Split(key, "\x00")
 		ch <- prometheus.MustNewConstMetric(g.desc, prometheus.GaugeValue, value, labelValues...)
 	}
 }
@@ -155,7 +155,7 @@ func (g *AutoCleanGauge) validateLabelValues(labelValues []string) {
 }
 
 func (g *AutoCleanGauge) labelKey(labelValues ...string) string {
-	return strings.Join(labelValues, "|")
+	return strings.Join(labelValues, "\x00")
 }
 
 func (g *AutoCleanGauge) cleanupRoutine() {

@@ -342,17 +342,17 @@ func TestAutoCleanGauge_LabelKey(t *testing.T) {
 		{
 			name:        "multiple labels",
 			labelValues: []string{"value1", "value2"},
-			expected:    "value1|value2",
+			expected:    "value1\x00value2",
 		},
 		{
 			name:        "empty values",
 			labelValues: []string{"", ""},
-			expected:    "|",
+			expected:    "\x00",
 		},
 		{
 			name:        "values with pipe",
 			labelValues: []string{"val|ue1", "value2"},
-			expected:    "val|ue1|value2",
+			expected:    "val|ue1\x00value2",
 		},
 	}
 
@@ -416,9 +416,9 @@ func TestAutoCleanGauge_MultipleLabels(t *testing.T) {
 	gauge.mu.RUnlock()
 
 	expected := map[string]float64{
-		"api|get|200":      10.0,
-		"api|post|201":     5.0,
-		"db|query|success": 15.0,
+		"api\x00get\x00200":      10.0,
+		"api\x00post\x00201":     5.0,
+		"db\x00query\x00success": 15.0,
 	}
 
 	assert.Equal(t, expected, values)
@@ -437,13 +437,13 @@ func TestAutoCleanGauge_MultipleLabels(t *testing.T) {
 	gauge.mu.RUnlock()
 
 	expectedAfterZero := map[string]float64{
-		"api|get|200":      10.0,
-		"api|post|201":     0.0,
-		"db|query|success": 15.0,
+		"api\x00get\x00200":      10.0,
+		"api\x00post\x00201":     0.0,
+		"db\x00query\x00success": 15.0,
 	}
 
 	assert.Equal(t, expectedAfterZero, values)
-	assert.Contains(t, zeroTimes, "api|post|201")
+	assert.Contains(t, zeroTimes, "api\x00post\x00201")
 }
 
 func TestAutoCleanGauge_PerformCleanup(t *testing.T) {

@@ -39,7 +39,7 @@ func NewManager(cfg *config.Config) (*Manager, error) {
 	manager.subSemaphores = make(map[string]*semaphore.Weighted, len(cfg.Playlists))
 	for _, playlist := range cfg.Playlists {
 		if playlist.Proxy.ConcurrentStreams > 0 {
-			manager.subSemaphores[playlist.Name] = semaphore.NewWeighted(int64(playlist.Proxy.ConcurrentStreams))
+			manager.subSemaphores[playlist.Name] = semaphore.NewWeighted(playlist.Proxy.ConcurrentStreams)
 		}
 	}
 

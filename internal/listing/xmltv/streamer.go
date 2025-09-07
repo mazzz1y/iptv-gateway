@@ -5,19 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
-	"time"
-
 	"iptv-gateway/internal/ioutil"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/parser/xmltv"
 	"iptv-gateway/internal/urlgen"
+	"sync"
 )
-
-type epgDecoderInput struct {
-	url string
-	sub listing.EPG
-}
 
 type Streamer struct {
 	subscriptions    []listing.EPG
@@ -31,7 +24,6 @@ type Streamer struct {
 
 func NewStreamer(subs []listing.EPG, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
 	subscriptions := subs
-
 	channelLen := len(channelIDToName)
 	approxProgrammeLen := 300 * channelLen
 
@@ -48,7 +40,6 @@ func NewStreamer(subs []listing.EPG, httpClient listing.HTTPClient, channelIDToN
 func (s *Streamer) WriteToGzip(ctx context.Context, w io.Writer) (int64, error) {
 	gzWriter, _ := gzip.NewWriterLevel(w, gzip.BestSpeed)
 	defer gzWriter.Close()
-
 	return s.WriteTo(ctx, gzWriter)
 }
 
@@ -61,23 +52,34 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	encoder := xmltv.NewEncoder(bytesCounter)
 	defer encoder.Close()
 
-	decoders, err := s.initDecoders(ctx)
-	if err != nil {
-		return bytesCounter.Count(), err
+	var decoders []*decoderWrapper
+	for _, sub := range s.subscriptions {
+		for _, url := range sub.EPGs() {
+			decoders = append(decoders, newDecoderWrapper(sub, s.httpClient, url))
+		}
 	}
-
 	defer func() {
 		for _, decoder := range decoders {
-			decoder.Close()
+			if decoder != nil {
+				decoder.Close()
+			}
 		}
 	}()
 
-	if err := s.processChannels(ctx, decoders, encoder); err != nil {
-		return bytesCounter.Count(), err
+	for _, decoder := range decoders {
+		decoder.StartBuffering(ctx)
 	}
 
-	if err := s.processProgrammes(ctx, decoders, encoder); err != nil {
-		return bytesCounter.Count(), err
+	for _, decoder := range decoders {
+		if err := s.processChannels(ctx, decoder, encoder); err != nil {
+			return bytesCounter.Count(), err
+		}
+	}
+
+	for _, decoder := range decoders {
+		if err := s.processProgrammes(ctx, decoder, encoder); err != nil {
+			return bytesCounter.Count(), err
+		}
 	}
 
 	count := bytesCounter.Count()
@@ -88,151 +90,72 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	return count, nil
 }
 
-func (s *Streamer) initDecoders(ctx context.Context) ([]*decoderWrapper, error) {
-	var inputs []epgDecoderInput
-	for _, sub := range s.subscriptions {
-		for _, src := range sub.EPGs() {
-			inputs = append(inputs, epgDecoderInput{url: src, sub: sub})
-		}
-	}
+func (s *Streamer) processChannels(ctx context.Context, decoder *decoderWrapper, encoder xmltv.Encoder) error {
+	decoder.StopBuffer()
+	defer decoder.StartBuffering(ctx)
 
-	if len(inputs) == 0 {
-		return nil, nil
-	}
-
-	var decoders []*decoderWrapper
-
-	err := listing.ProcessConcurrently(
-		ctx,
-		inputs,
-		func(ctx context.Context, input epgDecoderInput, output chan<- listing.Item, errChan chan<- error) {
-			reader, err := listing.CreateReader(ctx, s.httpClient, input.url)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			item, err := decoder.NextItem()
+			if err == io.EOF {
+				return nil
+			}
 			if err != nil {
-				errChan <- err
-				return
+				return err
 			}
-
-			decoder := xmltv.NewDecoder(reader)
-			wrapper := &decoderWrapper{
-				decoder:      decoder,
-				subscription: input.sub,
-				reader:       reader,
-			}
-			output <- wrapper
-		},
-		func(item listing.Item) error {
-			wrapper := item.(*decoderWrapper)
-			decoders = append(decoders, wrapper)
-			return nil
-		},
-		true,
-	)
-
-	if err != nil {
-		for _, decoder := range decoders {
-			if decoder != nil {
-				decoder.Close()
-			}
-		}
-		return nil, err
-	}
-
-	return decoders, nil
-}
-
-func (s *Streamer) processChannels(ctx context.Context, decoders []*decoderWrapper, encoder xmltv.Encoder) error {
-	return listing.ProcessConcurrently(
-		ctx,
-		decoders,
-		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
-			for {
-				select {
-				case <-ctx.Done():
-					errChan <- ctx.Err()
-					return
-				default:
-				}
-
-				item, err := decoder.nextItem()
-				if err == io.EOF {
-					decoder.done = true
-					return
-				}
-				if err != nil {
-					errChan <- err
-				}
-
-				switch v := item.(type) {
-				case xmltv.Channel:
-					v.Icons = s.processIcons(decoder.subscription, v.Icons)
-					output <- v
-
-				case xmltv.Programme:
-					decoder.channelsDone = true
-					decoder.bufferedItem = v
-					decoder.hasBufferedItem = true
-					return
-				}
-			}
-		},
-		func(item listing.Item) error {
-			channel := item.(xmltv.Channel)
-			if !s.processChannel(&channel) {
+			if item == nil {
 				return nil
 			}
 
-			return encoder.Encode(channel)
-		},
-		false,
-	)
-}
+			if _, ok := item.(xmltv.Programme); ok {
+				decoder.AddToBuffer(item)
+				return nil
+			}
 
-func (s *Streamer) processProgrammes(ctx context.Context, decoders []*decoderWrapper, encoder xmltv.Encoder) error {
-	activeDecoders := make([]*decoderWrapper, 0, len(decoders))
-	for _, decoder := range decoders {
-		if !decoder.done && decoder.err == nil {
-			activeDecoders = append(activeDecoders, decoder)
-		}
-	}
-
-	if len(activeDecoders) == 0 {
-		return nil
-	}
-
-	return listing.ProcessConcurrently(
-		ctx,
-		activeDecoders,
-		func(ctx context.Context, decoder *decoderWrapper, output chan<- listing.Item, errChan chan<- error) {
-			for {
-				select {
-				case <-ctx.Done():
-					errChan <- ctx.Err()
-					return
-				default:
-				}
-
-				item, err := decoder.nextItem()
-				if err == io.EOF {
-					return
-				}
-				if err != nil {
-					errChan <- err
-					return
-				}
-				if programme, ok := item.(xmltv.Programme); ok {
-					programme.Icons = s.processIcons(decoder.subscription, programme.Icons)
-					if !s.processProgramme(&programme) {
-						continue
+			if channel, ok := item.(xmltv.Channel); ok {
+				channel.Icons = s.processIcons(decoder.subscription, channel.Icons)
+				if s.processChannel(&channel) {
+					if err := encoder.Encode(channel); err != nil {
+						return err
 					}
-					output <- programme
 				}
 			}
-		},
-		func(item listing.Item) error {
-			return encoder.Encode(item)
-		},
-		false,
-	)
+		}
+	}
+}
+
+func (s *Streamer) processProgrammes(ctx context.Context, decoder *decoderWrapper, encoder xmltv.Encoder) error {
+	decoder.StopBuffer()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			item, err := decoder.NextItem()
+			if err == io.EOF {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			if item == nil {
+				return nil
+			}
+
+			if programme, ok := item.(xmltv.Programme); ok {
+				programme.Icons = s.processIcons(decoder.subscription, programme.Icons)
+				if s.processProgramme(&programme) {
+					if err := encoder.Encode(programme); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
 }
 
 func (s *Streamer) processChannel(channel *xmltv.Channel) (allowed bool) {
@@ -291,7 +214,7 @@ func (s *Streamer) processProgramme(programme *xmltv.Programme) (allowed bool) {
 
 	key := programme.Channel
 	if programme.Start != nil {
-		key += programme.Start.Time.Format(time.RFC3339)
+		key += programme.Start.Time.String()
 	}
 	if programme.ID != "" {
 		key += programme.ID
@@ -309,8 +232,12 @@ func (s *Streamer) processProgramme(programme *xmltv.Programme) (allowed bool) {
 }
 
 func (s *Streamer) processIcons(sub listing.EPG, icons []xmltv.Icon) []xmltv.Icon {
+	if len(icons) == 0 {
+		return icons
+	}
+
 	gen := sub.URLGenerator()
-	if gen == nil || len(icons) == 0 {
+	if gen == nil {
 		return icons
 	}
 

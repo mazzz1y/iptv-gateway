@@ -41,7 +41,7 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func createTestSubscription(name string, playlists []string) (*app.PlaylistSubscription, error) {
-	semaphore := semaphore.NewWeighted(1)
+	sem := semaphore.NewWeighted(1)
 	generator, err := urlgen.NewGenerator("http://localhost", "secret", time.Hour, time.Hour)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func createTestSubscription(name string, playlists []string) (*app.PlaylistSubsc
 		config.Proxy{},
 		nil,
 		nil,
-		semaphore,
+		sem,
 		nil,
 	)
 }

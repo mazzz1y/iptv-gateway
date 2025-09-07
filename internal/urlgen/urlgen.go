@@ -130,7 +130,7 @@ func (g *Generator) Decrypt(token string) (*Data, error) {
 		return nil, ErrInvalidData
 	}
 
-	url, err := g.readString(buf)
+	u, err := g.readString(buf)
 	if err != nil {
 		return nil, ErrInvalidData
 	}
@@ -165,7 +165,7 @@ func (g *Generator) Decrypt(token string) (*Data, error) {
 
 	return &Data{
 		RequestType: RequestType(rt),
-		URL:         url,
+		URL:         u,
 		Playlist:    playlist,
 		ChannelID:   channelID,
 		Hidden:      hidden,

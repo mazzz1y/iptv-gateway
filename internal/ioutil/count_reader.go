@@ -1,6 +1,9 @@
 package ioutil
 
-import "io"
+import (
+	"io"
+	"sync/atomic"
+)
 
 type CountReadCloser struct {
 	src     io.ReadCloser
@@ -22,7 +25,7 @@ func (sc *CountReadCloser) Read(p []byte) (n int, err error) {
 	n, err = sc.src.Read(p)
 
 	if sc.counter != nil {
-		*sc.counter += int64(n)
+		atomic.AddInt64(sc.counter, int64(n))
 	}
 	return
 }

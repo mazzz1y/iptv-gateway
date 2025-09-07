@@ -67,7 +67,7 @@ func TestCountReadCloser_Read(t *testing.T) {
 			buf := make([]byte, tc.bufSize)
 			n, err := reader.Read(buf)
 
-			if tc.readErr != nil && err != tc.readErr {
+			if tc.readErr != nil && !errors.Is(err, tc.readErr) {
 				t.Errorf("expected error %v, got %v", tc.readErr, err)
 			}
 

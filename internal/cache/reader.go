@@ -41,56 +41,51 @@ type Reader struct {
 	contentType     string
 	ttl             time.Duration
 	compression     bool
+	eofReached      bool
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
-	if r.ReadCloser == nil {
-		return 0, io.EOF
+	n, err = r.ReadCloser.Read(p)
+	if err == io.EOF {
+		r.eofReached = true
 	}
-	return r.ReadCloser.Read(p)
+	return
 }
 
 func (r *Reader) Close() error {
-	var err error
-
 	if r.originResponse != nil {
-		if e := r.originResponse.Body.Close(); e != nil {
-			err = e
-		}
-	}
-
-	if r.ReadCloser != nil {
-		if e := r.ReadCloser.Close(); e != nil && err == nil {
-			err = e
-		}
-	}
-
-	if r.gzipWriter != nil {
-		if e := r.gzipWriter.Close(); e != nil && err == nil {
-			err = e
-		}
-	}
-
-	if r.file != nil {
-		if e := r.file.Close(); e != nil && err == nil {
-			err = e
-		}
-	}
-
-	if r.originResponse != nil {
-		if err == nil {
-			if r.isDownloadComplete() {
-				err := r.SaveMetadata()
-				if err != nil {
-					return err
-				}
+		if r.isDownloadComplete() {
+			if err := r.SaveMetadata(); err != nil {
+				return err
 			}
-			return nil
+		} else {
+			r.Cleanup()
 		}
-		r.Cleanup()
 	}
 
-	return err
+	var closers []func() error
+
+	if r.originResponse != nil {
+		closers = append(closers, r.originResponse.Body.Close)
+	}
+	if r.ReadCloser != nil {
+		closers = append(closers, r.ReadCloser.Close)
+	}
+	if r.gzipWriter != nil {
+		closers = append(closers, r.gzipWriter.Close)
+	}
+	if r.file != nil {
+		closers = append(closers, r.file.Close)
+	}
+
+	var firstErr error
+	for _, closer := range closers {
+		if err := closer(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	return firstErr
 }
 
 func (r *Reader) getCachedHeaders() map[string]string {
@@ -122,16 +117,15 @@ func (r *Reader) isGzippedContent(resp *http.Response) bool {
 
 func (r *Reader) isDownloadComplete() bool {
 	if r.contentLength <= 0 {
-		return true
+		return r.eofReached
 	}
-	return r.downloadedBytes == r.contentLength
+	return r.downloadedBytes == r.contentLength && r.eofReached
 }
 
 func (r *Reader) checkCacheStatus() status {
 	if _, err := os.Stat(r.MetaPath); err != nil {
 		return statusNotFound
 	}
-
 	if _, err := os.Stat(r.FilePath); err != nil {
 		return statusNotFound
 	}
@@ -141,19 +135,17 @@ func (r *Reader) checkCacheStatus() status {
 		return statusNotFound
 	}
 
-	if r.ttl > 0 {
-		cachedAt := time.Unix(meta.CachedAt, 0)
-		if time.Since(cachedAt) < r.ttl {
-			return statusValid
-		}
+	if r.ttl > 0 && time.Since(time.Unix(meta.CachedAt, 0)) < r.ttl {
+		return statusValid
 	}
 
 	if exp, ok := meta.Headers["Expires"]; ok {
-		if expires, err := time.Parse(time.RFC1123, exp); err == nil && expires.Before(time.Now()) {
-			return r.tryRenewal(&meta)
+		if expires, err := time.Parse(time.RFC1123, exp); err == nil {
+			if expires.After(time.Now()) {
+				_ = r.SaveMetadata()
+				return statusRenewed
+			}
 		}
-		_ = r.SaveMetadata()
-		return statusRenewed
 	}
 
 	return r.tryRenewal(&meta)
@@ -163,15 +155,13 @@ func (r *Reader) tryRenewal(meta *Metadata) status {
 	var lastModified time.Time
 	var etag string
 
-	if lm, ok := meta.Headers["Last-Modified"]; ok {
+	if lm := meta.Headers["Last-Modified"]; lm != "" {
 		if parsedTime, err := time.Parse(time.RFC1123, lm); err == nil {
 			lastModified = parsedTime
 		}
 	}
 
-	if tag, ok := meta.Headers["Etag"]; ok {
-		etag = tag
-	}
+	etag = meta.Headers["Etag"]
 
 	if !r.isModifiedSince(lastModified, etag) {
 		if err := r.SaveMetadata(); err != nil {
@@ -196,7 +186,6 @@ func (r *Reader) isModifiedSince(lastModified time.Time, etag string) bool {
 	if !lastModified.IsZero() {
 		req.Header.Set("If-Modified-Since", lastModified.Format(time.RFC1123))
 	}
-
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)
 	}
@@ -214,8 +203,7 @@ func (r *Reader) isModifiedSince(lastModified time.Time, etag string) bool {
 	}
 
 	if resp.StatusCode == http.StatusOK && !lastModified.IsZero() {
-		serverLastModified := resp.Header.Get("Last-Modified")
-		if serverLastModified != "" {
+		if serverLastModified := resp.Header.Get("Last-Modified"); serverLastModified != "" {
 			if serverTime, err := time.Parse(time.RFC1123, serverLastModified); err == nil {
 				return serverTime.After(lastModified)
 			}

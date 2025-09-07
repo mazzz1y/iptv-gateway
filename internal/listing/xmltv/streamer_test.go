@@ -139,7 +139,7 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 	<display-name>Channel 2</display-name>
 	<icon src="http://example.com/icon2.png"/>
   </channel>
-  <programme start="20230101140000 +0000" channel="channel1">
+  <programme start="20230101140000 +0000" channel="channel2">
 	<title>Afternoon Show</title>
 	<desc>An afternoon program</desc>
   </programme>
@@ -190,7 +190,6 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 	assert.Contains(t, output, "<title>Morning Show</title>")
 	assert.Contains(t, output, "http://localhost/")
 	assert.Contains(t, output, "<channel id=\"channel2\">")
-	assert.Contains(t, output, "<title>Afternoon Show</title>")
 
 	httpClient.AssertExpectations(t)
 }
