@@ -25,7 +25,9 @@ nav:
   - Home: index.md
   - Configuration:
       - Overview: config.md
+      - Server: config/server.md
       - Log: config/log.md
+      - URL Generator: config/url_generator.md
       - Channel Rules:
           - Overview: config/channel_rules/index.md
           - Set Field: config/channel_rules/rule_list/set_field.md
