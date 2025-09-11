@@ -14,8 +14,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("expected default ListenAddr to be ':8080', got '%s'", cfg.Server.ListenAddr)
 	}
 
-	if cfg.Log.Level != "info" {
-		t.Errorf("expected default LogLevel to be 'info', got '%s'", cfg.Log.Level)
+	if cfg.Logs.Level != "info" {
+		t.Errorf("expected default LogLevel to be 'info', got '%s'", cfg.Logs.Level)
 	}
 
 	if cfg.Cache.Path != "cache" {

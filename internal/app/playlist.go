@@ -10,9 +10,7 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-
-
-type PlaylistSubscription struct {
+type Playlist struct {
 	name string
 
 	sources []string
@@ -20,9 +18,8 @@ type PlaylistSubscription struct {
 	urlGenerator *urlgen.Generator
 	semaphore    *semaphore.Weighted
 
-	channelRules    []rules.ChannelRule
-	playlistRules   []rules.PlaylistRule
-	namedConditions []rules.NamedCondition
+	channelRules  []rules.ChannelRule
+	playlistRules []rules.PlaylistRule
 
 	proxyConfig config.Proxy
 
@@ -32,11 +29,11 @@ type PlaylistSubscription struct {
 	expiredLinkStreamer   *shell.Streamer
 }
 
-func NewPlaylistSubscription(
+func NewPlaylist(
 	name string, urlGen urlgen.Generator,
 	sources []string,
 	proxy config.Proxy, channelRules []rules.ChannelRule, playlistRules []rules.PlaylistRule,
-	sem *semaphore.Weighted, namedConditions []rules.NamedCondition) (*PlaylistSubscription, error) {
+	sem *semaphore.Weighted) (*Playlist, error) {
 
 	streamStreamer, err := shell.NewShellStreamer(
 		proxy.Stream.Command,
@@ -74,7 +71,7 @@ func NewPlaylistSubscription(
 		return nil, fmt.Errorf("failed to create expired link command: %w", err)
 	}
 
-	return &PlaylistSubscription{
+	return &Playlist{
 		name:                  name,
 		urlGenerator:          &urlGen,
 		sources:               sources,
@@ -82,7 +79,6 @@ func NewPlaylistSubscription(
 		proxyConfig:           proxy,
 		channelRules:          channelRules,
 		playlistRules:         playlistRules,
-		namedConditions:       namedConditions,
 		linkStreamer:          streamStreamer,
 		rateLimitStreamer:     rateLimitStreamer,
 		upstreamErrorStreamer: upstreamErrorStreamer,
@@ -90,58 +86,54 @@ func NewPlaylistSubscription(
 	}, nil
 }
 
-func (ps *PlaylistSubscription) Name() string {
+func (ps *Playlist) Name() string {
 	return ps.name
 }
 
-func (ps *PlaylistSubscription) Type() string {
+func (ps *Playlist) Type() string {
 	return "playlist"
 }
 
-func (ps *PlaylistSubscription) Playlists() []string {
+func (ps *Playlist) Playlists() []string {
 	return ps.sources
 }
 
-func (ps *PlaylistSubscription) URLGenerator() *urlgen.Generator {
+func (ps *Playlist) URLGenerator() *urlgen.Generator {
 	return ps.urlGenerator
 }
 
-func (ps *PlaylistSubscription) ChannelRules() []rules.ChannelRule {
+func (ps *Playlist) ChannelRules() []rules.ChannelRule {
 	return ps.channelRules
 }
 
-func (ps *PlaylistSubscription) PlaylistRules() []rules.PlaylistRule {
+func (ps *Playlist) PlaylistRules() []rules.PlaylistRule {
 	return ps.playlistRules
 }
 
-func (ps *PlaylistSubscription) NamedConditions() []rules.NamedCondition {
-	return ps.namedConditions
-}
-
-func (ps *PlaylistSubscription) Semaphore() *semaphore.Weighted {
+func (ps *Playlist) Semaphore() *semaphore.Weighted {
 	return ps.semaphore
 }
 
-func (ps *PlaylistSubscription) IsProxied() bool {
+func (ps *Playlist) IsProxied() bool {
 	return ps.proxyConfig.Enabled != nil && *ps.proxyConfig.Enabled
 }
 
-func (ps *PlaylistSubscription) ProxyConfig() config.Proxy {
+func (ps *Playlist) ProxyConfig() config.Proxy {
 	return ps.proxyConfig
 }
 
-func (ps *PlaylistSubscription) LinkStreamer(streamUrl string) *shell.Streamer {
+func (ps *Playlist) LinkStreamer(streamUrl string) *shell.Streamer {
 	return ps.linkStreamer.WithTemplateVars(map[string]any{"url": streamUrl})
 }
 
-func (ps *PlaylistSubscription) LimitStreamer() *shell.Streamer {
+func (ps *Playlist) LimitStreamer() *shell.Streamer {
 	return ps.rateLimitStreamer
 }
 
-func (ps *PlaylistSubscription) UpstreamErrorStreamer() *shell.Streamer {
+func (ps *Playlist) UpstreamErrorStreamer() *shell.Streamer {
 	return ps.upstreamErrorStreamer
 }
 
-func (ps *PlaylistSubscription) ExpiredCommandStreamer() *shell.Streamer {
+func (ps *Playlist) ExpiredCommandStreamer() *shell.Streamer {
 	return ps.expiredLinkStreamer
 }

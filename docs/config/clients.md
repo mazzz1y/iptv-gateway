@@ -14,23 +14,35 @@ Each client can access the following endpoints:
 ## YAML Structure
 
 ```yaml
+
+
 clients:
-  - name: client-name
-    secret: "your-client-secret-key"
-    preset: preset1
-    playlist: ["playlist1", "playlist2"]
-    epg: ["epg1", "epg2"]
+  - name: ""
+    secret: ""
+    presets: []
+    proxy: {}
+    channel_rules: []
+    playlist_rules: []
+    playlists: []
+    epgs: []
 ```
 
 ## Fields
 
-| Field      | Type                   | Required | Description                                  |
-|------------|------------------------|----------|----------------------------------------------|
-| `name`     | `string`               | Yes      | Unique name identifier for this client       |
-| `secret`   | `string`               | Yes      | Authentication secret key for the client     |
-| `preset`   | `string` or `[]string` | No       | List of preset names to apply to this client |
-| `playlist` | `string` or `[]string` | No       | List of playlist names for this client       |
-| `epg`      | `string` or `[]string` | No       | List of EPG names for this client            |
+    # proxy: { }  # optional
+    # channel_rules: []
+    # playlist_rules: []
+
+| Field            | Type       | Required | Description                                  |
+|------------------|------------|----------|----------------------------------------------|
+| `name`           | `string`   | Yes      | Unique name identifier for this client       |
+| `secret`         | `string`   | Yes      | Authentication secret key for the client     |
+| `presets`        | `[]string` | No       | List of preset names to apply to this client |
+| `playlists`      | `[]string` | No       | List of playlist names for this client       |
+| `epgs`           | `[]string` | No       | List of EPG names for this client            |
+| `proxy`          | `object`   | No       | Optional per-client proxy config             |
+| `channel_rules`  | `array`    | No       | Per-client channel rules                     |
+| `playlist_rules` | `array`    | No       | Per-client playlist rules                    |
 
 ## Examples
 
@@ -40,7 +52,7 @@ clients:
 clients:
   - name: living-room-tv
     secret: "living-room-secret-123"
-    playlist: "sports-playlist"
+    playlists: "sports-playlist"
 ```
 
 ### Client with Multiple Presets
@@ -49,6 +61,6 @@ clients:
 clients:
   - name: family-tablet
     secret: "family-tablet-secret-456"
-    preset: ["family-friendly", "hd-quality"]
-    playlist: ["basic-playlist", "kids-playlist"]
+    presets: ["family-friendly", "hd-quality"]
+    playlists: ["basic-playlist", "kids-playlist"]
 ```

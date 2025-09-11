@@ -1,25 +1,21 @@
 package rules_test
 
 import (
-	"regexp"
-	"testing"
-	"text/template"
-
+	"bytes"
 	configrules "iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
+	"regexp"
+	"testing"
+	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
-
-func tpl(name, s string) *template.Template {
-	t, _ := template.New(name).Funcs(sprig.TxtFuncMap()).Parse(s)
-	return t
-}
 
 type mockSubscription struct {
 	name         string
@@ -46,7 +42,7 @@ func (m mockSubscription) PlaylistRules() []configrules.PlaylistRule {
 	return nil
 }
 
-func (m mockSubscription) NamedConditions() []configrules.NamedCondition {
+func (m mockSubscription) NamedConditions() []configrules.Condition {
 	return nil
 }
 
@@ -70,15 +66,14 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 			name: "remove channel by attr",
 			rules: []configrules.ChannelRule{
 				{
-					When: []configrules.Condition{
-						{
-							Attr: &configrules.AttributeCondition{
-								Name:  "tvg-group",
-								Value: types.RegexpArr{regexp.MustCompile("^unwanted$")},
+					RemoveChannel: &configrules.RemoveChannelRule{
+						When: &configrules.Condition{
+							Attr: &types.NamePatterns{
+								Name:     "tvg-group",
+								Patterns: types.RegexpArr{mustCompileRegexp("unwanted")},
 							},
 						},
 					},
-					RemoveChannel: func() *any { v := any(struct{}{}); return &v }(),
 				},
 			},
 			track: &m3u8.Track{
@@ -91,17 +86,17 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 			name: "remove fields",
 			rules: []configrules.ChannelRule{
 				{
-					When: []configrules.Condition{
-						{
-							Attr: &configrules.AttributeCondition{
-								Name:  "tvg-group",
-								Value: types.RegexpArr{regexp.MustCompile("^test$")},
+					SetField: &configrules.SetFieldRule{
+						AttrTemplate: &types.NameTemplate{
+							Name:     "tvg-id",
+							Template: mustCreateTemplate(""),
+						},
+						When: &configrules.Condition{
+							Attr: &types.NamePatterns{
+								Name:     "tvg-group",
+								Patterns: types.RegexpArr{mustCompileRegexp("test")},
 							},
 						},
-					},
-					RemoveField: []map[string]types.RegexpArr{
-						{"attr": types.RegexpArr{regexp.MustCompile("tvg-id")}},
-						{"tag": types.RegexpArr{regexp.MustCompile("EXTBYT")}},
 					},
 				},
 			},
@@ -122,9 +117,11 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 				Name: "Test Channel",
 				Attrs: map[string]string{
 					"tvg-group": "test",
+					"tvg-id":    "",
 					"tvg-name":  "Channel",
 				},
 				Tags: map[string]string{
+					"EXTBYT": "data",
 					"EXTGRP": "group",
 				},
 			},
@@ -153,117 +150,129 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 	}
 }
 
-func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
-	tests := []struct {
-		name          string
-		rules         []configrules.ChannelRule
-		track         *m3u8.Track
-		expectedTrack *m3u8.Track
-	}{
+func TestRulesProcessor_SetField(t *testing.T) {
+	channelRules := []configrules.ChannelRule{
 		{
-			name: "move attr to tag",
-			rules: []configrules.ChannelRule{
-				{
-					When: []configrules.Condition{
-						{
-							Attr: &configrules.AttributeCondition{
-								Name:  "tvg-group",
-								Value: types.RegexpArr{regexp.MustCompile("^music$")},
-							},
-						},
-					},
-					SetField: []configrules.SetFieldSpec{
-						{
-							Type:  "tag",
-							Name:  "EXTGRP",
-							Value: tpl("tag:EXTGRP", `{{ index .Channel.Attrs "tvg-group" }}`),
-						},
-						{
-							Type:  "tag",
-							Name:  "EXT-X-LOGO",
-							Value: tpl("tag:EXT-X-LOGO", `{{ index .Channel.Attrs "tvg-logo" }}`),
-						},
-					},
-					RemoveField: []map[string]types.RegexpArr{
-						{"attr": types.RegexpArr{regexp.MustCompile("tvg-group")}},
-						{"attr": types.RegexpArr{regexp.MustCompile("tvg-logo")}},
-					},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Music Channel",
-				Attrs: map[string]string{
-					"tvg-group": "music",
-					"tvg-logo":  "http://example.com/logo.png",
-					"tvg-name":  "Music Channel",
-				},
-			},
-			expectedTrack: &m3u8.Track{
-				Name: "Music Channel",
-				Attrs: map[string]string{
-					"tvg-name": "Music Channel",
-				},
-				Tags: map[string]string{
-					"EXTGRP":     "music",
-					"EXT-X-LOGO": "http://example.com/logo.png",
+			SetField: &configrules.SetFieldRule{
+				AttrTemplate: &types.NameTemplate{
+					Name:     "tvg-group",
+					Template: mustCreateTemplate("music"),
 				},
 			},
 		},
+	}
+
+	processor := rules.NewProcessor()
+	sub := &mockSubscription{name: "test", channelRules: channelRules}
+	processor.AddSubscription(sub)
+
+	track := &m3u8.Track{
+		Name: "Test Channel",
+		Attrs: map[string]string{
+			"tvg-name": "Test Channel",
+		},
+	}
+
+	store := rules.NewStore()
+	channel := rules.NewChannel(track, sub)
+	store.Add(channel)
+
+	processor.Process(store)
+
+	assert.Equal(t, "music", track.Attrs["tvg-group"])
+}
+
+func TestTemplate(t *testing.T) {
+	tmplMap := map[string]any{
+		"Channel": map[string]any{
+			"NamePatterns": "Test Channel",
+			"Attrs":        map[string]string{"tvg-group": "movies", "tvg-id": "123"},
+			"Tags":         map[string]string{"EXTBYT": "data"},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
 		{
-			name: "move tag to attr",
-			rules: []configrules.ChannelRule{
-				{
-					When: []configrules.Condition{
-						{
-							Tag: &configrules.TagCondition{
-								Name:  "EXTGRP",
-								Value: types.RegexpArr{regexp.MustCompile(".*")},
-							},
-						},
-					},
-					SetField: []configrules.SetFieldSpec{
-						{
-							Type:  "attr",
-							Name:  "group-name",
-							Value: tpl("attr:group-name", `{{ index .Channel.Tags "EXTGRP" }}`),
-						},
-					},
-					RemoveField: []map[string]types.RegexpArr{
-						{"tag": types.RegexpArr{regexp.MustCompile("EXTGRP")}},
-					},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-				Tags: map[string]string{
-					"EXTGRP": "entertainment",
-				},
-			},
-			expectedTrack: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"group-name": "entertainment",
-				},
-				Tags: map[string]string{},
-			},
+			name:     "simple text",
+			template: "music",
+			expected: "music",
+		},
+		{
+			name:     "channel name",
+			template: "{{ .Channel.NamePatterns }}",
+			expected: "Test Channel",
+		},
+		{
+			name:     "channel attr",
+			template: `{{ index .Channel.Attrs "tvg-group" }}`,
+			expected: "movies",
+		},
+		{
+			name:     "channel tag",
+			template: "{{ .Channel.Tags.EXTBYT }}",
+			expected: "data",
+		},
+		{
+			name:     "combined template",
+			template: `{{ .Channel.NamePatterns }}-{{ index .Channel.Attrs "tvg-group" }}`,
+			expected: "Test Channel-movies",
+		},
+		{
+			name:     "with sprig functions",
+			template: "{{ .Channel.NamePatterns | upper }}",
+			expected: "TEST CHANNEL",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			processor := rules.NewProcessor()
-			sub := &mockSubscription{name: "test", channelRules: tt.rules}
-			processor.AddSubscription(sub)
+			tmpl := mustCreateTemplate(tt.template)
+			goTmpl := tmpl.ToTemplate()
 
-			store := rules.NewStore()
-			channel := rules.NewChannel(tt.track, sub)
-			store.Add(channel)
-
-			processor.Process(store)
-
-			assert.Equal(t, tt.expectedTrack.Name, tt.track.Name)
-			assert.Equal(t, tt.expectedTrack.Attrs, tt.track.Attrs)
-			assert.Equal(t, tt.expectedTrack.Tags, tt.track.Tags)
+			var buf bytes.Buffer
+			err := goTmpl.Execute(&buf, tmplMap)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, buf.String())
 		})
 	}
+}
+
+func mustCreateTemplate(text string) *types.Template {
+	tmpl, err := template.New("test").Funcs(sprig.FuncMap()).Parse(text)
+	if err != nil {
+		panic(err)
+	}
+	result := types.Template(*tmpl)
+	return &result
+}
+
+func mustCompileRegexp(pattern string) *regexp.Regexp {
+	result := &types.RegexpArr{}
+	node := &yaml.Node{
+		Kind:  yaml.ScalarNode,
+		Value: pattern,
+	}
+	if err := result.UnmarshalYAML(node); err != nil {
+		panic(err)
+	}
+	if len(*result) == 0 {
+		panic("no regexp compiled")
+	}
+	return (*result)[0]
+}
+
+type yamlNode struct {
+	Value string
+}
+
+func (n *yamlNode) Decode(v interface{}) error {
+	if s, ok := v.(*string); ok {
+		*s = n.Value
+		return nil
+	}
+	return nil
 }

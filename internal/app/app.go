@@ -76,7 +76,7 @@ func (m *Manager) initClients() error {
 }
 
 func (m *Manager) createClient(clientName string, clientConf config.Client) (*Client, error) {
-	presets, err := m.resolvePresets(clientName, clientConf.Preset)
+	presets, err := m.resolvePresets(clientName, clientConf.Presets)
 	if err != nil {
 		return nil, err
 	}
@@ -178,8 +178,7 @@ func (m *Manager) addPlaylistSubscription(
 		playlistConf, *urlGen,
 		m.config.ChannelRules, m.config.PlaylistRules,
 		m.config.Proxy,
-		m.subSemaphores[playlistName],
-		m.config.Conditions)
+		m.subSemaphores[playlistName])
 	if err != nil {
 		return fmt.Errorf("failed to build playlist subscription '%s' for client '%s': %w", playlistName, clientName, err)
 	}

@@ -16,5 +16,5 @@ server:
 | Field          | Type     | Required | Description                                           |
 |----------------|----------|----------|-------------------------------------------------------|
 | `listen_addr`  | `string` | Yes      | Address the gateway listens on                        |
-| `public_addr`  | `string` | Yes      | Public address of the gateway, used to generate links |
+| `public_url`   | `string` | Yes      | Public URL of the gateway, used to generate links     |
 | `metrics_addr` | `string` | No       | Address for the metrics server, disabled if empty     |

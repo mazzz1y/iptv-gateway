@@ -1,6 +1,7 @@
 package config
 
 import (
+	"iptv-gateway/internal/config/types"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -50,7 +51,7 @@ error:
 						Command: []string{"error-command"},
 					},
 					RateLimitExceeded: Handler{
-						TemplateVars: []EnvNameValue{
+						TemplateVars: []types.NameValue{
 							{Name: "message", Value: "Rate limited"},
 						},
 					},

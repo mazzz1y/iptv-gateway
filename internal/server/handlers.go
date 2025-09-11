@@ -168,7 +168,7 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	logging.Debug(ctx, "proxying stream")
 
-	playlist := ctxutil.Provider(ctx).(*app.PlaylistSubscription)
+	playlist := ctxutil.Provider(ctx).(*app.Playlist)
 	data := ctxutil.StreamData(ctx).(*urlgen.Data)
 	ctx = ctxutil.WithChannelID(ctx, data.ChannelID)
 	ctx = ctxutil.WithChannelHidden(ctx, data.Hidden)

@@ -7,21 +7,20 @@ multiple sources.
 
 ```yaml
 epgs:
-  - name: epg-name
-    source:
-      - "http://example.com/epg-1.xml"
-      - "/path/to/local/epg-2.xml.gz"
-    proxy:
-      enabled: true
+  - name: ""
+    sources: []
+    proxy: {}
 ```
 
 ## Fields
 
-| Field    | Type                   | Required | Description                                                          |
-|----------|------------------------|----------|----------------------------------------------------------------------|
-| `name`   | `string`               | Yes      | Unique name identifier for this EPG                                  |
-| `source` | `string` or `[]string` | Yes      | Array of EPG sources (URLs or file paths, XML format, .gz supported) |
-| `proxy`  | [Proxy](./proxy.md)    | No       | EPG-specific proxy configuration                                     |
+| Field            | Type                                          | Required | Description                                                          |
+|------------------|-----------------------------------------------|----------|----------------------------------------------------------------------|
+| `name`           | `string`                                      | Yes      | Unique name identifier for this EPG                                  |
+| `sources`        | `[]string`                                    | Yes      | Array of EPG sources (URLs or file paths, XML format, .gz supported) |
+| `proxy`          | [`Proxy`](./proxy.md)                         | No       | EPG-specific proxy configuration, only enabled takes effect          |
+| `channel_rules`  | [`[]ChannelRule`](./channel_rules/index.md)   | No       | Per-EPG channel rules                                                |
+| `playlist_rules` | [`[]PlaylistRule`](./playlist_rules/index.md) | No       | Per-EPG playlist rules                                               |
 
 ## Examples
 
@@ -30,7 +29,7 @@ epgs:
 ```yaml
 epgs:
   - name: tv-guide
-    source:
+    sources:
       - "https://provider.com/guide.xml"
 ```
 
@@ -39,7 +38,7 @@ epgs:
 ```yaml
 epgs:
   - name: combined-guide
-    source:
+    sources:
       - "https://provider-1.com/epg.xml.gz"
       - "https://provider-2.com/schedule.xml"
       - "/local/custom-guide.xml"
@@ -50,7 +49,7 @@ epgs:
 ```yaml
 epgs:
   - name: international-guide
-    source:
+    sources:
       - "https://international-provider.com/epg.xml"
     proxy:
       enabled: true

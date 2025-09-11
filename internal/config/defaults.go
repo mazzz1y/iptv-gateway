@@ -17,7 +17,7 @@ func DefaultConfig() *Config {
 			ListenAddr: ":8080",
 			PublicURL:  types.URL(*publicUrl),
 		},
-		Log: Logs{
+		Logs: Logs{
 			"info",
 			"text",
 		},
@@ -42,7 +42,7 @@ func DefaultConfig() *Config {
 					"-f", "mpegts",
 					"pipe:1",
 				},
-				TemplateVars: []EnvNameValue{
+				TemplateVars: []types.NameValue{
 					{Name: "ffmpeg_log_level", Value: "fatal"},
 				},
 			},
@@ -64,22 +64,22 @@ func DefaultConfig() *Config {
 						"-f", "mpegts",
 						"pipe:1",
 					},
-					TemplateVars: []EnvNameValue{
+					TemplateVars: []types.NameValue{
 						{Name: "ffmpeg_log_level", Value: "fatal"},
 					},
 				},
 				RateLimitExceeded: Handler{
-					TemplateVars: []EnvNameValue{
+					TemplateVars: []types.NameValue{
 						{Name: "message", Value: "Rate limit exceeded\n\nPlease try again later"},
 					},
 				},
 				LinkExpired: Handler{
-					TemplateVars: []EnvNameValue{
+					TemplateVars: []types.NameValue{
 						{Name: "message", Value: "Link has expired\n\nPlease refresh your playlist"},
 					},
 				},
 				UpstreamError: Handler{
-					TemplateVars: []EnvNameValue{
+					TemplateVars: []types.NameValue{
 						{Name: "message", Value: "Unable to play stream\n\nPlease try again later or contact administrator"},
 					},
 				},

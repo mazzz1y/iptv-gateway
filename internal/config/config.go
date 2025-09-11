@@ -6,18 +6,17 @@ import (
 )
 
 type Config struct {
-	Server        ServerConfig           `yaml:"server"`
-	Log           Logs                   `yaml:"log"`
-	URLGenerator  URLGeneratorConfig     `yaml:"url_generator"`
-	Cache         CacheConfig            `yaml:"cache"`
-	Proxy         Proxy                  `yaml:"proxy"`
-	Clients       []Client               `yaml:"clients"`
-	Playlists     []Playlist             `yaml:"playlists"`
-	EPGs          []EPG                  `yaml:"epgs"`
-	Conditions    []rules.NamedCondition `yaml:"conditions,omitempty"`
-	ChannelRules  []rules.ChannelRule    `yaml:"channel_rules,omitempty"`
-	PlaylistRules []rules.PlaylistRule   `yaml:"playlist_rules,omitempty"`
-	Presets       []Preset               `yaml:"presets,omitempty"`
+	Server        ServerConfig         `yaml:"server"`
+	Logs          Logs                 `yaml:"logs"`
+	URLGenerator  URLGeneratorConfig   `yaml:"url_generator"`
+	Cache         CacheConfig          `yaml:"cache"`
+	Proxy         Proxy                `yaml:"proxy"`
+	Clients       []Client             `yaml:"clients"`
+	Playlists     []Playlist           `yaml:"playlists"`
+	EPGs          []EPG                `yaml:"epgs"`
+	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
+	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
+	Presets       []Preset             `yaml:"presets,omitempty"`
 }
 
 type URLGeneratorConfig struct {
@@ -40,9 +39,9 @@ type Logs struct {
 type Client struct {
 	Name          string               `yaml:"name"`
 	Secret        string               `yaml:"secret"`
-	Playlists     types.StringOrArr    `yaml:"playlist"`
-	EPGs          types.StringOrArr    `yaml:"epg"`
-	Preset        types.StringOrArr    `yaml:"preset,omitempty"`
+	Playlists     types.StringOrArr    `yaml:"playlists"`
+	EPGs          types.StringOrArr    `yaml:"epgs"`
+	Presets       types.StringOrArr    `yaml:"presets,omitempty"`
 	Proxy         Proxy                `yaml:"proxy,omitempty"`
 	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
 	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
@@ -57,13 +56,13 @@ type CacheConfig struct {
 
 type EPG struct {
 	Name    string            `yaml:"name"`
-	Sources types.StringOrArr `yaml:"source"`
+	Sources types.StringOrArr `yaml:"sources"`
 	Proxy   Proxy             `yaml:"proxy,omitempty"`
 }
 
 type Playlist struct {
 	Name          string               `yaml:"name"`
-	Sources       types.StringOrArr    `yaml:"source"`
+	Sources       types.StringOrArr    `yaml:"sources"`
 	Proxy         Proxy                `yaml:"proxy,omitempty"`
 	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
 	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
@@ -72,8 +71,8 @@ type Playlist struct {
 type Preset struct {
 	Name          string               `yaml:"name"`
 	Proxy         Proxy                `yaml:"proxy,omitempty"`
-	Playlists     types.StringOrArr    `yaml:"playlist"`
-	EPGs          types.StringOrArr    `yaml:"epg"`
+	Playlists     types.StringOrArr    `yaml:"playlists"`
+	EPGs          types.StringOrArr    `yaml:"epgs"`
 	ChannelRules  []rules.ChannelRule  `yaml:"channel_rules,omitempty"`
 	PlaylistRules []rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
 }

@@ -40,13 +40,13 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
-func createTestSubscription(name string, playlists []string) (*app.PlaylistSubscription, error) {
+func createTestSubscription(name string, playlists []string) (*app.Playlist, error) {
 	sem := semaphore.NewWeighted(1)
 	generator, err := urlgen.NewGenerator("http://localhost", "secret", time.Hour, time.Hour)
 	if err != nil {
 		return nil, err
 	}
-	return app.NewPlaylistSubscription(
+	return app.NewPlaylist(
 		name,
 		*generator,
 		playlists,
@@ -54,7 +54,6 @@ func createTestSubscription(name string, playlists []string) (*app.PlaylistSubsc
 		nil,
 		nil,
 		sem,
-		nil,
 	)
 }
 

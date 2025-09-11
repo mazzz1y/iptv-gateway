@@ -1,11 +1,11 @@
-# Log
+# Logs
 
-Log configuration controls the application's logging behavior, including the log level and output format.
+Log configuration controls the application's logging behavior.
 
 ## YAML Structure
 
 ```yaml title="Default"
-log:
+logs:
   level: "info"
   format: "text"
 ```

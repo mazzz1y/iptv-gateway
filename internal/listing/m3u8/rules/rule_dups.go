@@ -1,89 +1,120 @@
 package rules
 
 import (
+	configrules "iptv-gateway/internal/config/rules"
 	"regexp"
 	"strings"
 )
 
-type RemoveDuplicatesRule struct {
-	patterns    []*regexp.Regexp
-	trimPattern bool
+type RemoveDuplicatesProcessor struct {
+	FieldType string
+	FieldName string
+	Patterns  []*regexp.Regexp
 }
 
-func NewRemoveDuplicatesRule(patterns []*regexp.Regexp, trimPattern bool) *RemoveDuplicatesRule {
-	return &RemoveDuplicatesRule{
-		patterns:    patterns,
-		trimPattern: trimPattern,
+func NewRemoveDuplicatesActionProcessor(rule *configrules.RemoveDuplicatesRule) *RemoveDuplicatesProcessor {
+	if len(rule.NamePatterns) > 0 {
+		return &RemoveDuplicatesProcessor{
+			FieldType: configrules.FieldTypeName,
+			Patterns:  rule.NamePatterns.ToArray(),
+		}
 	}
+	if rule.AttrPatterns != nil {
+		return &RemoveDuplicatesProcessor{
+			FieldType: configrules.FieldTypeAttr,
+			FieldName: rule.AttrPatterns.Name,
+			Patterns:  rule.AttrPatterns.Patterns.ToArray(),
+		}
+	}
+	if rule.TagPatterns != nil {
+		return &RemoveDuplicatesProcessor{
+			FieldType: configrules.FieldTypeTag,
+			FieldName: rule.TagPatterns.Name,
+			Patterns:  rule.TagPatterns.Patterns.ToArray(),
+		}
+	}
+	return &RemoveDuplicatesProcessor{}
 }
 
-func (r *RemoveDuplicatesRule) Apply(global *Store, sub *Store) {
-	globalGroupedByBaseName := make(map[string][]*Channel)
-
+func (p *RemoveDuplicatesProcessor) Apply(global, sub *Store) {
+	grouped := make(map[string][]*Channel)
 	for _, ch := range global.All() {
-		baseName := r.extractBaseName(ch.Name())
-		globalGroupedByBaseName[baseName] = append(globalGroupedByBaseName[baseName], ch)
+		key := p.extractBaseName(ch)
+		grouped[key] = append(grouped[key], ch)
 	}
-
-	r.processDuplicateGroups(globalGroupedByBaseName, sub)
+	p.processDuplicateGroups(grouped, sub)
 }
 
-func (r *RemoveDuplicatesRule) extractBaseName(name string) string {
-	for _, regex := range r.patterns {
+func (p *RemoveDuplicatesProcessor) extractBaseName(ch *Channel) string {
+	name := p.getFieldValue(ch)
+	if name == "" {
+		return ""
+	}
+	for _, regex := range p.Patterns {
 		name = regex.ReplaceAllString(name, "")
 	}
 
 	return strings.Join(strings.Fields(name), " ")
 }
 
-func (r *RemoveDuplicatesRule) selectBestChannel(channels []*Channel) *Channel {
-	for _, regex := range r.patterns {
+func (p *RemoveDuplicatesProcessor) getFieldValue(ch *Channel) string {
+	switch p.FieldType {
+	case configrules.FieldTypeAttr:
+		if val, ok := ch.GetAttr(p.FieldName); ok {
+			return val
+		}
+	case configrules.FieldTypeTag:
+		if val, ok := ch.GetTag(p.FieldName); ok {
+			return val
+		}
+	}
+	return ch.Name()
+}
+
+func (p *RemoveDuplicatesProcessor) selectBestChannel(channels []*Channel) *Channel {
+	if len(p.Patterns) == 0 {
+		return channels[0]
+	}
+	for _, pattern := range p.Patterns {
 		for _, ch := range channels {
-			if regex.MatchString(ch.Name()) {
+			fv := p.getFieldValue(ch)
+			if pattern.MatchString(fv) {
 				return ch
 			}
 		}
 	}
-
 	return channels[0]
 }
 
-func (r *RemoveDuplicatesRule) processDuplicateGroups(globalGroupedByBaseName map[string][]*Channel, subscriptionStore *Store) {
-	subscriptionChannels := make(map[*Channel]bool)
-	for _, ch := range subscriptionStore.All() {
-		subscriptionChannels[ch] = true
+func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*Channel, sub *Store) {
+	subMap := make(map[*Channel]bool)
+	for _, ch := range sub.All() {
+		subMap[ch] = true
 	}
-
-	for baseName, globalChannels := range globalGroupedByBaseName {
-		if len(globalChannels) <= 1 {
+	for _, group := range groups {
+		if len(group) <= 1 {
 			continue
 		}
-
-		bestChannel := r.selectBestChannel(globalChannels)
-
-		subscriptionChannelsInGroup := make([]*Channel, 0)
-		for _, ch := range globalChannels {
-			if subscriptionChannels[ch] {
-				subscriptionChannelsInGroup = append(subscriptionChannelsInGroup, ch)
+		best := p.selectBestChannel(group)
+		var subGroup []*Channel
+		for _, ch := range group {
+			if subMap[ch] {
+				subGroup = append(subGroup, ch)
 			}
 		}
-
-		if len(subscriptionChannelsInGroup) > 0 {
-			bestFromSubscription := false
-			for _, ch := range subscriptionChannelsInGroup {
-				if ch == bestChannel {
-					bestFromSubscription = true
-					if r.trimPattern {
-						ch.SetName(baseName)
-					}
-					break
-				}
+		if len(subGroup) == 0 {
+			continue
+		}
+		bestInSub := false
+		for _, ch := range subGroup {
+			if ch == best {
+				bestInSub = true
+				break
 			}
-
-			for _, ch := range subscriptionChannelsInGroup {
-				if !bestFromSubscription || ch != bestChannel {
-					ch.MarkRemoved()
-				}
+		}
+		for _, ch := range subGroup {
+			if !bestInSub || ch != best {
+				ch.MarkRemoved()
 			}
 		}
 	}

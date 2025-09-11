@@ -5,26 +5,26 @@ The `mark_hidden` rule marks channels as hidden, removing them from metrics and 
 ## YAML Structure
 
 ```yaml
-mark_hidden: true
+channel_rules:
+  - mark_hidden:
+      when:
+        name_patterns: ["<regex>"]
+        # or attr/tag/and/or/invert conditions
 ```
 
 ## Fields
 
-This rule does not accept any configuration fields. It is designed to be used exclusively with the `when` clause to
-specify which channels should be marked as hidden.
-
-| Field  | Type | Required | Description                          |
-|--------|------|----------|--------------------------------------|
-| (none) | -    | -        | This rule has no configurable fields |
+| Field | Type               | Required | Description                                         |
+|-------|--------------------|----------|-----------------------------------------------------|
+| when  | [When](../when.md) | Yes      | Conditions specifying which channels to mark hidden |
 
 ## Examples
 
 ### Hide Test Channels from Monitoring
 
 ```yaml
-mark_hidden: true
-when:
-  - name: "(?i).*test.*"
-  - name: "(?i).*sample.*"
-  - name: "(?i).*demo.*"
+channel_rules:
+  - mark_hidden:
+      when:
+        name_patterns: ["(?i).*test.*"]
 ```

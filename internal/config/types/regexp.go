@@ -30,3 +30,7 @@ func (r *RegexpArr) UnmarshalYAML(value *yaml.Node) error {
 	*r = regexps
 	return nil
 }
+
+func (r *RegexpArr) ToArray() []*regexp.Regexp {
+	return *r
+}

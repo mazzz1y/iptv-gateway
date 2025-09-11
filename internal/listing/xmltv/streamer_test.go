@@ -44,12 +44,12 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
-func createTestSubscription(name string, epgs []string) (*app.EPGSubscription, error) {
+func createTestSubscription(name string, epgs []string) (*app.EPG, error) {
 	generator, err := urlgen.NewGenerator("http://localhost", "secret", time.Hour, time.Hour)
 	if err != nil {
 		return nil, err
 	}
-	return app.NewEPGSubscription(
+	return app.NewEPG(
 		name,
 		*generator,
 		epgs,

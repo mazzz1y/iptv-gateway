@@ -62,18 +62,11 @@ proxy:
 
 ### Command Object
 
-| Field           | Type               | Required | Description                              |
-|-----------------|--------------------|----------|------------------------------------------|
-| `command`       | `[]gotemplate`     | No       | Command array to execute                 |
-| `template_vars` | `[]env_name_value` | No       | Variables available in command templates |
-| `env_vars`      | `[]env_name_value` | No       | Environment variables for the command    |
-
-### Name Value Pair Object
-
-| Field   | Type     | Required | Description    |
-|---------|----------|----------|----------------|
-| `name`  | `string` | Yes      | Variable name  |
-| `value` | `string` | Yes      | Variable value |
+| Field           | Type                       | Required | Description                              |
+|-----------------|----------------------------|----------|------------------------------------------|
+| `command`       | `[]gotemplate`             | No       | Command array to execute                 |
+| `template_vars` | [][`NameValue`](common.md) | No       | Variables available in command templates |
+| `env_vars`      | [][`NameValue`](common.md) | No       | Environment variables for the command    |
 
 ### Error Handling Objects
 

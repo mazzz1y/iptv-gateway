@@ -2,6 +2,7 @@ package app
 
 import (
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/types"
 )
 
 func mergeArrays[T any](arrays ...[]T) []T {
@@ -65,7 +66,7 @@ func mergeHandlers(handlers ...config.Handler) config.Handler {
 	return result
 }
 
-func mergePairs[T ~[]config.EnvNameValue](result *T, handler T) {
+func mergePairs[T ~[]types.NameValue](result *T, handler T) {
 	if len(handler) == 0 {
 		return
 	}
@@ -79,9 +80,9 @@ func mergePairs[T ~[]config.EnvNameValue](result *T, handler T) {
 		varMap[v.Name] = v.Value
 	}
 
-	merged := make([]config.EnvNameValue, 0, len(varMap))
+	merged := make([]types.NameValue, 0, len(varMap))
 	for name, value := range varMap {
-		merged = append(merged, config.EnvNameValue{Name: name, Value: value})
+		merged = append(merged, types.NameValue{Name: name, Value: value})
 	}
 
 	*result = merged

@@ -8,9 +8,9 @@ you have similar configurations across different devices or users.
 
 ```yaml
 presets:
-  - name: preset-name
-    playlist: playlist-name
-    epg: epg-name
+  - name: ""
+    playlists: []
+    epgs: []
     channel_rules: []
     playlist_rules: []
     proxy: {}
@@ -21,8 +21,8 @@ presets:
 | Field            | Type                                         | Required | Description                                 |
 |------------------|----------------------------------------------|----------|---------------------------------------------|
 | `name`           | `string`                                     | Yes      | Unique name identifier for this preset      |
-| `playlist`       | `string` or `[]string`                       | No       | Playlist name(s) to include in this preset  |
-| `epg`            | `string` or `[]string`                       | No       | EPG name(s) to include in this preset       |
+| `playlists`      | `[]string`                                   | No       | Playlist name(s) to include in this preset  |
+| `epgs`           | `[]string`                                   | No       | EPG name(s) to include in this preset       |
 | `channel_rules`  | [[]Channel Rule](./channel_rules/index.md)   | No       | Array of channel processing rules to apply  |
 | `playlist_rules` | [[]Playlist Rule](./playlist_rules/index.md) | No       | Array of playlist processing rules to apply |
 | `proxy`          | [Proxy](./proxy.md)                          | No       | Proxy configuration settings                |
@@ -36,7 +36,7 @@ presets:
   - name: hd-quality
     playlist_rules:
       - remove_duplicates:
-          - patterns: ["4K", "UHD", "FHD", "HD", ""]
+          name_patterns: ["4K", "UHD", "FHD", "HD", ""]
 ```
 
 ### Sports Package Preset
@@ -44,18 +44,18 @@ presets:
 ```yaml
 presets:
   - name: sports-package
-    playlist: sports-premium
-    epg: sports-guide
+    playlists: ["sports-premium"]
+    epgs: ["sports-guide"]
     playlist_rules:
       - remove_duplicates:
-          - patterns: ["4K", "UHD", "FHD", "HD", ""]
+          name_patterns: ["4K", "UHD", "FHD", "HD", ""]
     channel_rules:
       - set_field:
-          - attr:
-              name: "group-title"
-              template: "Sports"
-        when:
-          - name: ".*ESPN.*|.*Fox Sports.*|.*Sky Sports.*"
+          attr:
+            name: "group-title"
+            patterns: ["Sports"]
+          when:
+            name_patterns: [".*ESPN.*|.*Fox Sports.*|.*Sky Sports.*"]
 ```
 
 ### Family-Friendly Preset
@@ -63,20 +63,20 @@ presets:
 ```yaml
 presets:
   - name: family-safe
-    playlist: ["family-channels", "educational"]
-    epg: family-guide
+    playlists: ["family-channels", "educational"]
+    epgs: ["family-guide"]
     channel_rules:
-      - remove_channel: true
-        when:
-          - attr:
+      - remove_channel:
+          when:
+            attr:
               name: "group-title"
-              value: "(?i)(adult|xxx|18\\+)"
+              patterns: ["(?i)(adult|xxx|18\+)"]
       - set_field:
-          - attr:
-              name: "group-title"
-              template: "Family Safe"
-        when:
-          - name: ".*Kids.*"
+          attr:
+            name: "group-title"
+            patterns: ["Family Safe"]
+          when:
+            name_patterns: ".*Kids.*"
 ```
 
 ### Complete Preset with Playlists and EPGs
@@ -84,21 +84,21 @@ presets:
 ```yaml
 presets:
   - name: entertainment-package
-    playlist: ["basic-tv", "movies", "series"]
-    epg: ["tv-guide", "international-guide"]
+    playlists: ["basic-tv", "movies", "series"]
+    epgs: ["tv-guide", "international-guide"]
     proxy:
       enabled: true
     playlist_rules:
-      - remove_duplicates:
-          - patterns: ["4K", "UHD", "FHD", "HD", ""]
+      - action: remove_duplicates
+        name_patterns: ["4K", "UHD", "FHD", "HD", ""]
     channel_rules:
-      - set_field:
-          - attr:
-              name: "group-title"
-              template: "Entertainment - {{ .Channel.Attrs.group-title }}"
-      - remove_channel: true
+      - action: set_field
+        attr:
+          name: "group-title"
+          template: "Entertainment - {{ .Channel.Attrs.group-title }}"
+      - action: remove_channel
         when:
-          - attr:
-              name: "group-title"
-              value: "(?i)(news|sports)"
+          attr:
+            name: "group-title"
+            patterns: ["(?i)(news|sports)"]
 ```

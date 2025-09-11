@@ -139,7 +139,7 @@ func TestCache_NewReader(t *testing.T) {
 		}
 
 		if reader.Name == "" {
-			t.Error("expected Name to be set")
+			t.Error("expected FieldName to be set")
 		}
 
 		if reader.FilePath == "" {

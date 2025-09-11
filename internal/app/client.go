@@ -14,8 +14,8 @@ import (
 type Client struct {
 	name                  string
 	semaphore             *semaphore.Weighted
-	playlistSubscriptions []*PlaylistSubscription
-	epgSubscriptions      []*EPGSubscription
+	playlistSubscriptions []*Playlist
+	epgSubscriptions      []*EPG
 	presets               []config.Preset
 	proxy                 config.Proxy
 	rules                 []rules.ChannelRule
@@ -61,8 +61,7 @@ func (c *Client) BuildPlaylistSubscription(
 	playlistConf config.Playlist, urlGen urlgen.Generator,
 	globalChannelRules []rules.ChannelRule, globalPlaylistUser []rules.PlaylistRule,
 	serverProxy config.Proxy,
-	sem *semaphore.Weighted,
-	namedConditions []rules.NamedCondition) error {
+	sem *semaphore.Weighted) error {
 
 	playlistProxy := mergeProxies(serverProxy, playlistConf.Proxy)
 	mergedChannelRules := mergeArrays(globalChannelRules, playlistConf.ChannelRules)
@@ -78,7 +77,7 @@ func (c *Client) BuildPlaylistSubscription(
 	mergedChannelRules = mergeArrays(mergedChannelRules, c.rules)
 	mergedPlaylistRules = mergeArrays(mergedPlaylistRules, c.playlistRules)
 
-	subscription, err := NewPlaylistSubscription(
+	subscription, err := NewPlaylist(
 		playlistConf.Name,
 		urlGen,
 		playlistConf.Sources,
@@ -86,7 +85,6 @@ func (c *Client) BuildPlaylistSubscription(
 		mergedChannelRules,
 		mergedPlaylistRules,
 		sem,
-		namedConditions,
 	)
 
 	if err != nil {
@@ -109,7 +107,7 @@ func (c *Client) BuildEPGSubscription(
 
 	epgProxy = mergeProxies(epgProxy, c.proxy)
 
-	subscription, err := NewEPGSubscription(
+	subscription, err := NewEPG(
 		epgConf.Name,
 		urlGen,
 		epgConf.Sources,

@@ -25,9 +25,13 @@ nav:
   - Home: index.md
   - Configuration:
       - Overview: config.md
+      - Logs: config/logs.md
+      - Cache: config/cache.md
       - Server: config/server.md
-      - Log: config/log.md
       - URL Generator: config/url_generator.md
+      - Proxy: config/proxy.md
+      - Playlists: config/playlists.md
+      - EPGs: config/epgs.md
       - Channel Rules:
           - Overview: config/channel_rules/index.md
           - Set Field: config/channel_rules/rule_list/set_field.md
@@ -38,11 +42,8 @@ nav:
       - Playlist Rules:
           - Overview: config/playlist_rules/index.md
           - Remove Duplicates: config/playlist_rules/remove_duplicates.md
-      - Proxy: config/proxy.md
-      - Clients: config/clients.md
-      - Playlists: config/playlists.md
-      - EPGs: config/epgs.md
       - Presets: config/presets.md
-      - Conditions: config/conditions.md
-      - Cache: config/cache.md
+      - Clients: config/clients.md
+      - Common Fields: config/common.md
+  - Examples: config/examples.md
   - Metrics: metrics.md

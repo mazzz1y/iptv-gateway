@@ -20,8 +20,7 @@ func NewProcessor() *Processor {
 }
 
 func (p *Processor) AddSubscription(sub listing.Playlist) {
-	expandedChannelRules := p.expandNamedConditions(sub.ChannelRules(), sub.NamedConditions())
-	p.subscriptionChannelRulesMap[sub] = append(p.subscriptionChannelRulesMap[sub], expandedChannelRules...)
+	p.subscriptionChannelRulesMap[sub] = append(p.subscriptionChannelRulesMap[sub], sub.ChannelRules()...)
 	p.subscriptionPlaylistRulesMap[sub] = append(p.subscriptionPlaylistRulesMap[sub], sub.PlaylistRules()...)
 }
 
@@ -37,34 +36,110 @@ func (p *Processor) processStoreRules(store *Store) {
 func (p *Processor) processTrackRules(store *Store) {
 	for _, ch := range store.All() {
 		if subRules, exists := p.subscriptionChannelRulesMap[ch.Subscription()]; exists {
-			p.processChannelWithRules(ch, subRules)
+			for _, rule := range subRules {
+				p.processChannelRule(ch, rule)
+			}
 		}
 	}
 }
 
 func (p *Processor) processChannelWithRules(ch *Channel, rules []rules.ChannelRule) {
-	for _, action := range rules {
-		if !p.matchesConditions(ch, action.When) {
-			continue
-		}
-
-		if action.RemoveChannel != nil {
-			ch.MarkRemoved()
+	for _, rule := range rules {
+		if p.processChannelRule(ch, rule) {
 			return
 		}
+	}
+}
 
-		if action.MarkHidden != nil {
-			ch.MarkHidden()
+func (p *Processor) processChannelRule(ch *Channel, rule rules.ChannelRule) (stop bool) {
+	if rule.SetField != nil {
+		p.processSetField(ch, rule.SetField)
+		stop = false
+	} else if rule.RemoveField != nil {
+		p.processRemoveField(ch, rule.RemoveField)
+		stop = false
+	} else if rule.RemoveChannel != nil {
+		stop = p.processRemoveChannel(ch, rule.RemoveChannel)
+	} else if rule.MarkHidden != nil {
+		p.processMarkHidden(ch, rule.MarkHidden)
+		stop = false
+	}
+	return
+}
+
+func (p *Processor) processSetField(ch *Channel, rule *rules.SetFieldRule) {
+	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
+		return
+	}
+
+	tmplMap := map[string]any{
+		"Channel": map[string]any{
+			"Name":  ch.Name(),
+			"Attrs": ch.Attrs(),
+			"Tags":  ch.Tags(),
+		},
+	}
+	var buf bytes.Buffer
+
+	switch {
+	case rule.NameTemplate != nil:
+		if err := rule.NameTemplate.ToTemplate().Execute(&buf, tmplMap); err != nil {
+			return
 		}
-
-		if action.SetField != nil {
-			p.setFields(ch, action.SetField)
+		ch.SetName(buf.String())
+	case rule.AttrTemplate != nil:
+		if err := rule.AttrTemplate.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
+			return
 		}
+		ch.SetAttr(rule.AttrTemplate.Name, buf.String())
+	case rule.TagTemplate != nil:
+		if err := rule.TagTemplate.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
+			return
+		}
+		ch.SetTag(rule.TagTemplate.Name, buf.String())
+	}
+}
 
-		if action.RemoveField != nil {
-			p.removeFields(ch, action.RemoveField)
+func (p *Processor) processRemoveField(ch *Channel, rule *rules.RemoveFieldRule) {
+	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
+		return
+	}
+
+	switch {
+	case rule.AttrPatterns != nil:
+		for attrKey := range ch.Attrs() {
+			for _, pattern := range rule.AttrPatterns {
+				if pattern.MatchString(attrKey) {
+					ch.DeleteAttr(attrKey)
+					break
+				}
+			}
+		}
+	case rule.TagPatterns != nil:
+		for tagKey := range ch.Tags() {
+			for _, pattern := range rule.TagPatterns {
+				if pattern.MatchString(tagKey) {
+					ch.DeleteTag(tagKey)
+					break
+				}
+			}
 		}
 	}
+}
+
+func (p *Processor) processRemoveChannel(ch *Channel, rule *rules.RemoveChannelRule) bool {
+	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
+		return false
+	}
+	ch.MarkRemoved()
+	return true
+}
+
+func (p *Processor) processMarkHidden(ch *Channel, rule *rules.MarkHiddenRule) {
+	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
+		return
+	}
+	ch.MarkHidden()
 }
 
 func (p *Processor) processRemoveDuplicatesRules(global *Store) {
@@ -76,28 +151,13 @@ func (p *Processor) processRemoveDuplicatesRules(global *Store) {
 			}
 		}
 
-		for _, action := range rul {
-			if action.RemoveDuplicates != nil {
-				for _, dupRule := range *action.RemoveDuplicates {
-					rule := NewRemoveDuplicatesRule(dupRule.Patterns, dupRule.TrimPattern)
-					rule.Apply(global, subStore)
-				}
+		for _, rule := range rul {
+			if rule.RemoveDuplicates != nil {
+				processor := NewRemoveDuplicatesActionProcessor(rule.RemoveDuplicates)
+				processor.Apply(global, subStore)
 			}
 		}
 	}
-}
-
-func (p *Processor) matchesConditions(ch *Channel, conditions []rules.Condition) bool {
-	if len(conditions) == 0 {
-		return true
-	}
-
-	for _, condition := range conditions {
-		if p.matchesCondition(ch, condition) {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *Processor) matchesCondition(ch *Channel, condition rules.Condition) bool {
@@ -105,55 +165,54 @@ func (p *Processor) matchesCondition(ch *Channel, condition rules.Condition) boo
 		return true
 	}
 
-	if len(condition.Name) > 0 {
-		if !p.matchesRegexps(ch.Name(), condition.Name) {
-			return false
-		}
-	}
-
-	if condition.Attr != nil {
-		actual, exists := ch.GetAttr(condition.Attr.Name)
-		if !exists || !p.matchesRegexps(actual, condition.Attr.Value) {
-			return false
-		}
-	}
-
-	if condition.Tag != nil {
-		actual, exists := ch.GetTag(condition.Tag.Name)
-		if !exists || !p.matchesRegexps(actual, condition.Tag.Value) {
-			return false
-		}
-	}
+	result := p.evaluateFieldCondition(ch, condition)
 
 	if len(condition.And) > 0 {
-		for _, subCondition := range condition.And {
-			if !p.matchesCondition(ch, subCondition) {
-				return false
-			}
-		}
+		result = p.evaluateAndConditions(ch, condition.And)
+	} else if len(condition.Or) > 0 {
+		result = p.evaluateOrConditions(ch, condition.Or)
 	}
 
-	if len(condition.Or) > 0 {
-		for _, subCondition := range condition.Or {
-			if p.matchesCondition(ch, subCondition) {
-				return true
-			}
-		}
-		return false
+	if condition.Invert {
+		result = !result
 	}
 
-	if len(condition.Not) > 0 {
-		anyMatched := false
-		for _, subCondition := range condition.Not {
-			if p.matchesCondition(ch, subCondition) {
-				anyMatched = true
-				break
-			}
-		}
-		return !anyMatched
-	}
+	return result
+}
 
+func (p *Processor) evaluateFieldCondition(ch *Channel, condition rules.Condition) bool {
+	if condition.NamePatterns != nil {
+		return p.matchesRegexps(ch.Name(), condition.NamePatterns)
+	}
+	if condition.Attr != nil {
+		if actual, exists := ch.GetAttr(condition.Attr.Name); exists {
+			return p.matchesRegexps(actual, condition.Attr.Patterns)
+		}
+	}
+	if condition.Tag != nil {
+		if actual, exists := ch.GetTag(condition.Tag.Name); exists {
+			return p.matchesRegexps(actual, condition.Tag.Patterns)
+		}
+	}
+	return false
+}
+
+func (p *Processor) evaluateAndConditions(ch *Channel, conditions rules.ConditionList) bool {
+	for _, sub := range conditions {
+		if !p.matchesCondition(ch, sub) {
+			return false
+		}
+	}
 	return true
+}
+
+func (p *Processor) evaluateOrConditions(ch *Channel, conditions rules.ConditionList) bool {
+	for _, sub := range conditions {
+		if p.matchesCondition(ch, sub) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Processor) matchesRegexps(value string, regexps types.RegexpArr) bool {
@@ -163,100 +222,4 @@ func (p *Processor) matchesRegexps(value string, regexps types.RegexpArr) bool {
 		}
 	}
 	return false
-}
-
-func (p *Processor) removeFields(ch *Channel, fields []map[string]types.RegexpArr) {
-	for _, field := range fields {
-		for fieldType, regexps := range field {
-			switch fieldType {
-			case "attr":
-				if ch.Attrs() != nil {
-					for attrName := range ch.Attrs() {
-						if p.matchesRegexps(attrName, regexps) {
-							ch.DeleteAttr(attrName)
-						}
-					}
-				}
-			case "tag":
-				if ch.Tags() != nil {
-					for tagName := range ch.Tags() {
-						if p.matchesRegexps(tagName, regexps) {
-							ch.DeleteTag(tagName)
-						}
-					}
-				}
-			case "name":
-				if p.matchesRegexps("name", regexps) {
-					ch.SetName("")
-				}
-			}
-		}
-	}
-}
-
-func (p *Processor) setFields(ch *Channel, fields []rules.SetFieldSpec) {
-	for _, field := range fields {
-		var buf bytes.Buffer
-		_ = field.Value.Execute(&buf, map[string]any{
-			"Channel": map[string]any{
-				"Name":  ch.Name(),
-				"Attrs": ch.Attrs(),
-				"Tags":  ch.Tags(),
-			},
-		})
-		p.setValue(ch, field.Type, field.Name, buf.String())
-	}
-}
-
-func (p *Processor) setValue(ch *Channel, fieldType, fieldName, value string) {
-	switch fieldType {
-	case "attr":
-		ch.SetAttr(fieldName, value)
-	case "tag":
-		ch.SetTag(fieldName, value)
-	case "name":
-		ch.SetName(value)
-	}
-}
-
-func (p *Processor) expandNamedConditions(
-	channelRules []rules.ChannelRule, namedConditions []rules.NamedCondition) []rules.ChannelRule {
-	if len(namedConditions) == 0 {
-		return channelRules
-	}
-
-	conditionMap := make(map[string][]rules.Condition)
-	for _, namedCondition := range namedConditions {
-		conditionMap[namedCondition.Name] = namedCondition.When
-	}
-
-	expandedRules := make([]rules.ChannelRule, len(channelRules))
-	for i, rule := range channelRules {
-		expandedRules[i] = rule
-		expandedRules[i].When = p.expandConditions(rule.When, conditionMap)
-	}
-
-	return expandedRules
-}
-
-func (p *Processor) expandConditions(
-	conditions []rules.Condition, conditionMap map[string][]rules.Condition) []rules.Condition {
-	var expanded []rules.Condition
-
-	for _, condition := range conditions {
-		if condition.Ref != "" {
-			if namedConditions, exists := conditionMap[condition.Ref]; exists {
-				expandedNamed := p.expandConditions(namedConditions, conditionMap)
-				expanded = append(expanded, expandedNamed...)
-			}
-			continue
-		}
-
-		condition.And = p.expandConditions(condition.And, conditionMap)
-		condition.Or = p.expandConditions(condition.Or, conditionMap)
-		condition.Not = p.expandConditions(condition.Not, conditionMap)
-		expanded = append(expanded, condition)
-	}
-
-	return expanded
 }

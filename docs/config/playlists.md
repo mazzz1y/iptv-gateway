@@ -8,15 +8,18 @@ custom processing rules.
 ```yaml
 playlists:
   - name: playlist-name
-    source:
+    sources:
       - "http://example.com/playlist-1.m3u8"
       - "/path/to/local/playlist-2.m3u8"
     proxy:
       enabled: true
+    playlist_rules:
+      - remove_duplicates:
+          name: ["pattern1", "pattern2"]
     channel_rules:
-      - remove_channel: true
-        when:
-          - name: "^Test.*"
+      - remove_channel:
+          when:
+            name_patterns: ["^Test.*"]
 ```
 
 ## Fields
@@ -24,10 +27,10 @@ playlists:
 | Field            | Type                                         | Required | Description                                                     |
 |------------------|----------------------------------------------|----------|-----------------------------------------------------------------|
 | `name`           | `string`                                     | Yes      | Unique name identifier for this playlist                        |
-| `source`         | `string` or `[]string`                       | Yes      | Array of playlist sources (URLs or file paths, M3U/M3U8 format) |
+| `sources`        | `string` or `[]string`                       | Yes      | Array of playlist sources (URLs or file paths, M3U/M3U8 format) |
 | `proxy`          | [Proxy](./proxy.md)                          | No       | Playlist-specific proxy configuration                           |
-| `channel_rules`  | [[]Channel Rule](./channel_rules/index.md)   | No       | Array of channel processing rules applied to this playlist      |
 | `playlist_rules` | [[]Playlist Rule](./playlist_rules/index.md) | No       | Array of playlist processing rules applied to this playlist     |
+| `channel_rules`  | [[]Channel Rule](./channel_rules/index.md)   | No       | Array of channel processing rules applied to this playlist      |
 
 ## Examples
 
@@ -36,7 +39,7 @@ playlists:
 ```yaml
 playlists:
   - name: basic-tv
-    source:
+    sources:
       - "https://provider.com/basic.m3u8"
 ```
 
@@ -45,19 +48,19 @@ playlists:
 ```yaml
 playlists:
   - name: sports-premium
-    source:
+    sources:
       - "https://sports-provider.com/premium.m3u8"
       - "https://sports-provider.com/international.m3u8"
     playlist_rules:
       - remove_duplicates:
-          - patterns: ["4K", "UHD", "FHD", "HD", ""]
+          name_patterns: ["4K", "UHD", "FHD", "HD", ""]
     channel_rules:
       - set_field:
-          - attr:
-              name: "group-title"
-              template: "Sports"
-        when:
-          - name: ".*ESPN.*|.*Fox Sports.*|.*Sky Sports.*"
+          attr:
+            name: "group-title"
+            patterns: ["Sports"]
+          when:
+            name: ".*ESPN.*|.*Fox Sports.*|.*Sky Sports.*"
 ```
 
 ### Family Safe Playlist
@@ -65,16 +68,22 @@ playlists:
 ```yaml
 playlists:
   - name: family-safe
-    source:
+    sources:
       - "https://family-provider.com/channels.m3u8"
     proxy:
       enabled: true
     channel_rules:
-      - remove_channel: {}
-        when:
-          - or:
+      - remove_channel:
+          when:
+            or:
               - attr:
                   name: "group-title"
-                  value: "(?i)(adult|xxx|18+)"
+                  patterns: ["(?i)(adult|xxx|18+)"]
               - name: "(?i).*(adult|xxx|mature).*"
+      - set_field:
+          attr:
+            name: "group-title"
+            patterns: ["Family Safe"]
+          when:
+            name: ".*Kids.*"
 ```

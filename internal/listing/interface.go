@@ -25,7 +25,6 @@ type Playlist interface {
 	URLGenerator() *urlgen.Generator
 	ChannelRules() []rules.ChannelRule
 	PlaylistRules() []rules.PlaylistRule
-	NamedConditions() []rules.NamedCondition
 	IsProxied() bool
 }
 
