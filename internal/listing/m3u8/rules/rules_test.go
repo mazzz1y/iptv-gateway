@@ -174,14 +174,14 @@ func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
 					},
 					SetField: []configrules.SetFieldSpec{
 						{
-							Type:     "tag",
-							Name:     "EXTGRP",
-							Template: tpl("tag:EXTGRP", `{{ index .Channel.Attrs "tvg-group" }}`),
+							Type:  "tag",
+							Name:  "EXTGRP",
+							Value: tpl("tag:EXTGRP", `{{ index .Channel.Attrs "tvg-group" }}`),
 						},
 						{
-							Type:     "tag",
-							Name:     "EXT-X-LOGO",
-							Template: tpl("tag:EXT-X-LOGO", `{{ index .Channel.Attrs "tvg-logo" }}`),
+							Type:  "tag",
+							Name:  "EXT-X-LOGO",
+							Value: tpl("tag:EXT-X-LOGO", `{{ index .Channel.Attrs "tvg-logo" }}`),
 						},
 					},
 					RemoveField: []map[string]types.RegexpArr{
@@ -223,9 +223,9 @@ func TestRulesProcessor_SetField_MoveEquivalents(t *testing.T) {
 					},
 					SetField: []configrules.SetFieldSpec{
 						{
-							Type:     "attr",
-							Name:     "group-name",
-							Template: tpl("attr:group-name", `{{ index .Channel.Tags "EXTGRP" }}`),
+							Type:  "attr",
+							Name:  "group-name",
+							Value: tpl("attr:group-name", `{{ index .Channel.Tags "EXTGRP" }}`),
 						},
 					},
 					RemoveField: []map[string]types.RegexpArr{

@@ -9,9 +9,9 @@ import (
 )
 
 type SetFieldSpec struct {
-	Type     string             `yaml:"-"`
-	Name     string             `yaml:"name,omitempty"`
-	Template *template.Template `yaml:"-"`
+	Type  string             `yaml:"-"`
+	Name  string             `yaml:"name,omitempty"`
+	Value *template.Template `yaml:"-"`
 }
 
 func (sfs *SetFieldSpec) UnmarshalYAML(value *yaml.Node) error {
@@ -39,14 +39,14 @@ func (sfs *SetFieldSpec) UnmarshalYAML(value *yaml.Node) error {
 
 			sfs.Type = "name"
 			sfs.Name = ""
-			sfs.Template = tmpl
+			sfs.Value = tmpl
 
 			return nil
 		}
 
 		type fieldContent struct {
-			Name     string `yaml:"name"`
-			Template string `yaml:"template"`
+			Name  string `yaml:"name"`
+			Value string `yaml:"value"`
 		}
 
 		var content fieldContent
@@ -57,18 +57,18 @@ func (sfs *SetFieldSpec) UnmarshalYAML(value *yaml.Node) error {
 		if fieldType != "name" && content.Name == "" {
 			return fmt.Errorf("field 'name' is required for set_field action with type '%s'", fieldType)
 		}
-		if content.Template == "" {
-			return fmt.Errorf("field 'template' is required for set_field action")
+		if content.Value == "" {
+			return fmt.Errorf("field 'value' is required for set_field action")
 		}
 
-		tmpl, err := template.New(fieldType + ":" + content.Name).Funcs(sprig.TxtFuncMap()).Parse(content.Template)
+		tmpl, err := template.New(fieldType + ":" + content.Name).Funcs(sprig.TxtFuncMap()).Parse(content.Value)
 		if err != nil {
 			return fmt.Errorf("failed to parse template: %w", err)
 		}
 
 		sfs.Type = fieldType
 		sfs.Name = content.Name
-		sfs.Template = tmpl
+		sfs.Value = tmpl
 
 		return nil
 	}

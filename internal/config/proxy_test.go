@@ -37,7 +37,8 @@ error:
   command: ["error-command"]
   rate_limit_exceeded:
     template_vars:
-      message: "Rate limited"`,
+      - name: message
+        value: "Rate limited"`,
 			expected: Proxy{
 				Enabled:           boolPtr(true),
 				ConcurrentStreams: 10,
@@ -49,8 +50,8 @@ error:
 						Command: []string{"error-command"},
 					},
 					RateLimitExceeded: Handler{
-						TemplateVars: map[string]any{
-							"message": "Rate limited",
+						TemplateVars: []EnvNameValue{
+							{Name: "message", Value: "Rate limited"},
 						},
 					},
 				},

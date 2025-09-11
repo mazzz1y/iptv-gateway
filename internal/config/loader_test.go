@@ -15,19 +15,21 @@ func TestLoad(t *testing.T) {
 	}{
 		{
 			name: "valid minimal config",
-			configContent: `listen_addr: ":8080"
-public_url: "http://example.com"
-secret: "test-secret"`,
+			configContent: `server:
+  listen_addr: ":8080"
+  public_url: "http://example.com"
+url_generator:
+  secret: "test-secret"`,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				if cfg.ListenAddr != ":8080" {
-					t.Errorf("expected ListenAddr to be ':8080', got '%s'", cfg.ListenAddr)
+				if cfg.Server.ListenAddr != ":8080" {
+					t.Errorf("expected ListenAddr to be ':8080', got '%s'", cfg.Server.ListenAddr)
 				}
-				if cfg.PublicURL.String() != "http://example.com" {
-					t.Errorf("expected PublicURL to be 'http://example.com', got '%s'", cfg.PublicURL.String())
+				if cfg.Server.PublicURL.String() != "http://example.com" {
+					t.Errorf("expected PublicURL to be 'http://example.com', got '%s'", cfg.Server.PublicURL.String())
 				}
-				if cfg.Secret != "test-secret" {
-					t.Errorf("expected Secret to be 'test-secret', got '%s'", cfg.Secret)
+				if cfg.URLGenerator.Secret != "test-secret" {
+					t.Errorf("expected Secret to be 'test-secret', got '%s'", cfg.URLGenerator.Secret)
 				}
 			},
 		},
@@ -45,19 +47,21 @@ secret: "test-secret"`,
 		},
 		{
 			name:          "invalid public URL",
-			configContent: "listen_addr: \":8080\"\npublic_url: \"://invalid\"\nsecret: \"test-secret\"",
+			configContent: "server:\n  listen_addr: \":8080\"\n  public_url: \"://invalid\"\nurl_generator:\n  secret: \"test-secret\"",
 			expectError:   true,
 			validate:      nil,
 		},
 		{
 			name: "directory with multiple files",
-			configContent: `listen_addr: ":8080"
-public_url: "http://example.com"
-secret: "test-secret"`,
+			configContent: `server:
+  listen_addr: ":8080"
+  public_url: "http://example.com"
+url_generator:
+  secret: "test-secret"`,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				if cfg.ListenAddr != ":8080" {
-					t.Errorf("expected ListenAddr to be ':8080', got '%s'", cfg.ListenAddr)
+				if cfg.Server.ListenAddr != ":8080" {
+					t.Errorf("expected ListenAddr to be ':8080', got '%s'", cfg.Server.ListenAddr)
 				}
 			},
 		},

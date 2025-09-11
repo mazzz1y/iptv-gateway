@@ -1,11 +1,14 @@
 # Proxy
 
 The proxy block configures the streaming proxy functionality, also known as "remuxing".
-This feature allows the gateway to act as an intermediary between IPTV clients and upstream sources, providing stream processing, transcoding, and error handling capabilities.
+This feature allows the gateway to act as an intermediary between IPTV clients and upstream sources, providing stream
+processing, transcoding, and error handling capabilities.
 
 When proxying is enabled, the links in the playlist will be encrypted and will point to the IPTV Gateway app.
 
-The default configuration uses FFmpeg for remuxing and is ready to use out of the box. Most users can enable proxy functionality by simply setting `enabled` to `true`. Advanced users can customize commands to add transcoding, filtering, or other stream processing features.
+The default configuration uses FFmpeg for remuxing and is ready to use out of the box. Most users can enable proxy
+functionality by simply setting `enabled` to `true`. Advanced users can customize commands to add transcoding,
+filtering, or other stream processing features.
 !!! note "Rule Merging Order"
 
     Proxy can be defined at multiple levels in the configuration. It will be merged in the following order, with each level overriding the previous one:
@@ -26,59 +29,65 @@ proxy:
   concurrency: 0
   stream:
     command: []
-    template_vars: {}
-    env_vars: {}
+    template_vars: []
+    env_vars: []
   error:
     command: []
-    template_vars: {}
-    env_vars: {}
+    template_vars: []
+    env_vars: []
     upstream_error:
       command: []
-      template_vars: {}
-      env_vars: {}
+      template_vars: []
+      env_vars: []
     rate_limit_exceeded:
       command: []
-      template_vars: {}
-      env_vars: {}
+      template_vars: []
+      env_vars: []
     link_expired:
       command: []
-      template_vars: {}
-      env_vars: {}
+      template_vars: []
+      env_vars: []
 ```
 
 ## Fields
 
 ### Main Proxy Configuration
 
-| Field         | Type      | Required | Description                                        |
-|---------------|-----------|----------|----------------------------------------------------|
-| `enabled`     | `bool`    | No       | Enable or disable proxy functionality             |
-| `concurrency` | `int`     | No       | Maximum concurrent streams (0 = unlimited)        |
-| `stream`      | `command` | No       | Command configuration for stream processing       |
-| `error`       | `command` | No       | Default error handling configuration              |
+| Field         | Type      | Required | Description                                 |
+|---------------|-----------|----------|---------------------------------------------|
+| `enabled`     | `bool`    | No       | Enable or disable proxy functionality       |
+| `concurrency` | `int`     | No       | Maximum concurrent streams (0 = unlimited)  |
+| `stream`      | `command` | No       | Command configuration for stream processing |
+| `error`       | `command` | No       | Default error handling configuration        |
 
 ### Command Object
 
-| Field           | Type                | Required | Description                              |
-|-----------------|---------------------|----------|------------------------------------------|
-| `command`       | `[]gotemplate`      | No       | Command array to execute                 |
-| `template_vars` | `map[string]any`    | No       | Variables available in command templates |
-| `env_vars`      | `map[string]string` | No     | Environment variables for the command    |
+| Field           | Type               | Required | Description                              |
+|-----------------|--------------------|----------|------------------------------------------|
+| `command`       | `[]gotemplate`     | No       | Command array to execute                 |
+| `template_vars` | `[]env_name_value` | No       | Variables available in command templates |
+| `env_vars`      | `[]env_name_value` | No       | Environment variables for the command    |
+
+### Name Value Pair Object
+
+| Field   | Type     | Required | Description    |
+|---------|----------|----------|----------------|
+| `name`  | `string` | Yes      | Variable name  |
+| `value` | `string` | Yes      | Variable value |
 
 ### Error Handling Objects
 
-| Field                   | Type      | Required | Description                                    |
-|-------------------------|-----------|----------|------------------------------------------------|
-| `upstream_error`        | `command` | No       | Command to run when upstream source fails     |
-| `rate_limit_exceeded`   | `command` | No       | Command to run when rate limits are hit       |
-| `link_expired`          | `command` | No       | Command to run when stream links expire       |
+| Field                 | Type      | Required | Description                               |
+|-----------------------|-----------|----------|-------------------------------------------|
+| `upstream_error`      | `command` | No       | Command to run when upstream source fails |
+| `rate_limit_exceeded` | `command` | No       | Command to run when rate limits are hit   |
+| `link_expired`        | `command` | No       | Command to run when stream links expire   |
 
 ### Available Template Variables
 
-| Variable        | Type                | Description |
-|-----------------|---------------------|-------------|
-| `url`           | `string`            | Stream URL  |
-
+| Variable | Type     | Description |
+|----------|----------|-------------|
+| `url`    | `string` | Stream URL  |
 
 ## Examples
 
@@ -99,6 +108,8 @@ proxy:
   stream:
     command:
       - "ffmpeg"
+      - "-v"
+      - "{{ default \"fatal\" .ffmpeg_log_level }}"
       - "-i"
       - "{{ .url }}"
       - "-c:v"
@@ -108,8 +119,12 @@ proxy:
       - "-f"
       - "mpegts"
       - "pipe:1"
+    template_vars:
+      - name: ffmpeg_log_level
+        value: "error"
     env_vars:
-      FFMPEG_LOG_LEVEL: "error"
+      - name: FFMPEG_LOG_LEVEL
+        value: "error"
 ```
 
 ### Error Handling with Test Pattern
@@ -121,6 +136,8 @@ proxy:
     upstream_error:
       command:
         - "ffmpeg"
+        - "-v"
+        - "{{ default \"fatal\" .ffmpeg_log_level }}"
         - "-f"
         - "lavfi"
         - "-i"
@@ -138,4 +155,15 @@ proxy:
         - "-f"
         - "mpegts"
         - "pipe:1"
+      template_vars:
+        - name: ffmpeg_log_level
+          value: "fatal"
+    rate_limit_exceeded:
+      template_vars:
+        - name: message
+          value: "Rate limit exceeded. Please try again later."
+    link_expired:
+      template_vars:
+        - name: message
+          value: "Link has expired. Please refresh your playlist."
 ```

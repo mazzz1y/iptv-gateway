@@ -197,7 +197,7 @@ func (p *Processor) removeFields(ch *Channel, fields []map[string]types.RegexpAr
 func (p *Processor) setFields(ch *Channel, fields []rules.SetFieldSpec) {
 	for _, field := range fields {
 		var buf bytes.Buffer
-		_ = field.Template.Execute(&buf, map[string]any{
+		_ = field.Value.Execute(&buf, map[string]any{
 			"Channel": map[string]any{
 				"Name":  ch.Name(),
 				"Attrs": ch.Attrs(),

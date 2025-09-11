@@ -59,14 +59,14 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		cache:      c,
 		httpClient: c.NewCachedHTTPClient(),
 		demux:      demux.NewDemuxer(),
-		serverURL:  cfg.PublicURL.String(),
-		listenAddr: cfg.ListenAddr,
+		serverURL:  cfg.Server.PublicURL.String(),
+		listenAddr: cfg.Server.ListenAddr,
 		ctx:        ctx,
 		cancel:     cancel,
 	}
 
-	if cfg.MetricsAddr != "" {
-		server.setupMetricsServer(cfg.MetricsAddr)
+	if cfg.Server.MetricsAddr != "" {
+		server.setupMetricsServer(cfg.Server.MetricsAddr)
 	}
 
 	return server, nil

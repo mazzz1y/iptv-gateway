@@ -18,7 +18,7 @@ func TestSetFieldSpec_UnmarshalYAML(t *testing.T) {
 			yamlData: `
 attr:
   name: "group-title"
-  template: "{{.Channel.Name}} Group"`,
+  value: "{{.Channel.Name}} Group"`,
 			wantErr: false,
 			validate: func(t *testing.T, spec SetFieldSpec) {
 				if spec.Type != "attr" {
@@ -27,8 +27,8 @@ attr:
 				if spec.Name != "group-title" {
 					t.Errorf("expected Name to be 'group-title', got '%s'", spec.Name)
 				}
-				if spec.Template == nil {
-					t.Error("expected Template to be set")
+				if spec.Value == nil {
+					t.Error("expected Value to be set")
 				}
 			},
 		},
@@ -37,7 +37,7 @@ attr:
 			yamlData: `
 tag:
   name: "custom-tag"
-  template: "prefix-{{.Channel.Tags.existing}}"`,
+  value: "prefix-{{.Channel.Tags.existing}}"`,
 			wantErr: false,
 			validate: func(t *testing.T, spec SetFieldSpec) {
 				if spec.Type != "tag" {
@@ -52,7 +52,7 @@ tag:
 			name: "valid name field",
 			yamlData: `
 name:
-  template: "{{.Channel.Name}} - Modified"`,
+  value: "{{.Channel.Name}} - Modified"`,
 			wantErr: false,
 			validate: func(t *testing.T, spec SetFieldSpec) {
 				if spec.Type != "name" {
@@ -74,20 +74,20 @@ attr:
 			name: "missing name for non-name field",
 			yamlData: `
 attr:
-  template: "some template"`,
+  value: "some template"`,
 			wantErr: true,
 		},
 		{
-			name: "empty field spec",
+			name:     "empty field spec",
 			yamlData: `{}`,
-			wantErr: true,
+			wantErr:  true,
 		},
 		{
 			name: "invalid template syntax",
 			yamlData: `
 attr:
   name: "test"
-  template: "{{.Invalid.Template.Syntax"`,
+  value: "{{.Invalid.Value.Syntax"`,
 			wantErr: true,
 		},
 	}

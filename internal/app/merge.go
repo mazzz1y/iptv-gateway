@@ -58,32 +58,31 @@ func mergeHandlers(handlers ...config.Handler) config.Handler {
 		if len(handler.Command) > 0 {
 			result.Command = handler.Command
 		}
-
-		mergeTemplateVars(&result, handler)
-		mergeEnvVars(&result, handler)
+		mergePairs(&result.TemplateVars, handler.TemplateVars)
+		mergePairs(&result.EnvVars, handler.EnvVars)
 	}
 
 	return result
 }
 
-func mergeTemplateVars(result *config.Handler, handler config.Handler) {
-	if len(handler.TemplateVars) > 0 {
-		if result.TemplateVars == nil {
-			result.TemplateVars = make(map[string]any, len(handler.TemplateVars))
-		}
-		for k, v := range handler.TemplateVars {
-			result.TemplateVars[k] = v
-		}
+func mergePairs[T ~[]config.EnvNameValue](result *T, handler T) {
+	if len(handler) == 0 {
+		return
 	}
-}
 
-func mergeEnvVars(result *config.Handler, handler config.Handler) {
-	if len(handler.EnvVars) > 0 {
-		if result.EnvVars == nil {
-			result.EnvVars = make(map[string]string)
-		}
-		for k, v := range handler.EnvVars {
-			result.EnvVars[k] = v
-		}
+	varMap := make(map[string]string, len(*result)+len(handler))
+
+	for _, v := range *result {
+		varMap[v.Name] = v.Value
 	}
+	for _, v := range handler {
+		varMap[v.Name] = v.Value
+	}
+
+	merged := make([]config.EnvNameValue, 0, len(varMap))
+	for name, value := range varMap {
+		merged = append(merged, config.EnvNameValue{Name: name, Value: value})
+	}
+
+	*result = merged
 }

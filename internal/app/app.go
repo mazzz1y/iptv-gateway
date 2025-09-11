@@ -25,7 +25,7 @@ func NewManager(cfg *config.Config) (*Manager, error) {
 	manager := &Manager{
 		config:         cfg,
 		secretToClient: make(map[string]*Client),
-		publicURLBase:  cfg.PublicURL.String(),
+		publicURLBase:  cfg.Server.PublicURL.String(),
 	}
 
 	if cfg.Proxy.Enabled != nil && *cfg.Proxy.Enabled && cfg.Proxy.ConcurrentStreams > 0 {

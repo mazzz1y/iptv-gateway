@@ -18,9 +18,7 @@ iptv-gateway -config ./config      # from directory
 
 | Field            | Type                                             | Description                                               |
 |------------------|--------------------------------------------------|-----------------------------------------------------------|
-| `listen_addr`    | `string`                                         | Server listening address                                  |
-| `metrics_addr`   | `string`                                         | Prometheus metrics server address                         |
-| `public_url`     | `string`                                         | Public URL for generating links                           |
+| `server`         | `server`                                         | Server configuration including listening addresses and public URL |
 | `url_generator`  | [URL Generator](./config/url_generator.md)       | URL generation and encryption configuration               |
 | `log`            | [Log](./config/log.md)                           | Logging configuration                                     |
 | `proxy`          | [Proxy](./config/proxy.md)                       | Stream proxy configuration for remuxing with ffmpeg       |
@@ -44,9 +42,15 @@ iptv-gateway -config ./config      # from directory
     - `{public_url}/{client_secret}/epg.xml.gz`
 
 ```yaml
-listen_addr: ":8080"
-metrics_addr: ":9090"
-public_url: "https://iptv.example.com"
+server:
+  listen_addr: ":8080"
+  metrics_addr: ":9090"
+  public_url: "https://iptv.example.com"
+
+url_generator:
+  secret: "your-secret-key"
+  stream_ttl: "720h"  # 30 days
+  file_ttl: "0s"      # no expiration
 
 log:
   level: info

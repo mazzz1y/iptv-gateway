@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/logging"
 	"os"
 	"os/exec"
@@ -25,7 +26,7 @@ type Streamer struct {
 	tmplVars map[string]any
 }
 
-func NewShellStreamer(command []string, envVars map[string]string, tmplVars map[string]any) (*Streamer, error) {
+func NewShellStreamer(command []string, envVars []config.EnvNameValue, tmplVars []config.EnvNameValue) (*Streamer, error) {
 	cmdTmpl := make([]*template.Template, 0, len(command))
 
 	for _, cmdPart := range command {
@@ -41,14 +42,19 @@ func NewShellStreamer(command []string, envVars map[string]string, tmplVars map[
 	}
 
 	environ := os.Environ()
-	for key, value := range envVars {
-		environ = append(environ, key+"="+value)
+	for _, envVar := range envVars {
+		environ = append(environ, envVar.Name+"="+envVar.Value)
+	}
+
+	tmplVarMap := make(map[string]any, len(tmplVars))
+	for _, tmplVar := range tmplVars {
+		tmplVarMap[tmplVar.Name] = tmplVar.Value
 	}
 
 	return &Streamer{
 		cmdTmpl:  cmdTmpl,
 		envVars:  environ,
-		tmplVars: tmplVars,
+		tmplVars: tmplVarMap,
 	}, nil
 }
 

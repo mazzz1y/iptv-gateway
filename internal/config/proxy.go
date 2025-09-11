@@ -6,6 +6,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type EnvNameValue struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
 type Proxy struct {
 	Enabled           *bool   `yaml:"enabled"`
 	ConcurrentStreams int64   `yaml:"concurrency"`
@@ -33,6 +38,6 @@ type Error struct {
 
 type Handler struct {
 	Command      types.StringOrArr `yaml:"command,omitempty"`
-	TemplateVars map[string]any    `yaml:"template_vars,omitempty"`
-	EnvVars      map[string]string `yaml:"env_vars,omitempty"`
+	TemplateVars []EnvNameValue    `yaml:"template_vars,omitempty"`
+	EnvVars      []EnvNameValue    `yaml:"env_vars,omitempty"`
 }

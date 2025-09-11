@@ -10,8 +10,8 @@ import (
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
-	if cfg.ListenAddr != ":8080" {
-		t.Errorf("expected default ListenAddr to be ':8080', got '%s'", cfg.ListenAddr)
+	if cfg.Server.ListenAddr != ":8080" {
+		t.Errorf("expected default ListenAddr to be ':8080', got '%s'", cfg.Server.ListenAddr)
 	}
 
 	if cfg.Log.Level != "info" {
@@ -44,15 +44,15 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("expected default proxy error command to be set")
 	}
 
-	if cfg.Proxy.Error.RateLimitExceeded.TemplateVars == nil {
+	if len(cfg.Proxy.Error.RateLimitExceeded.TemplateVars) == 0 {
 		t.Error("expected default rate limit exceeded template vars to be set")
 	}
 
-	if cfg.Proxy.Error.LinkExpired.TemplateVars == nil {
+	if len(cfg.Proxy.Error.LinkExpired.TemplateVars) == 0 {
 		t.Error("expected default link expired template vars to be set")
 	}
 
-	if cfg.Proxy.Error.UpstreamError.TemplateVars == nil {
+	if len(cfg.Proxy.Error.UpstreamError.TemplateVars) == 0 {
 		t.Error("expected default upstream error template vars to be set")
 	}
 }
