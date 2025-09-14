@@ -26,12 +26,21 @@ func (p *Processor) AddSubscription(sub listing.Playlist) {
 }
 
 func (p *Processor) Process(store *Store) {
-	p.processStoreRules(store)
 	p.processTrackRules(store)
+	p.processStoreRules(store)
 }
 
 func (p *Processor) processStoreRules(store *Store) {
-	p.processRemoveDuplicatesRules(store)
+	for _, rule := range p.playlistRules {
+		if rule.SortRule != nil {
+			processor := NewSortProcessor(rule.SortRule)
+			processor.Apply(store)
+		}
+		if rule.RemoveDuplicates != nil {
+			processor := NewRemoveDuplicatesActionProcessor(rule.RemoveDuplicates)
+			processor.Apply(store)
+		}
+	}
 }
 
 func (p *Processor) processTrackRules(store *Store) {
@@ -46,7 +55,8 @@ func (p *Processor) processTrackRules(store *Store) {
 
 func (p *Processor) processChannelWithRules(ch *Channel, rules []channel.Rule) {
 	for _, rule := range rules {
-		if p.processChannelRule(ch, rule) {
+		stop := p.processChannelRule(ch, rule)
+		if stop {
 			return
 		}
 	}
@@ -141,15 +151,6 @@ func (p *Processor) processMarkHidden(ch *Channel, rule *channel.MarkHiddenRule)
 		return
 	}
 	ch.MarkHidden()
-}
-
-func (p *Processor) processRemoveDuplicatesRules(global *Store) {
-	for _, rule := range p.playlistRules {
-		if rule.RemoveDuplicates != nil {
-			processor := NewRemoveDuplicatesActionProcessor(rule.RemoveDuplicates)
-			processor.Apply(global)
-		}
-	}
 }
 
 func (p *Processor) matchesCondition(ch *Channel, condition rules.Condition) bool {

@@ -29,6 +29,14 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("unknown config key: %s", key)
 		}
 	}
+
+	for _, rul := range c.PlaylistRules {
+		err := rul.Validate()
+		if err != nil {
+			return fmt.Errorf("playlist rule validation failed: %w", err)
+		}
+	}
+
 	return nil
 }
 

@@ -4,16 +4,12 @@ Playlist rules operate on the entire playlist and can modify or filter channel l
 
 !!! note "Rule Processing Order"
 
-    Global Rules ➡ Subscription Rules ➡ Preset Rules ➡ Client Rules
+    Global Rules ➡ Preset Rules ➡ Client Rules
 
 ## YAML Structure
 
 ```yaml
 playlist_rules:
   - <rule_name>:
-      # rule configuration (see below)
+    # rule configuration
 ```
-
-## Fields
-
-*For other fields, see specific rule types.*

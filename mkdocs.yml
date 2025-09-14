@@ -42,6 +42,7 @@ nav:
       - Playlist Rules:
           - Overview: config/playlist_rules/index.md
           - Remove Duplicates: config/playlist_rules/remove_duplicates.md
+          - Sort: config/playlist_rules/sort.md
       - Presets: config/presets.md
       - Clients: config/clients.md
       - Common Fields: config/common.md

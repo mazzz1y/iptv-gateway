@@ -13,9 +13,6 @@ playlists:
       - "/path/to/local/playlist-2.m3u8"
     proxy:
       enabled: true
-    playlist_rules:
-      - remove_duplicates:
-          name: ["pattern1", "pattern2"]
     channel_rules:
       - remove_channel:
           when:
@@ -29,7 +26,6 @@ playlists:
 | `name`           | `string`                                     | Yes      | Unique name identifier for this playlist                        |
 | `sources`        | `string` or `[]string`                       | Yes      | Array of playlist sources (URLs or file paths, M3U/M3U8 format) |
 | `proxy`          | [Proxy](./proxy.md)                          | No       | Playlist-specific proxy configuration                           |
-| `playlist_rules` | [[]Playlist Rule](./playlist_rules/index.md) | No       | Array of playlist processing rules applied to this playlist     |
 | `channel_rules`  | [[]Channel Rule](./channel_rules/index.md)   | No       | Array of channel processing rules applied to this playlist      |
 
 ## Examples
@@ -51,9 +47,6 @@ playlists:
     sources:
       - "https://sports-provider.com/premium.m3u8"
       - "https://sports-provider.com/international.m3u8"
-    playlist_rules:
-      - remove_duplicates:
-          name_patterns: ["4K", "UHD", "FHD", "HD", ""]
     channel_rules:
       - set_field:
           attr:

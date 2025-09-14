@@ -1,13 +1,8 @@
 package rules
 
-import (
-	"sync"
-)
-
 type Store struct {
 	channels []*Channel
 	counter  int
-	mu       sync.RWMutex
 }
 
 func NewStore() *Store {
@@ -18,21 +13,18 @@ func NewStore() *Store {
 }
 
 func (s *Store) Add(channel *Channel) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.channels = append(s.channels, channel)
 	s.counter++
 }
 
+func (s *Store) Replace(channels []*Channel) {
+	s.channels = channels
+}
+
 func (s *Store) All() []*Channel {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	return s.channels
 }
 
 func (s *Store) Len() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	return s.counter
 }
