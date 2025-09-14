@@ -3,19 +3,21 @@ package rules
 import (
 	"bytes"
 	"iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/rules/channel"
+	"iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/listing"
 )
 
 type Processor struct {
-	subscriptionChannelRulesMap  map[listing.Playlist][]rules.ChannelRule
-	subscriptionPlaylistRulesMap map[listing.Playlist][]rules.PlaylistRule
+	subscriptionChannelRulesMap  map[listing.Playlist][]channel.Rule
+	subscriptionPlaylistRulesMap map[listing.Playlist][]playlist.Rule
 }
 
 func NewProcessor() *Processor {
 	return &Processor{
-		subscriptionChannelRulesMap:  make(map[listing.Playlist][]rules.ChannelRule),
-		subscriptionPlaylistRulesMap: make(map[listing.Playlist][]rules.PlaylistRule),
+		subscriptionChannelRulesMap:  make(map[listing.Playlist][]channel.Rule),
+		subscriptionPlaylistRulesMap: make(map[listing.Playlist][]playlist.Rule),
 	}
 }
 
@@ -43,7 +45,7 @@ func (p *Processor) processTrackRules(store *Store) {
 	}
 }
 
-func (p *Processor) processChannelWithRules(ch *Channel, rules []rules.ChannelRule) {
+func (p *Processor) processChannelWithRules(ch *Channel, rules []channel.Rule) {
 	for _, rule := range rules {
 		if p.processChannelRule(ch, rule) {
 			return
@@ -51,7 +53,7 @@ func (p *Processor) processChannelWithRules(ch *Channel, rules []rules.ChannelRu
 	}
 }
 
-func (p *Processor) processChannelRule(ch *Channel, rule rules.ChannelRule) (stop bool) {
+func (p *Processor) processChannelRule(ch *Channel, rule channel.Rule) (stop bool) {
 	if rule.SetField != nil {
 		p.processSetField(ch, rule.SetField)
 		stop = false
@@ -67,7 +69,7 @@ func (p *Processor) processChannelRule(ch *Channel, rule rules.ChannelRule) (sto
 	return
 }
 
-func (p *Processor) processSetField(ch *Channel, rule *rules.SetFieldRule) {
+func (p *Processor) processSetField(ch *Channel, rule *channel.SetFieldRule) {
 	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
 		return
 	}
@@ -100,7 +102,7 @@ func (p *Processor) processSetField(ch *Channel, rule *rules.SetFieldRule) {
 	}
 }
 
-func (p *Processor) processRemoveField(ch *Channel, rule *rules.RemoveFieldRule) {
+func (p *Processor) processRemoveField(ch *Channel, rule *channel.RemoveFieldRule) {
 	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
 		return
 	}
@@ -127,7 +129,7 @@ func (p *Processor) processRemoveField(ch *Channel, rule *rules.RemoveFieldRule)
 	}
 }
 
-func (p *Processor) processRemoveChannel(ch *Channel, rule *rules.RemoveChannelRule) bool {
+func (p *Processor) processRemoveChannel(ch *Channel, rule *channel.RemoveChannelRule) bool {
 	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
 		return false
 	}
@@ -135,7 +137,7 @@ func (p *Processor) processRemoveChannel(ch *Channel, rule *rules.RemoveChannelR
 	return true
 }
 
-func (p *Processor) processMarkHidden(ch *Channel, rule *rules.MarkHiddenRule) {
+func (p *Processor) processMarkHidden(ch *Channel, rule *channel.MarkHiddenRule) {
 	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
 		return
 	}

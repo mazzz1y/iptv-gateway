@@ -1,26 +1,16 @@
-package rules
+package playlist
 
 import (
 	"fmt"
+	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 )
-
-type PlaylistRule struct {
-	RemoveDuplicates *RemoveDuplicatesRule `yaml:"remove_duplicates,omitempty"`
-}
 
 type RemoveDuplicatesRule struct {
 	NamePatterns types.RegexpArr     `yaml:"name_patterns,omitempty"`
 	AttrPatterns *types.NamePatterns `yaml:"attr,omitempty"`
 	TagPatterns  *types.NamePatterns `yaml:"tag,omitempty"`
-	When         *Condition          `yaml:"when,omitempty"`
-}
-
-func (p *PlaylistRule) Validate() error {
-	if p.RemoveDuplicates != nil {
-		return p.RemoveDuplicates.Validate()
-	}
-	return fmt.Errorf("playlist rule: at least one rule type must be specified")
+	When         *rules.Condition    `yaml:"when,omitempty"`
 }
 
 func (r *RemoveDuplicatesRule) Validate() error {

@@ -2,6 +2,7 @@ package rules
 
 import (
 	configrules "iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/rules/playlist"
 	"regexp"
 	"strings"
 )
@@ -12,7 +13,7 @@ type RemoveDuplicatesProcessor struct {
 	Patterns  []*regexp.Regexp
 }
 
-func NewRemoveDuplicatesActionProcessor(rule *configrules.RemoveDuplicatesRule) *RemoveDuplicatesProcessor {
+func NewRemoveDuplicatesActionProcessor(rule *playlist.RemoveDuplicatesRule) *RemoveDuplicatesProcessor {
 	if len(rule.NamePatterns) > 0 {
 		return &RemoveDuplicatesProcessor{
 			FieldType: configrules.FieldTypeName,

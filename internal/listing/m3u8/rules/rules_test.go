@@ -3,6 +3,8 @@ package rules_test
 import (
 	"bytes"
 	configrules "iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/rules/channel"
+	"iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
@@ -19,7 +21,7 @@ import (
 
 type mockSubscription struct {
 	name         string
-	channelRules []configrules.ChannelRule
+	channelRules []channel.Rule
 }
 
 func (m mockSubscription) IsProxied() bool {
@@ -34,11 +36,11 @@ func (m mockSubscription) URLGenerator() *urlgen.Generator {
 	return nil
 }
 
-func (m mockSubscription) ChannelRules() []configrules.ChannelRule {
+func (m mockSubscription) ChannelRules() []channel.Rule {
 	return m.channelRules
 }
 
-func (m mockSubscription) PlaylistRules() []configrules.PlaylistRule {
+func (m mockSubscription) PlaylistRules() []playlist.Rule {
 	return nil
 }
 
@@ -57,16 +59,16 @@ func (m mockSubscription) ExpiredCommandStreamer() *shell.Streamer {
 func TestRulesProcessor_RemoveField(t *testing.T) {
 	tests := []struct {
 		name          string
-		rules         []configrules.ChannelRule
+		rules         []channel.Rule
 		track         *m3u8.Track
 		shouldRemove  bool
 		expectedTrack *m3u8.Track
 	}{
 		{
 			name: "remove channel by attr",
-			rules: []configrules.ChannelRule{
+			rules: []channel.Rule{
 				{
-					RemoveChannel: &configrules.RemoveChannelRule{
+					RemoveChannel: &channel.RemoveChannelRule{
 						When: &configrules.Condition{
 							Attr: &types.NamePatterns{
 								Name:     "tvg-group",
@@ -84,9 +86,9 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 		},
 		{
 			name: "remove fields",
-			rules: []configrules.ChannelRule{
+			rules: []channel.Rule{
 				{
-					SetField: &configrules.SetFieldRule{
+					SetField: &channel.SetFieldRule{
 						AttrTemplate: &types.NameTemplate{
 							Name:     "tvg-id",
 							Template: mustCreateTemplate(""),
@@ -151,9 +153,9 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 }
 
 func TestRulesProcessor_SetField(t *testing.T) {
-	channelRules := []configrules.ChannelRule{
+	channelRules := []channel.Rule{
 		{
-			SetField: &configrules.SetFieldRule{
+			SetField: &channel.SetFieldRule{
 				AttrTemplate: &types.NameTemplate{
 					Name:     "tvg-group",
 					Template: mustCreateTemplate("music"),
