@@ -33,8 +33,7 @@ type Playlist struct {
 func NewPlaylist(
 	name string, urlGen urlgen.Generator,
 	sources []string,
-	proxy config.Proxy, channelRules []channel.Rule, playlistRules []playlist.Rule,
-	sem *semaphore.Weighted) (*Playlist, error) {
+	proxy config.Proxy, channelRules []channel.Rule, sem *semaphore.Weighted) (*Playlist, error) {
 
 	streamStreamer, err := shell.NewShellStreamer(
 		proxy.Stream.Command,
@@ -79,7 +78,6 @@ func NewPlaylist(
 		semaphore:             sem,
 		proxyConfig:           proxy,
 		channelRules:          channelRules,
-		playlistRules:         playlistRules,
 		linkStreamer:          streamStreamer,
 		rateLimitStreamer:     rateLimitStreamer,
 		upstreamErrorStreamer: upstreamErrorStreamer,

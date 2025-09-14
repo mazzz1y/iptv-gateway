@@ -35,7 +35,8 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-mpegurl")
 	w.Header().Set("Cache-Control", "no-cache")
 
-	streamer := m3u8.NewStreamer(c.PlaylistSubscriptions(), c.EpgLink(), s.httpClient)
+	streamer := m3u8.NewStreamer(
+		c.PlaylistSubscriptions(), c.EpgLink(), c.PlaylistRules(), s.httpClient)
 	if _, err := streamer.WriteTo(ctx, w); err != nil {
 		logging.Error(ctx, err, "failed to write playlist")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -155,7 +156,9 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error) {
 	c := ctxutil.Client(ctx).(*app.Client)
 
-	m3u8Streamer := m3u8.NewStreamer(c.PlaylistSubscriptions(), "", s.httpClient)
+	m3u8Streamer := m3u8.NewStreamer(
+		c.PlaylistSubscriptions(), "", c.PlaylistRules(), s.httpClient)
+
 	channels, err := m3u8Streamer.GetAllChannels(ctx)
 	if err != nil {
 		logging.Error(ctx, err, "failed to get channels")

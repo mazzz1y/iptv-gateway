@@ -132,17 +132,17 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			processor := rules.NewProcessor()
+			processor := rules.NewProcessor(nil)
 			sub := &mockSubscription{name: "test", channelRules: tt.rules}
 			processor.AddSubscription(sub)
 
 			store := rules.NewStore()
-			channel := rules.NewChannel(tt.track, sub)
-			store.Add(channel)
+			ch := rules.NewChannel(tt.track, sub)
+			store.Add(ch)
 
 			processor.Process(store)
 
-			assert.Equal(t, tt.shouldRemove, channel.IsRemoved())
+			assert.Equal(t, tt.shouldRemove, ch.IsRemoved())
 			if !tt.shouldRemove && tt.expectedTrack != nil {
 				assert.Equal(t, tt.expectedTrack.Name, tt.track.Name)
 				assert.Equal(t, tt.expectedTrack.Attrs, tt.track.Attrs)
@@ -164,7 +164,7 @@ func TestRulesProcessor_SetField(t *testing.T) {
 		},
 	}
 
-	processor := rules.NewProcessor()
+	processor := rules.NewProcessor(nil)
 	sub := &mockSubscription{name: "test", channelRules: channelRules}
 	processor.AddSubscription(sub)
 
@@ -176,8 +176,8 @@ func TestRulesProcessor_SetField(t *testing.T) {
 	}
 
 	store := rules.NewStore()
-	channel := rules.NewChannel(track, sub)
-	store.Add(channel)
+	ch := rules.NewChannel(track, sub)
+	store.Add(ch)
 
 	processor.Process(store)
 

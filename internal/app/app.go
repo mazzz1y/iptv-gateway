@@ -81,7 +81,7 @@ func (m *Manager) createClient(clientName string, clientConf config.Client) (*Cl
 		return nil, err
 	}
 
-	clientInstance, err := NewClient(clientName, clientConf, presets, m.publicURLBase)
+	clientInstance, err := NewClient(clientName, clientConf, presets, m.config.PlaylistRules, m.publicURLBase)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize client %s: %w", clientName, err)
 	}

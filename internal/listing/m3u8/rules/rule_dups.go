@@ -8,42 +8,46 @@ import (
 )
 
 type RemoveDuplicatesProcessor struct {
-	FieldType string
-	FieldName string
-	Patterns  []*regexp.Regexp
+	FieldType   string
+	FieldName   string
+	Patterns    []*regexp.Regexp
+	TrimPattern bool
 }
 
 func NewRemoveDuplicatesActionProcessor(rule *playlist.RemoveDuplicatesRule) *RemoveDuplicatesProcessor {
 	if len(rule.NamePatterns) > 0 {
 		return &RemoveDuplicatesProcessor{
-			FieldType: configrules.FieldTypeName,
-			Patterns:  rule.NamePatterns.ToArray(),
+			FieldType:   configrules.FieldTypeName,
+			Patterns:    rule.NamePatterns.ToArray(),
+			TrimPattern: rule.TrimPattern,
 		}
 	}
 	if rule.AttrPatterns != nil {
 		return &RemoveDuplicatesProcessor{
-			FieldType: configrules.FieldTypeAttr,
-			FieldName: rule.AttrPatterns.Name,
-			Patterns:  rule.AttrPatterns.Patterns.ToArray(),
+			FieldType:   configrules.FieldTypeAttr,
+			FieldName:   rule.AttrPatterns.Name,
+			Patterns:    rule.AttrPatterns.Patterns.ToArray(),
+			TrimPattern: rule.TrimPattern,
 		}
 	}
 	if rule.TagPatterns != nil {
 		return &RemoveDuplicatesProcessor{
-			FieldType: configrules.FieldTypeTag,
-			FieldName: rule.TagPatterns.Name,
-			Patterns:  rule.TagPatterns.Patterns.ToArray(),
+			FieldType:   configrules.FieldTypeTag,
+			FieldName:   rule.TagPatterns.Name,
+			Patterns:    rule.TagPatterns.Patterns.ToArray(),
+			TrimPattern: rule.TrimPattern,
 		}
 	}
 	return &RemoveDuplicatesProcessor{}
 }
 
-func (p *RemoveDuplicatesProcessor) Apply(global, sub *Store) {
+func (p *RemoveDuplicatesProcessor) Apply(global *Store) {
 	grouped := make(map[string][]*Channel)
 	for _, ch := range global.All() {
 		key := p.extractBaseName(ch)
 		grouped[key] = append(grouped[key], ch)
 	}
-	p.processDuplicateGroups(grouped, sub)
+	p.processDuplicateGroups(grouped)
 }
 
 func (p *RemoveDuplicatesProcessor) extractBaseName(ch *Channel) string {
@@ -87,34 +91,18 @@ func (p *RemoveDuplicatesProcessor) selectBestChannel(channels []*Channel) *Chan
 	return channels[0]
 }
 
-func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*Channel, sub *Store) {
-	subMap := make(map[*Channel]bool)
-	for _, ch := range sub.All() {
-		subMap[ch] = true
-	}
-	for _, group := range groups {
+func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*Channel) {
+	for baseName, group := range groups {
 		if len(group) <= 1 {
 			continue
 		}
 		best := p.selectBestChannel(group)
-		var subGroup []*Channel
 		for _, ch := range group {
-			if subMap[ch] {
-				subGroup = append(subGroup, ch)
-			}
-		}
-		if len(subGroup) == 0 {
-			continue
-		}
-		bestInSub := false
-		for _, ch := range subGroup {
 			if ch == best {
-				bestInSub = true
-				break
-			}
-		}
-		for _, ch := range subGroup {
-			if !bestInSub || ch != best {
+				if p.TrimPattern {
+					ch.SetName(baseName)
+				}
+			} else {
 				ch.MarkRemoved()
 			}
 		}

@@ -10,6 +10,7 @@ type RemoveDuplicatesRule struct {
 	NamePatterns types.RegexpArr     `yaml:"name_patterns,omitempty"`
 	AttrPatterns *types.NamePatterns `yaml:"attr,omitempty"`
 	TagPatterns  *types.NamePatterns `yaml:"tag,omitempty"`
+	TrimPattern  bool                `yaml:"trim_pattern,omitempty"`
 	When         *rules.Condition    `yaml:"when,omitempty"`
 }
 

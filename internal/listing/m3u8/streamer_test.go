@@ -52,7 +52,6 @@ func createTestSubscription(name string, playlists []string) (*app.Playlist, err
 		playlists,
 		config.Proxy{},
 		nil,
-		nil,
 		sem,
 	)
 }

@@ -36,7 +36,8 @@ type Provider interface {
 	Type() string
 }
 
-func NewClient(name string, clientCfg config.Client, presets []config.Preset, publicUrl string) (*Client, error) {
+func NewClient(name string, clientCfg config.Client,
+	presets []config.Preset, globalPlaylistRules []playlist.Rule, publicUrl string) (*Client, error) {
 	if clientCfg.Secret == "" {
 		return nil, fmt.Errorf("client secret cannot be empty")
 	}
@@ -46,6 +47,12 @@ func NewClient(name string, clientCfg config.Client, presets []config.Preset, pu
 		sem = semaphore.NewWeighted(clientCfg.Proxy.ConcurrentStreams)
 	}
 
+	var mergedPlaylistRules []playlist.Rule
+	for _, preset := range presets {
+		mergedPlaylistRules = mergeArrays(globalPlaylistRules, preset.PlaylistRules)
+	}
+	mergedPlaylistRules = mergeArrays(mergedPlaylistRules, clientCfg.PlaylistRules)
+
 	return &Client{
 		name:          name,
 		semaphore:     sem,
@@ -53,41 +60,36 @@ func NewClient(name string, clientCfg config.Client, presets []config.Preset, pu
 		proxy:         clientCfg.Proxy,
 		secret:        clientCfg.Secret,
 		rules:         clientCfg.ChannelRules,
-		playlistRules: clientCfg.PlaylistRules,
+		playlistRules: mergedPlaylistRules,
 		epgLink:       fmt.Sprintf("%s/%s/epg.xml.gz", publicUrl, clientCfg.Secret),
 	}, nil
 }
 
 func (c *Client) BuildPlaylistSubscription(
 	playlistConf config.Playlist, urlGen urlgen.Generator,
-	globalChannelRules []channel.Rule, globalPlaylistUser []playlist.Rule,
+	globalChannelRules []channel.Rule, globalPlaylistRules []playlist.Rule,
 	serverProxy config.Proxy,
 	sem *semaphore.Weighted) error {
 
-	playlistProxy := mergeProxies(serverProxy, playlistConf.Proxy)
+	mergedPlaylistProxy := mergeProxies(serverProxy, playlistConf.Proxy)
 	mergedChannelRules := mergeArrays(globalChannelRules, playlistConf.ChannelRules)
-	mergedPlaylistRules := mergeArrays(globalPlaylistUser, playlistConf.PlaylistRules)
 
 	for _, preset := range c.presets {
-		playlistProxy = mergeProxies(playlistProxy, preset.Proxy)
+		mergedPlaylistProxy = mergeProxies(mergedPlaylistProxy, preset.Proxy)
 		mergedChannelRules = mergeArrays(mergedChannelRules, preset.ChannelRules)
-		mergedPlaylistRules = mergeArrays(mergedPlaylistRules, preset.PlaylistRules)
 	}
 
-	playlistProxy = mergeProxies(playlistProxy, c.proxy)
+	mergedPlaylistProxy = mergeProxies(mergedPlaylistProxy, c.proxy)
 	mergedChannelRules = mergeArrays(mergedChannelRules, c.rules)
-	mergedPlaylistRules = mergeArrays(mergedPlaylistRules, c.playlistRules)
 
 	subscription, err := NewPlaylist(
 		playlistConf.Name,
 		urlGen,
 		playlistConf.Sources,
-		playlistProxy,
+		mergedPlaylistProxy,
 		mergedChannelRules,
-		mergedPlaylistRules,
 		sem,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -129,6 +131,10 @@ func (c *Client) EpgLink() string {
 
 func (c *Client) Name() string {
 	return c.name
+}
+
+func (c *Client) PlaylistRules() []playlist.Rule {
+	return c.playlistRules
 }
 
 func (c *Client) PlaylistSubscriptions() []listing.Playlist {

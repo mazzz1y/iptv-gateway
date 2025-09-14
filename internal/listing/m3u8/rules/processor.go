@@ -10,20 +10,19 @@ import (
 )
 
 type Processor struct {
-	subscriptionChannelRulesMap  map[listing.Playlist][]channel.Rule
-	subscriptionPlaylistRulesMap map[listing.Playlist][]playlist.Rule
+	subscriptionChannelRulesMap map[listing.Playlist][]channel.Rule
+	playlistRules               []playlist.Rule
 }
 
-func NewProcessor() *Processor {
+func NewProcessor(playlistRules []playlist.Rule) *Processor {
 	return &Processor{
-		subscriptionChannelRulesMap:  make(map[listing.Playlist][]channel.Rule),
-		subscriptionPlaylistRulesMap: make(map[listing.Playlist][]playlist.Rule),
+		subscriptionChannelRulesMap: make(map[listing.Playlist][]channel.Rule),
+		playlistRules:               playlistRules,
 	}
 }
 
 func (p *Processor) AddSubscription(sub listing.Playlist) {
 	p.subscriptionChannelRulesMap[sub] = append(p.subscriptionChannelRulesMap[sub], sub.ChannelRules()...)
-	p.subscriptionPlaylistRulesMap[sub] = append(p.subscriptionPlaylistRulesMap[sub], sub.PlaylistRules()...)
 }
 
 func (p *Processor) Process(store *Store) {
@@ -145,19 +144,10 @@ func (p *Processor) processMarkHidden(ch *Channel, rule *channel.MarkHiddenRule)
 }
 
 func (p *Processor) processRemoveDuplicatesRules(global *Store) {
-	for sub, rul := range p.subscriptionPlaylistRulesMap {
-		subStore := NewStore()
-		for _, ch := range global.All() {
-			if ch.Subscription() == sub {
-				subStore.Add(ch)
-			}
-		}
-
-		for _, rule := range rul {
-			if rule.RemoveDuplicates != nil {
-				processor := NewRemoveDuplicatesActionProcessor(rule.RemoveDuplicates)
-				processor.Apply(global, subStore)
-			}
+	for _, rule := range p.playlistRules {
+		if rule.RemoveDuplicates != nil {
+			processor := NewRemoveDuplicatesActionProcessor(rule.RemoveDuplicates)
+			processor.Apply(global)
 		}
 	}
 }
