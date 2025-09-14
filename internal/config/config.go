@@ -1,9 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"iptv-gateway/internal/config/rules/channel"
 	"iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/config/types"
+	"strings"
 )
 
 type Config struct {
@@ -18,6 +20,16 @@ type Config struct {
 	ChannelRules  []channel.Rule     `yaml:"channel_rules,omitempty"`
 	PlaylistRules []playlist.Rule    `yaml:"playlist_rules,omitempty"`
 	Presets       []Preset           `yaml:"presets,omitempty"`
+	YamlAnchors   map[string]any     `yaml:",inline"`
+}
+
+func (c *Config) Validate() error {
+	for key := range c.YamlAnchors {
+		if !strings.HasPrefix(key, ".") {
+			return fmt.Errorf("unknown config key: %s", key)
+		}
+	}
+	return nil
 }
 
 type URLGeneratorConfig struct {
