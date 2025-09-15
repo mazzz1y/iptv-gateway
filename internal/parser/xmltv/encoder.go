@@ -9,11 +9,6 @@ import (
 
 const xmlEncoderBufferSize = 64 * 1024
 
-type Encoder interface {
-	Encode(item any) error
-	Close() error
-}
-
 type XMLEncoder struct {
 	writer        *bufio.Writer
 	encoder       *xml.Encoder
@@ -21,7 +16,7 @@ type XMLEncoder struct {
 	footerWritten bool
 }
 
-func NewEncoder(w io.Writer) Encoder {
+func NewEncoder(w io.Writer) *XMLEncoder {
 	bufferedWriter := bufio.NewWriterSize(w, xmlEncoderBufferSize)
 	return &XMLEncoder{
 		writer:        bufferedWriter,
@@ -29,10 +24,6 @@ func NewEncoder(w io.Writer) Encoder {
 		headerWritten: false,
 		footerWritten: false,
 	}
-}
-
-func (e *XMLEncoder) encodeToken(token xml.Token) error {
-	return e.encoder.EncodeToken(token)
 }
 
 func (e *XMLEncoder) writeHeader() error {
@@ -47,7 +38,7 @@ func (e *XMLEncoder) writeHeader() error {
 	}
 
 	for _, token := range tokens {
-		if err := e.encodeToken(token); err != nil {
+		if err := e.encoder.EncodeToken(token); err != nil {
 			return err
 		}
 	}
@@ -56,20 +47,16 @@ func (e *XMLEncoder) writeHeader() error {
 	return nil
 }
 
-func (e *XMLEncoder) writeFooter() error {
-	if e.footerWritten || !e.headerWritten {
-		return nil
+func (e *XMLEncoder) WriteFooter() error {
+	if !e.headerWritten {
+		return fmt.Errorf("header not written")
 	}
 
-	if err := e.encodeToken(xml.EndElement{Name: xml.Name{Local: "tv"}}); err != nil {
-		return err
+	if e.footerWritten {
+		return fmt.Errorf("footer already written")
 	}
 
-	if err := e.encoder.Flush(); err != nil {
-		return err
-	}
-
-	if err := e.writer.Flush(); err != nil {
+	if err := e.encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "tv"}}); err != nil {
 		return err
 	}
 
@@ -94,9 +81,18 @@ func (e *XMLEncoder) Encode(item any) error {
 	default:
 		return fmt.Errorf("unsupported type: %T", item)
 	}
+
 	return nil
 }
 
 func (e *XMLEncoder) Close() error {
-	return e.writeFooter()
+	if err := e.encoder.Flush(); err != nil {
+		return err
+	}
+
+	if err := e.writer.Flush(); err != nil {
+		return err
+	}
+
+	return nil
 }

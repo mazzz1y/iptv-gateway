@@ -23,11 +23,6 @@ var (
 	}
 )
 
-type Decoder interface {
-	Decode() (any, error)
-	Close() error
-}
-
 type M3UDecoder struct {
 	reader  io.ReadCloser
 	scanner *bufio.Scanner
@@ -35,7 +30,7 @@ type M3UDecoder struct {
 	done    bool
 }
 
-func NewDecoder(r io.Reader) Decoder {
+func NewDecoder(r io.Reader) *M3UDecoder {
 	var readCloser io.ReadCloser
 	if rc, ok := r.(io.ReadCloser); ok {
 		readCloser = rc

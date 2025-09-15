@@ -53,19 +53,15 @@ func (d *BaseDecoder) NextItem() (any, error) {
 	item, err := d.decoder.Decode()
 	if err == io.EOF {
 		d.drainReader()
-		return nil, err
-	}
-	if err != nil && err != io.EOF {
-		return nil, err
 	}
 
 	return item, err
 }
 
-func (d *BaseDecoder) StartBuffering(ctx context.Context) {
+func (d *BaseDecoder) StartBuffering(ctx context.Context) error {
 	if err := d.init(ctx); err != nil {
 		d.err = err
-		return
+		return err
 	}
 
 	d.bufferCtx, d.cancelBuffer = context.WithCancel(ctx)
@@ -102,6 +98,8 @@ func (d *BaseDecoder) StartBuffering(ctx context.Context) {
 			}
 		}
 	}()
+
+	return nil
 }
 
 func (d *BaseDecoder) AddToBuffer(items ...any) {

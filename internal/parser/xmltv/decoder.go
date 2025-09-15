@@ -9,17 +9,13 @@ import (
 
 const xmlDecoderBufferSize = 64 * 1024
 
-type Decoder interface {
-	Decode() (any, error)
-}
-
 type XMLDecoder struct {
 	reader  io.Reader
 	decoder *xml.Decoder
 	done    bool
 }
 
-func NewDecoder(r io.Reader) Decoder {
+func NewDecoder(r io.Reader) *XMLDecoder {
 	bufferedReader := bufio.NewReaderSize(r, xmlDecoderBufferSize)
 
 	return &XMLDecoder{

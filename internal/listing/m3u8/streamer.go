@@ -84,7 +84,10 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
 	}()
 
 	for _, decoder := range decoders {
-		decoder.StartBuffering(ctx)
+		err := decoder.StartBuffering(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, decoder := range decoders {

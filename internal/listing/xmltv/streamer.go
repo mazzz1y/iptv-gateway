@@ -22,6 +22,12 @@ type Streamer struct {
 	mu               sync.RWMutex
 }
 
+type Encoder interface {
+	Encode(item any) error
+	WriteFooter() error
+	Close() error
+}
+
 func NewStreamer(subs []listing.EPG, httpClient listing.HTTPClient, channelIDToName map[string]string) *Streamer {
 	subscriptions := subs
 	channelLen := len(channelIDToName)
@@ -67,7 +73,9 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	}()
 
 	for _, decoder := range decoders {
-		decoder.StartBuffering(ctx)
+		if err := decoder.StartBuffering(ctx); err != nil {
+			return bytesCounter.Count(), err
+		}
 	}
 
 	for _, decoder := range decoders {
@@ -87,10 +95,10 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 		return count, fmt.Errorf("no data in subscriptions")
 	}
 
-	return count, nil
+	return count, encoder.WriteFooter()
 }
 
-func (s *Streamer) processChannels(ctx context.Context, decoder *decoderWrapper, encoder xmltv.Encoder) error {
+func (s *Streamer) processChannels(ctx context.Context, decoder *decoderWrapper, encoder Encoder) error {
 	decoder.StopBuffer()
 	defer decoder.StartBuffering(ctx)
 
@@ -127,7 +135,7 @@ func (s *Streamer) processChannels(ctx context.Context, decoder *decoderWrapper,
 	}
 }
 
-func (s *Streamer) processProgrammes(ctx context.Context, decoder *decoderWrapper, encoder xmltv.Encoder) error {
+func (s *Streamer) processProgrammes(ctx context.Context, decoder *decoderWrapper, encoder Encoder) error {
 	decoder.StopBuffer()
 
 	for {

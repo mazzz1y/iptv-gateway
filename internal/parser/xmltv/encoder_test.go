@@ -117,7 +117,10 @@ func TestXMLEncoder_Encode(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err := encoder.Close()
+			err := encoder.WriteFooter()
+			require.NoError(t, err)
+
+			err = encoder.Close()
 			require.NoError(t, err)
 
 			xml := buf.String()
@@ -134,7 +137,7 @@ func TestXMLEncoder_Encode(t *testing.T) {
 
 func TestXMLEncoder_WriteHeaderFooter(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
-	encoder := NewEncoder(buf).(*XMLEncoder)
+	encoder := NewEncoder(buf)
 
 	err := encoder.writeHeader()
 	require.NoError(t, err)
@@ -145,22 +148,20 @@ func TestXMLEncoder_WriteHeaderFooter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, pos, buf.Len(), "Header was written twice")
 
-	err = encoder.writeFooter()
-	require.NoError(t, err)
+	err = encoder.WriteFooter()
+	require.NoError(t, err) // footer already written
 	assert.True(t, encoder.footerWritten)
 
 	pos = buf.Len()
-	err = encoder.writeFooter()
-	require.NoError(t, err)
-	assert.Equal(t, pos, buf.Len(), "Footer was written twice")
+	err = encoder.WriteFooter()
+	require.Error(t, err)
 
 	buf2 := bytes.NewBuffer(nil)
-	encoder2 := NewEncoder(buf2).(*XMLEncoder)
+	encoder2 := NewEncoder(buf2)
 	encoder2.headerWritten = false
 
-	err = encoder2.writeFooter()
-	require.NoError(t, err)
-	assert.Empty(t, buf2.String())
+	err = encoder2.WriteFooter()
+	require.Error(t, err) // header not written
 }
 
 func TestXMLEncoder_Close(t *testing.T) {
@@ -168,6 +169,9 @@ func TestXMLEncoder_Close(t *testing.T) {
 	encoder := NewEncoder(buf)
 
 	err := encoder.Encode(Channel{ID: "test"})
+	require.NoError(t, err)
+
+	err = encoder.WriteFooter()
 	require.NoError(t, err)
 
 	err = encoder.Close()

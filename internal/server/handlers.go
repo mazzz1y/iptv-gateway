@@ -20,81 +20,103 @@ import (
 	"iptv-gateway/internal/urlgen"
 )
 
-const (
-	streamContentType = "video/mp2t"
+const streamContentType = "video/mp2t"
+
+type responseHeaders map[string]string
+
+var (
+	playlistHeaders = responseHeaders{
+		"Content-Type":  "application/x-mpegurl",
+		"Cache-Control": "no-cache",
+	}
+	epgHeaders = responseHeaders{
+		"Content-Type":  "application/xml",
+		"Cache-Control": "no-cache",
+	}
+	epgGzipHeaders = responseHeaders{
+		"Content-Type":        "application/gzip",
+		"Cache-Control":       "no-cache",
+		"Content-Disposition": `attachment; filename="epg.xml.gz"`,
+	}
 )
 
 func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypePlaylist)
-
-	c := ctxutil.Client(ctx).(*app.Client)
+	ctx := ctxutil.WithRequestType(r.Context(), metrics.RequestTypePlaylist)
+	client := ctxutil.Client(ctx).(*app.Client)
 
 	logging.Debug(ctx, "playlist request")
 
-	w.Header().Set("Content-Type", "application/x-mpegurl")
-	w.Header().Set("Cache-Control", "no-cache")
+	setHeaders(w, playlistHeaders)
 
 	streamer := m3u8.NewStreamer(
-		c.PlaylistSubscriptions(), c.EpgLink(), c.PlaylistRules(), s.httpClient)
-	if _, err := streamer.WriteTo(ctx, w); err != nil {
+		client.PlaylistSubscriptions(),
+		client.EpgLink(),
+		client.PlaylistRules(),
+		s.httpClient,
+	)
+
+	count, err := streamer.WriteTo(ctx, w)
+	if err != nil {
 		logging.Error(ctx, err, "failed to write playlist")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		if count == 0 {
+			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		}
 		return
 	}
 
-	metrics.ListingDownloadTotal.WithLabelValues(c.Name(), metrics.RequestTypePlaylist).Inc()
+	metrics.ListingDownloadTotal.WithLabelValues(client.Name(), metrics.RequestTypePlaylist).Inc()
 }
 
 func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypeEPG)
+	ctx := ctxutil.WithRequestType(r.Context(), metrics.RequestTypeEPG)
 
 	logging.Info(ctx, "epg request")
 
 	streamer, err := s.prepareEPGStreamer(ctx)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/xml")
-	w.Header().Set("Cache-Control", "no-cache")
+	setHeaders(w, epgHeaders)
 
-	if _, err = streamer.WriteTo(ctx, w); err != nil {
+	count, err := streamer.WriteTo(ctx, w)
+	if err != nil {
 		logging.Error(ctx, err, "failed to write EPG")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		if count == 0 {
+			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		}
 		return
 	}
 
-	c := ctxutil.Client(ctx).(*app.Client)
-	metrics.ListingDownloadTotal.WithLabelValues(c.Name(), metrics.RequestTypeEPG).Inc()
+	client := ctxutil.Client(ctx).(*app.Client)
+	metrics.ListingDownloadTotal.WithLabelValues(client.Name(), metrics.RequestTypeEPG).Inc()
 }
 
 func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypeEPG)
+	ctx := ctxutil.WithRequestType(r.Context(), metrics.RequestTypeEPG)
 
 	logging.Debug(ctx, "gzipped epg request")
 
 	streamer, err := s.prepareEPGStreamer(ctx)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/gzip")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Content-Disposition", "attachment; filename=\"epg.xml.gz\"")
+	setHeaders(w, epgGzipHeaders)
 
-	if _, err = streamer.WriteToGzip(ctx, w); err != nil {
+	count, err := streamer.WriteToGzip(ctx, w)
+	if err != nil {
 		logging.Error(ctx, err, "failed to write gzipped epg")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		if count == 0 {
+			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		}
 		return
 	}
 
-	c := ctxutil.Client(ctx).(*app.Client)
-	metrics.ListingDownloadTotal.WithLabelValues(c.Name(), metrics.RequestTypeEPG).Inc()
+	client := ctxutil.Client(ctx).(*app.Client)
+	metrics.ListingDownloadTotal.WithLabelValues(client.Name(), metrics.RequestTypeEPG).Inc()
 }
 
 func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +140,7 @@ func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, dat
 	logging.Debug(ctx, "proxying file", "url", data.URL)
 	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypeFile)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", data.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, data.URL, nil)
 	if err != nil {
 		logging.Error(ctx, err, "failed to create request")
 		http.Error(w, "Failed to create request", http.StatusBadGateway)
@@ -148,38 +170,17 @@ func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, dat
 	}
 }
 
-func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(http.StatusText(http.StatusOK)))
-}
-
-func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error) {
-	c := ctxutil.Client(ctx).(*app.Client)
-
-	m3u8Streamer := m3u8.NewStreamer(
-		c.PlaylistSubscriptions(), "", c.PlaylistRules(), s.httpClient)
-
-	channels, err := m3u8Streamer.GetAllChannels(ctx)
-	if err != nil {
-		logging.Error(ctx, err, "failed to get channels")
-		return nil, err
-	}
-
-	return xmltv.NewStreamer(c.EPGSubscriptions(), s.httpClient, channels), nil
-}
-
 func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	logging.Debug(ctx, "proxying stream")
 
 	playlist := ctxutil.Provider(ctx).(*app.Playlist)
 	data := ctxutil.StreamData(ctx).(*urlgen.Data)
+
 	ctx = ctxutil.WithChannelID(ctx, data.ChannelID)
 	ctx = ctxutil.WithChannelHidden(ctx, data.Hidden)
 
 	clientName := ctxutil.ClientName(ctx)
 	playlistName := playlist.Name()
-
-	streamKey := generateStreamKey(data.URL, r.URL.RawQuery)
 
 	if !s.acquireSemaphores(ctx) {
 		logging.Error(ctx, errors.New("failed to acquire semaphores"), "")
@@ -188,15 +189,13 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	}
 	defer s.releaseSemaphores(ctx)
 
-	url := data.URL
-	if r.URL.RawQuery != "" {
-		url += "?" + r.URL.RawQuery
-	}
+	streamURL := buildStreamURL(data.URL, r.URL.RawQuery)
+	streamKey := generateStreamKey(streamURL)
 
-	streamSource := playlist.LinkStreamer(url)
+	streamSource := playlist.LinkStreamer(streamURL)
 	if streamSource == nil {
 		logging.Error(ctx, errors.New("failed to create stream source"), "")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
 
@@ -212,14 +211,15 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		logging.Error(ctx, err, "failed to get stream")
 		if !data.Hidden {
 			metrics.StreamsFailuresTotal.WithLabelValues(
-				clientName, playlist.Name(), data.ChannelID, metrics.FailureReasonPlaylistLimit).Inc()
+				clientName, playlistName, data.ChannelID, metrics.FailureReasonPlaylistLimit,
+			).Inc()
 		}
 		playlist.LimitStreamer().Stream(ctx, w)
 		return
 	}
 	if err != nil {
 		logging.Error(ctx, err, "failed to get stream")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
 	defer reader.Close()
@@ -236,9 +236,10 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 		if !data.Hidden {
 			logging.Error(ctx, errors.New("no data written to response"), "")
 			metrics.StreamsFailuresTotal.WithLabelValues(
-				clientName, playlist.Name(), data.ChannelID, metrics.FailureReasonUpstreamError).Inc()
-			playlist.UpstreamErrorStreamer().Stream(ctx, w)
+				clientName, playlistName, data.ChannelID, metrics.FailureReasonUpstreamError,
+			).Inc()
 		}
+		playlist.UpstreamErrorStreamer().Stream(ctx, w)
 		return
 	}
 
@@ -247,11 +248,45 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	}
 }
 
-func generateStreamKey(url, query string) string {
-	if query != "" {
-		return generateHash(url+"?"+query, time.Now().Unix())
+func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(http.StatusText(http.StatusOK)))
+}
+
+func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error) {
+	client := ctxutil.Client(ctx).(*app.Client)
+
+	m3u8Streamer := m3u8.NewStreamer(
+		client.PlaylistSubscriptions(),
+		"",
+		client.PlaylistRules(),
+		s.httpClient,
+	)
+
+	channels, err := m3u8Streamer.GetAllChannels(ctx)
+	if err != nil {
+		logging.Error(ctx, err, "failed to get channels")
+		return nil, err
 	}
-	return generateHash(url)
+
+	return xmltv.NewStreamer(client.EPGSubscriptions(), s.httpClient, channels), nil
+}
+
+func setHeaders(w http.ResponseWriter, headers responseHeaders) {
+	for key, value := range headers {
+		w.Header().Set(key, value)
+	}
+}
+
+func buildStreamURL(baseURL, rawQuery string) string {
+	if rawQuery != "" {
+		return baseURL + "?" + rawQuery
+	}
+	return baseURL
+}
+
+func generateStreamKey(url string) string {
+	return generateHash(url, time.Now().Unix())
 }
 
 func generateHash(parts ...any) string {

@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-type Encoder interface {
-	Encode(item any) error
-	Close() error
-}
-
 type M3UEncoder struct {
 	writer        io.Writer
 	headerAttrs   map[string]string
@@ -19,7 +14,7 @@ type M3UEncoder struct {
 	closed        bool
 }
 
-func NewEncoder(w io.Writer, headerAttrs map[string]string) Encoder {
+func NewEncoder(w io.Writer, headerAttrs map[string]string) *M3UEncoder {
 	return &M3UEncoder{
 		writer:        w,
 		headerAttrs:   headerAttrs,
