@@ -2,7 +2,7 @@ package app
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/proxy"
 	"iptv-gateway/internal/config/rules/channel"
 	"iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/shell"
@@ -22,7 +22,7 @@ type Playlist struct {
 	channelRules  []channel.Rule
 	playlistRules []playlist.Rule
 
-	proxyConfig config.Proxy
+	proxyConfig proxy.Proxy
 
 	linkStreamer          *shell.Streamer
 	rateLimitStreamer     *shell.Streamer
@@ -33,7 +33,7 @@ type Playlist struct {
 func NewPlaylist(
 	name string, urlGen urlgen.Generator,
 	sources []string,
-	proxy config.Proxy, channelRules []channel.Rule, sem *semaphore.Weighted) (*Playlist, error) {
+	proxy proxy.Proxy, channelRules []channel.Rule, sem *semaphore.Weighted) (*Playlist, error) {
 
 	streamStreamer, err := shell.NewShellStreamer(
 		proxy.Stream.Command,
@@ -117,7 +117,7 @@ func (ps *Playlist) IsProxied() bool {
 	return ps.proxyConfig.Enabled != nil && *ps.proxyConfig.Enabled
 }
 
-func (ps *Playlist) ProxyConfig() config.Proxy {
+func (ps *Playlist) ProxyConfig() proxy.Proxy {
 	return ps.proxyConfig
 }
 

@@ -1,7 +1,7 @@
 package app
 
 import (
-	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/proxy"
 	"iptv-gateway/internal/config/types"
 )
 
@@ -15,8 +15,8 @@ func mergeArrays[T any](arrays ...[]T) []T {
 	return result
 }
 
-func mergeProxies(proxies ...config.Proxy) config.Proxy {
-	result := config.Proxy{}
+func mergeProxies(proxies ...proxy.Proxy) proxy.Proxy {
+	result := proxy.Proxy{}
 
 	for _, proxy := range proxies {
 		if proxy.Enabled != nil {
@@ -52,8 +52,8 @@ func mergeProxies(proxies ...config.Proxy) config.Proxy {
 	return result
 }
 
-func mergeHandlers(handlers ...config.Handler) config.Handler {
-	result := config.Handler{}
+func mergeHandlers(handlers ...proxy.Handler) proxy.Handler {
+	result := proxy.Handler{}
 
 	for _, handler := range handlers {
 		if len(handler.Command) > 0 {

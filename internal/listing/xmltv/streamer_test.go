@@ -5,7 +5,7 @@ import (
 	"context"
 	"io"
 	"iptv-gateway/internal/app"
-	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/proxy"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
@@ -53,7 +53,7 @@ func createTestSubscription(name string, epgs []string) (*app.EPG, error) {
 		name,
 		*generator,
 		epgs,
-		config.Proxy{},
+		proxy.Proxy{},
 	)
 }
 

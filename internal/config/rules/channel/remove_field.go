@@ -24,5 +24,6 @@ func (r *RemoveFieldRule) Validate() error {
 	if patternCount != 1 {
 		return fmt.Errorf("remove_field: exactly one of attr_patterns or tag_patterns is required")
 	}
+
 	return nil
 }

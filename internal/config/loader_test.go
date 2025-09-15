@@ -40,10 +40,10 @@ url_generator:
 			validate:      nil,
 		},
 		{
-			name: "invalid yaml",
+			name:          "invalid yaml",
 			configContent: `listen_addr: {invalid-yaml`,
-			expectError: true,
-			validate:    nil,
+			expectError:   true,
+			validate:      nil,
 		},
 		{
 			name:          "invalid public URL",

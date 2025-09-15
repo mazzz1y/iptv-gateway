@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/proxy"
 	"iptv-gateway/internal/config/rules/channel"
 	"iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/listing"
@@ -18,7 +19,7 @@ type Client struct {
 	playlistSubscriptions []*Playlist
 	epgSubscriptions      []*EPG
 	presets               []config.Preset
-	proxy                 config.Proxy
+	proxy                 proxy.Proxy
 	rules                 []channel.Rule
 	playlistRules         []playlist.Rule
 	epgLink               string
@@ -68,7 +69,7 @@ func NewClient(name string, clientCfg config.Client,
 func (c *Client) BuildPlaylistSubscription(
 	playlistConf config.Playlist, urlGen urlgen.Generator,
 	globalChannelRules []channel.Rule, globalPlaylistRules []playlist.Rule,
-	serverProxy config.Proxy,
+	serverProxy proxy.Proxy,
 	sem *semaphore.Weighted) error {
 
 	mergedPlaylistProxy := mergeProxies(serverProxy, playlistConf.Proxy)
@@ -100,7 +101,7 @@ func (c *Client) BuildPlaylistSubscription(
 
 func (c *Client) BuildEPGSubscription(
 	epgConf config.EPG, urlGen urlgen.Generator,
-	serverProxy config.Proxy) error {
+	serverProxy proxy.Proxy) error {
 
 	epgProxy := mergeProxies(serverProxy, epgConf.Proxy)
 

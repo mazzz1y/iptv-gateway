@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"iptv-gateway/internal/app"
-	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/proxy"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
@@ -50,7 +50,7 @@ func createTestSubscription(name string, playlists []string) (*app.Playlist, err
 		name,
 		*generator,
 		playlists,
-		config.Proxy{},
+		proxy.Proxy{},
 		nil,
 		sem,
 	)

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"iptv-gateway/internal/config/proxy"
 	"iptv-gateway/internal/config/types"
 	"net/url"
 	"time"
@@ -32,8 +33,8 @@ func DefaultConfig() *Config {
 			Retention:   types.Duration(24 * time.Hour * 30),
 			Compression: false,
 		},
-		Proxy: Proxy{
-			Stream: Handler{
+		Proxy: proxy.Proxy{
+			Stream: proxy.Handler{
 				Command: types.StringOrArr{
 					"ffmpeg",
 					"-v", "{{ default \"fatal\" .ffmpeg_log_level }}",
@@ -46,8 +47,8 @@ func DefaultConfig() *Config {
 					{Name: "ffmpeg_log_level", Value: "fatal"},
 				},
 			},
-			Error: Error{
-				Handler: Handler{
+			Error: proxy.Error{
+				Handler: proxy.Handler{
 					Command: types.StringOrArr{
 						"ffmpeg",
 						"-v", "{{ default \"fatal\" .ffmpeg_log_level }}",
@@ -68,17 +69,17 @@ func DefaultConfig() *Config {
 						{Name: "ffmpeg_log_level", Value: "fatal"},
 					},
 				},
-				RateLimitExceeded: Handler{
+				RateLimitExceeded: proxy.Handler{
 					TemplateVars: []types.NameValue{
 						{Name: "message", Value: "Rate limit exceeded\n\nPlease try again later"},
 					},
 				},
-				LinkExpired: Handler{
+				LinkExpired: proxy.Handler{
 					TemplateVars: []types.NameValue{
 						{Name: "message", Value: "Link has expired\n\nPlease refresh your playlist"},
 					},
 				},
-				UpstreamError: Handler{
+				UpstreamError: proxy.Handler{
 					TemplateVars: []types.NameValue{
 						{Name: "message", Value: "Unable to play stream\n\nPlease try again later or contact administrator"},
 					},
