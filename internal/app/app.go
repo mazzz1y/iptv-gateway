@@ -54,6 +54,10 @@ func (m *Manager) GetClient(secret string) *Client {
 	return m.secretToClient[secret]
 }
 
+func (m *Manager) Clients() []*Client {
+	return m.clients
+}
+
 func (m *Manager) GlobalSemaphore() *semaphore.Weighted {
 	return m.semaphore
 }
@@ -216,11 +220,10 @@ func (m *Manager) addEPGSubscription(
 }
 
 func (m *Manager) createURLGenerator(clientSecret, srcName string) (*urlgen.Generator, error) {
-	baseURL := fmt.Sprintf("%s/%s", m.publicURLBase, clientSecret)
 	secretKey := m.config.URLGenerator.Secret + srcName + clientSecret
 
 	return urlgen.NewGenerator(
-		baseURL, secretKey,
+		m.publicURLBase, secretKey,
 		time.Duration(m.config.URLGenerator.StreamTTL),
 		time.Duration(m.config.URLGenerator.FileTTL),
 	)

@@ -2,7 +2,6 @@ package server
 
 import (
 	"errors"
-	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/urlgen"
@@ -29,68 +28,63 @@ func (s *Server) requestIDMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) authenticationMiddleware(next http.Handler) http.Handler {
+func (s *Server) clientAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		secret, ok := vars[muxSecretVar]
+		secret, ok := vars[muxClientSecretVar]
 		if !ok || secret == "" {
-			logging.Error(r.Context(), nil, "authentication failed: no secret")
+			logging.Debug(r.Context(), "authentication failed: no secret")
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
 		}
 
-		c := s.manager.GetClient(secret)
-		if c == nil {
-			logging.Error(r.Context(), nil, "authentication failed: invalid secret", "secret", secret)
+		client := s.manager.GetClient(secret)
+		if client == nil {
+			logging.Debug(r.Context(), "authentication failed: invalid secret", "secret", secret)
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
 		}
 
-		ctx := ctxutil.WithClient(r.Context(), c)
+		ctx := ctxutil.WithClient(r.Context(), client)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-func (s *Server) decryptProxyDataMiddleware(next http.Handler) http.Handler {
+func (s *Server) proxyAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		token, ok := vars[muxEncryptedDataVar]
-		if !ok {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		token, ok := vars[muxEncryptedTokenVar]
+		if !ok || token == "" {
+			logging.Debug(r.Context(), "authentication failed: no token")
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
 		}
 
-		client := ctxutil.Client(r.Context()).(*app.Client)
+		ctx := r.Context()
+		for _, c := range s.manager.Clients() {
+			for pr := range c.URLProviders() {
+				data, err := pr.URLGen.Decrypt(token)
+				if err == nil {
+					ctx = ctxutil.WithClient(ctx, c)
+					ctx = ctxutil.WithProvider(ctx, pr.Provider)
+					ctx = ctxutil.WithStreamData(ctx, data)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
 
-		for pr := range client.URLProviders() {
-			if s.tryDecryptWithURLProvider(r, w, next, token, pr) {
-				return
+				if errors.Is(err, urlgen.ErrExpiredStreamURL) {
+					if pr.ExpiredStreamer != nil {
+						ctx = ctxutil.WithClient(ctx, c)
+						ctx = ctxutil.WithProvider(ctx, pr.Provider)
+						pr.ExpiredStreamer.Stream(ctx, w)
+					} else {
+						http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+					}
+					return
+				}
 			}
 		}
 
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 	})
-}
-
-func (s *Server) tryDecryptWithURLProvider(r *http.Request, w http.ResponseWriter,
-	next http.Handler, token string, pr app.ProviderWithURLGen) bool {
-	data, err := pr.URLGen.Decrypt(token)
-	if err == nil {
-		ctx := ctxutil.WithProvider(r.Context(), pr.Provider)
-		ctx = ctxutil.WithStreamData(ctx, data)
-		next.ServeHTTP(w, r.WithContext(ctx))
-		return true
-	}
-
-	if errors.Is(err, urlgen.ErrExpiredStreamURL) {
-		ctx := ctxutil.WithProvider(r.Context(), pr.Provider)
-		if pr.ExpiredStreamer != nil {
-			pr.ExpiredStreamer.Stream(ctx, w)
-		} else {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		}
-		return true
-	}
-
-	return false
 }

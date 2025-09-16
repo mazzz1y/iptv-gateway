@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	muxSecretVar        = "secret"
-	muxEncryptedDataVar = "encrypted_data"
+	muxClientSecretVar   = "client_secret"
+	muxEncryptedTokenVar = "encrypted_token"
 )
 
 type Server struct {
@@ -130,27 +130,22 @@ func (s *Server) Stop() error {
 func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/healthz", s.handleHealthz)
 
-	if s.metricsServer == nil {
+	if s.metricsServer != nil {
 		s.router.Handle("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}))
 	}
 
-	authRouter := s.router.PathPrefix("/{" + muxSecretVar + "}").Subrouter()
+	s.router.Use(s.requestIDMiddleware)
+	s.router.Use(s.loggerMiddleware)
 
-	authRouter.Use(s.requestIDMiddleware)
-	authRouter.Use(s.loggerMiddleware)
-	authRouter.Use(s.authenticationMiddleware)
+	clientRouter := s.router.PathPrefix("/{" + muxClientSecretVar + "}").Subrouter()
+	clientRouter.Use(s.clientAuthMiddleware)
+	clientRouter.HandleFunc("/playlist.m3u8", s.handlePlaylist)
+	clientRouter.HandleFunc("/epg.xml", s.handleEPG)
+	clientRouter.HandleFunc("/epg.xml.gz", s.handleEPGgz)
 
-	authRouter.HandleFunc("/playlist.m3u8", s.handlePlaylist)
-	authRouter.HandleFunc("/epg.xml", s.handleEPG)
-	authRouter.HandleFunc("/epg.xml.gz", s.handleEPGgz)
-
-	proxyRouter := authRouter.PathPrefix("/{" + muxEncryptedDataVar + "}").Subrouter()
-	proxyRouter.Use(s.decryptProxyDataMiddleware)
+	proxyRouter := s.router.PathPrefix("/{" + muxEncryptedTokenVar + "}").Subrouter()
+	proxyRouter.Use(s.proxyAuthMiddleware)
 	proxyRouter.HandleFunc("/{.*}", s.handleProxy)
-
-	authRouter.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-	})
 }
 
 func (s *Server) setupMetricsServer(addr string) {

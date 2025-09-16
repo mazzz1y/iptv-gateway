@@ -33,14 +33,13 @@ metrics_addr: ":9090"
 | `iptv_listing_downloads_total` | Counter | Total listing downloads by client and type | `client_name`, `listing_type`                 |
 | `iptv_proxy_requests_total`    | Counter | Total proxy requests by client and status  | `client_name`, `request_type`, `cache_status` |
 
-
 ## Common Label Values
 
 | Label               | Description                                     | Possible Values                           |
 |---------------------|-------------------------------------------------|-------------------------------------------|
-| `client_name`       | Unique identifier for each client configuration |                                           |
-| `subscription_name` | Name of the subscription being accessed         |                                           |
-| `channel_id`        | Unique identifier for individual channels       |                                           |
+| `client_name`       | Unique identifier for each client configuration | any                                       |
+| `subscription_name` | Name of the subscription being accessed         | any                                       |
+| `channel_id`        | Unique identifier for individual channels       | any                                       |
 | `listing_type`      | Type of listing                                 | `playlist`, `epg`                         |
 | `request_type`      | Type of request                                 | `file`, `playlist`, `epg`                 |
 | `cache_status`      | Cache hit status                                | `hit`, `miss`, `renewed`                  |
