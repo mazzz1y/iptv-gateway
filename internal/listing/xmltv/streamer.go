@@ -9,17 +9,15 @@ import (
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/parser/xmltv"
 	"iptv-gateway/internal/urlgen"
-	"sync"
 )
 
 type Streamer struct {
 	subscriptions    []listing.EPG
 	httpClient       listing.HTTPClient
 	channelIDToName  map[string]string
-	addedChannelIDs  map[string]bool
+	addedChannels    map[string][]string
 	addedProgrammes  map[string]bool
 	channelIDMapping map[string]string
-	mu               sync.RWMutex
 }
 
 type Encoder interface {
@@ -38,8 +36,8 @@ func NewStreamer(subs []listing.EPG, httpClient listing.HTTPClient, channelIDToN
 		httpClient:       httpClient,
 		channelIDToName:  channelIDToName,
 		channelIDMapping: make(map[string]string, channelLen),
-		addedChannelIDs:  make(map[string]bool, channelLen),
 		addedProgrammes:  make(map[string]bool, approxProgrammeLen),
+		addedChannels:    make(map[string][]string, channelLen),
 	}
 }
 
@@ -125,7 +123,7 @@ func (s *Streamer) processChannels(ctx context.Context, decoder *decoderWrapper,
 
 			if channel, ok := item.(xmltv.Channel); ok {
 				channel.Icons = s.processIcons(decoder.subscription, channel.Icons)
-				if s.processChannel(&channel) {
+				if s.processChannel(&channel, decoder.sourceURL) {
 					if err := encoder.Encode(channel); err != nil {
 						return err
 					}
@@ -156,7 +154,7 @@ func (s *Streamer) processProgrammes(ctx context.Context, decoder *decoderWrappe
 
 			if programme, ok := item.(xmltv.Programme); ok {
 				programme.Icons = s.processIcons(decoder.subscription, programme.Icons)
-				if s.processProgramme(&programme) {
+				if s.processProgramme(&programme, decoder.sourceURL) {
 					if err := encoder.Encode(programme); err != nil {
 						return err
 					}
@@ -166,41 +164,37 @@ func (s *Streamer) processProgrammes(ctx context.Context, decoder *decoderWrappe
 	}
 }
 
-func (s *Streamer) processChannel(channel *xmltv.Channel) (allowed bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *Streamer) processChannel(channel *xmltv.Channel, sourceURL string) (allowed bool) {
 	originalID := channel.ID
+	compositeKey := listing.GenerateHashID(originalID, sourceURL)
 
-	allIDs := make([]string, 0, 1+len(channel.DisplayNames))
-	allIDs = append(allIDs, originalID)
+	candidateIDs := make([]string, 0, 1+len(channel.DisplayNames))
+	candidateIDs = append(candidateIDs, originalID)
+
+	currentChannelNames := make([]string, 0, len(channel.DisplayNames))
 	for _, displayName := range channel.DisplayNames {
-		tvgID := listing.GenerateTvgID(displayName.Value)
-		allIDs = append(allIDs, tvgID)
+		currentChannelNames = append(currentChannelNames, displayName.Value)
+		tvgID := listing.GenerateHashID(displayName.Value)
+		candidateIDs = append(candidateIDs, tvgID)
 	}
 
-	for _, id := range allIDs {
-		if s.addedChannelIDs[id] {
-			return false
-		}
-	}
-
-	for _, id := range allIDs {
+	for _, id := range candidateIDs {
 		if channelName, exists := s.channelIDToName[id]; exists {
-			for _, processedID := range allIDs {
-				s.addedChannelIDs[processedID] = true
+			if existingNames, ok := s.addedChannels[id]; ok {
+				if !s.channelNamesMatch(currentChannelNames, existingNames) {
+					return false
+				}
+				s.channelIDMapping[compositeKey] = id
+				return false
 			}
 
-			if id != originalID {
-				s.channelIDMapping[originalID] = id
-				channel.ID = id
-			}
+			s.channelIDMapping[compositeKey] = id
+			s.addedChannels[id] = currentChannelNames
+			channel.ID = id
 
 			if channelName != "" {
 				channel.DisplayNames = []xmltv.CommonElement{
-					{
-						Value: channelName,
-					},
+					{Value: channelName},
 				}
 			}
 
@@ -211,14 +205,26 @@ func (s *Streamer) processChannel(channel *xmltv.Channel) (allowed bool) {
 	return false
 }
 
-func (s *Streamer) processProgramme(programme *xmltv.Programme) (allowed bool) {
-	if mappedChannel, exists := s.channelIDMapping[programme.Channel]; exists {
-		programme.Channel = mappedChannel
+func (s *Streamer) channelNamesMatch(currentNames, existingNames []string) bool {
+	for _, currentName := range currentNames {
+		for _, existingName := range existingNames {
+			if currentName == existingName {
+				return true
+			}
+		}
 	}
+	return false
+}
 
-	if !s.addedChannelIDs[programme.Channel] {
+func (s *Streamer) processProgramme(programme *xmltv.Programme, sourceURL string) (allowed bool) {
+	compositeKey := listing.GenerateHashID(programme.Channel, sourceURL)
+
+	mappedChannel, exists := s.channelIDMapping[compositeKey]
+	if !exists {
 		return false
 	}
+
+	programme.Channel = mappedChannel
 
 	key := programme.Channel
 	if programme.Start != nil {
@@ -227,9 +233,6 @@ func (s *Streamer) processProgramme(programme *xmltv.Programme) (allowed bool) {
 	if programme.ID != "" {
 		key += programme.ID
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if s.addedProgrammes[key] {
 		return false

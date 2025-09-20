@@ -12,6 +12,7 @@ type decoderWrapper struct {
 	*listing.BaseDecoder
 	subscription listing.EPG
 	channelsDone bool
+	sourceURL    string
 }
 
 func newDecoderWrapper(subscription listing.EPG, httpClient listing.HTTPClient, url string) *decoderWrapper {
@@ -27,5 +28,6 @@ func newDecoderWrapper(subscription listing.EPG, httpClient listing.HTTPClient, 
 	return &decoderWrapper{
 		BaseDecoder:  listing.NewLazyBaseDecoder(url, initializer),
 		subscription: subscription,
+		sourceURL:    url,
 	}
 }

@@ -3,6 +3,7 @@ package xmltv
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/config/proxy"
@@ -26,9 +27,9 @@ func createStreamer(subscriptions []listing.EPG, httpClient listing.HTTPClient, 
 		subscriptions:    subscriptions,
 		httpClient:       httpClient,
 		channelIDToName:  channelIDToName,
-		addedChannelIDs:  make(map[string]bool, channelLen),
 		addedProgrammes:  make(map[string]bool, approxProgrammeLen),
 		channelIDMapping: make(map[string]string, channelLen),
+		addedChannels:    make(map[string][]string, channelLen),
 	}
 }
 
@@ -65,7 +66,6 @@ func TestNewStreamer(t *testing.T) {
 	streamer := createStreamer(subscriptions, httpClient, channels)
 	assert.NotNil(t, streamer)
 	assert.Equal(t, channels, streamer.channelIDToName)
-	assert.NotNil(t, streamer.addedChannelIDs)
 	assert.NotNil(t, streamer.addedProgrammes)
 }
 
@@ -110,7 +110,7 @@ func TestStreamer_WriteTo(t *testing.T) {
 	_, err = streamer.WriteTo(ctx, buf)
 	require.NoError(t, err)
 	result := buf.String()
-	assert.NotEmpty(t, result, "Expected non-empty XML output")
+	assert.NotEmpty(t, result)
 	assert.Contains(t, strings.ToLower(result), "<channel id=\"channel1\">")
 	assert.Contains(t, strings.ToLower(result), "<programme start=\"")
 	assert.Contains(t, result, "http://localhost/")
@@ -256,6 +256,286 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
 	output := buffer.String()
 	assert.Contains(t, output, "<channel id=\"news1\">")
 	assert.Contains(t, output, "<channel id=\"movies1\">")
+
+	httpClient.AssertExpectations(t)
+}
+
+func TestChannelIDConflicts(t *testing.T) {
+	ctx := context.Background()
+	httpClient := new(MockHTTPClient)
+
+	epg1 := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+  <channel id="1337">
+    <display-name>CNN</display-name>
+  </channel>
+  <programme start="20230101120000 +0000" channel="1337">
+    <title>CNN News</title>
+  </programme>
+</tv>`
+
+	epg2SameChannel := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+  <channel id="1337">
+    <display-name>CNN</display-name>
+  </channel>
+  <programme start="20230101130000 +0000" channel="1337">
+    <title>World News</title>
+  </programme>
+</tv>`
+
+	epg3DifferentChannel := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+  <channel id="1337">
+    <display-name>FOX News</display-name>
+  </channel>
+  <programme start="20230101140000 +0000" channel="1337">
+    <title>FOX Report</title>
+  </programme>
+</tv>`
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/epg1.xml"
+	})).Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(epg1))}, nil)
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/epg2.xml"
+	})).Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(epg2SameChannel))}, nil)
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/epg3.xml"
+	})).Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(epg3DifferentChannel))}, nil)
+
+	sub, err := createTestSubscription("test", []string{
+		"http://example.com/epg1.xml",
+		"http://example.com/epg2.xml",
+		"http://example.com/epg3.xml",
+	})
+	require.NoError(t, err)
+
+	channels := map[string]string{"1337": "CNN Channel"}
+	streamer := createStreamer([]listing.EPG{sub}, httpClient, channels)
+
+	buf := &bytes.Buffer{}
+	_, err = streamer.WriteTo(ctx, buf)
+	require.NoError(t, err)
+
+	output := buf.String()
+
+	assert.NotContains(t, output, "FOX Report")
+	assert.NotContains(t, output, "FOX News")
+	channelCount := strings.Count(output, "<channel id=")
+	assert.Equal(t, 1, channelCount)
+
+	httpClient.AssertExpectations(t)
+}
+
+func TestChannelNameMatching(t *testing.T) {
+	ctx := context.Background()
+	httpClient := new(MockHTTPClient)
+
+	epg1 := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+  <channel id="1337">
+    <display-name>CNN</display-name>
+  </channel>
+  <programme start="20230101120000 +0000" channel="1337">
+    <title>CNN News</title>
+  </programme>
+</tv>`
+
+	epg2 := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+  <channel id="9999">
+    <display-name>CNN</display-name>
+  </channel>
+  <programme start="20230101130000 +0000" channel="9999">
+    <title>World News</title>
+  </programme>
+</tv>`
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/epg1.xml"
+	})).Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(epg1))}, nil)
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/epg2.xml"
+	})).Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(epg2))}, nil)
+
+	sub, err := createTestSubscription("test", []string{
+		"http://example.com/epg1.xml",
+		"http://example.com/epg2.xml",
+	})
+	require.NoError(t, err)
+
+	channels := map[string]string{"1f3d47da": "CNN Channel"}
+	streamer := createStreamer([]listing.EPG{sub}, httpClient, channels)
+
+	buf := &bytes.Buffer{}
+	_, err = streamer.WriteTo(ctx, buf)
+	require.NoError(t, err)
+
+	output := buf.String()
+
+	assert.Contains(t, output, "CNN News")
+	assert.Contains(t, output, "World News")
+
+	channelCount := strings.Count(output, "<channel id=")
+	assert.Equal(t, 1, channelCount)
+
+	httpClient.AssertExpectations(t)
+}
+
+func TestTVGIDConflictIssue(t *testing.T) {
+	httpClient := new(MockHTTPClient)
+
+	xmlData1 := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+	<channel id="original1">
+		<display-name>CNN</display-name>
+	</channel>
+	<programme start="20230101120000 +0000" stop="20230101130000 +0000" channel="original1">
+		<title>News Hour</title>
+	</programme>
+</tv>`
+
+	xmlData2 := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+	<channel id="original2">
+		<display-name>CNN</display-name>
+	</channel>
+	<programme start="20230101140000 +0000" stop="20230101150000 +0000" channel="original2">
+		<title>Different Show</title>
+	</programme>
+</tv>`
+
+	xmlData3 := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+	<channel id="original3">
+		<display-name>CNN</display-name>
+	</channel>
+	<programme start="20230101160000 +0000" stop="20230101170000 +0000" channel="original3">
+		<title>Third Show</title>
+	</programme>
+</tv>`
+
+	response1 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlData1)),
+	}
+	response2 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlData2)),
+	}
+	response3 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlData3)),
+	}
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/source1"
+	})).Return(response1, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/source2"
+	})).Return(response2, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/source3"
+	})).Return(response3, nil)
+
+	sub1, err := createTestSubscription("source1", []string{"http://example.com/source1"})
+	require.NoError(t, err)
+	sub2, err := createTestSubscription("source2", []string{"http://example.com/source2"})
+	require.NoError(t, err)
+	sub3, err := createTestSubscription("source3", []string{"http://example.com/source3"})
+	require.NoError(t, err)
+
+	expectedTVGID := listing.GenerateHashID("CNN")
+	channelMap := map[string]string{
+		expectedTVGID: "CNN",
+	}
+
+	streamer := createStreamer([]listing.EPG{sub1, sub2, sub3}, httpClient, channelMap)
+
+	var buf bytes.Buffer
+	_, err = streamer.WriteTo(context.Background(), &buf)
+	require.NoError(t, err)
+
+	output := buf.String()
+	channelCount := strings.Count(output, "<channel id=")
+	programmeCount := strings.Count(output, "<programme")
+
+	assert.Equal(t, 1, channelCount, "Same-name channels should be merged into one")
+	assert.Equal(t, 3, programmeCount, "All programmes should be preserved")
+	assert.Contains(t, output, fmt.Sprintf(`<channel id="%s">`, expectedTVGID))
+
+	httpClient.AssertExpectations(t)
+}
+
+func TestSameOriginalIDDifferentSources(t *testing.T) {
+	httpClient := new(MockHTTPClient)
+
+	xmlData1 := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+	<channel id="ch1">
+		<display-name>CNN US</display-name>
+	</channel>
+	<programme start="20230101120000 +0000" stop="20230101130000 +0000" channel="ch1">
+		<title>US News</title>
+	</programme>
+</tv>`
+
+	xmlData2 := `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+	<channel id="ch1">
+		<display-name>CNN International</display-name>
+	</channel>
+	<programme start="20230101140000 +0000" stop="20230101150000 +0000" channel="ch1">
+		<title>World News</title>
+	</programme>
+</tv>`
+
+	response1 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlData1)),
+	}
+	response2 := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(xmlData2)),
+	}
+
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/source1"
+	})).Return(response1, nil)
+	httpClient.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+		return req.URL.String() == "http://example.com/source2"
+	})).Return(response2, nil)
+
+	sub1, err := createTestSubscription("source1", []string{"http://example.com/source1"})
+	require.NoError(t, err)
+	sub2, err := createTestSubscription("source2", []string{"http://example.com/source2"})
+	require.NoError(t, err)
+
+	tvgID1 := listing.GenerateHashID("CNN US")
+	tvgID2 := listing.GenerateHashID("CNN International")
+	channelMap := map[string]string{
+		tvgID1: "CNN US",
+		tvgID2: "CNN International",
+	}
+
+	streamer := createStreamer([]listing.EPG{sub1, sub2}, httpClient, channelMap)
+
+	var buf bytes.Buffer
+	_, err = streamer.WriteTo(context.Background(), &buf)
+	require.NoError(t, err)
+
+	output := buf.String()
+	channelCount := strings.Count(output, "<channel id=")
+	programmeCount := strings.Count(output, "<programme")
+
+	assert.Equal(t, 2, channelCount, "Different channels with same original ID from different sources should both be included")
+	assert.Equal(t, 2, programmeCount, "All programmes from both channels should be included")
+	assert.Contains(t, output, "CNN US")
+	assert.Contains(t, output, "CNN International")
 
 	httpClient.AssertExpectations(t)
 }

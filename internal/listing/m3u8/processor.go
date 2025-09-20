@@ -57,9 +57,9 @@ func (p *Processor) ensureTvgID(ch *rules.Channel) {
 		return
 	}
 	if tvgName, exists := ch.GetAttr("tvg-name"); exists && tvgName != "" {
-		ch.SetAttr("tvg-id", listing.GenerateTvgID(tvgName))
+		ch.SetAttr("tvg-id", listing.GenerateHashID(tvgName))
 	} else {
-		ch.SetAttr("tvg-id", listing.GenerateTvgID(ch.Name()))
+		ch.SetAttr("tvg-id", listing.GenerateHashID(ch.Name()))
 	}
 }
 

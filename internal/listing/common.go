@@ -8,10 +8,15 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
-func GenerateTvgID(s string) string {
-	hash := sha256.Sum256([]byte(s))
+func GenerateHashID(parts ...string) string {
+	var b strings.Builder
+	for _, p := range parts {
+		b.WriteString(p)
+	}
+	hash := sha256.Sum256([]byte(b.String()))
 	return fmt.Sprintf("%x", hash[:4])
 }
 
