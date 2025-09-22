@@ -1,4 +1,4 @@
-package playlist
+package rules
 
 import (
 	"errors"
@@ -14,9 +14,13 @@ type SortRule struct {
 
 func (s *SortRule) Validate() error {
 	if s.Attr != "" && s.Tag != "" {
-		return errors.New("attr and tag are mutually exclusive")
+		return errors.New("sort: attr and tag are mutually exclusive")
 	}
 	return nil
+}
+
+func (s *SortRule) String() string {
+	return "sort"
 }
 
 type GroupByRule struct {
@@ -27,11 +31,11 @@ type GroupByRule struct {
 
 func (g *GroupByRule) Validate() error {
 	if g.Tag == "" && g.Attr == "" {
-		return errors.New("tag or attr is required")
+		return errors.New("sort: group_by: tag or attr is required")
 	}
 
 	if g.Attr != "" && g.Order != nil {
-		return errors.New("attr and order are mutually exclusive")
+		return errors.New("sort: group_by: attr and order are mutually exclusive")
 	}
 	return nil
 }

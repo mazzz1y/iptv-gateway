@@ -3,26 +3,34 @@ package rules
 import (
 	"bytes"
 	"iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/listing"
 )
 
 type Processor struct {
-	subscriptionChannelRulesMap map[listing.Playlist][]channel.Rule
-	playlistRules               []playlist.Rule
+	channelRules map[listing.Playlist][]*rules.Rule
+	storeRules   []*rules.Rule
 }
 
-func NewProcessor(playlistRules []playlist.Rule) *Processor {
+func NewProcessor() *Processor {
+	var filteredStoreRules []*rules.Rule
 	return &Processor{
-		subscriptionChannelRulesMap: make(map[listing.Playlist][]channel.Rule),
-		playlistRules:               playlistRules,
+		channelRules: make(map[listing.Playlist][]*rules.Rule),
+		storeRules:   filteredStoreRules,
 	}
 }
 
-func (p *Processor) AddSubscription(sub listing.Playlist) {
-	p.subscriptionChannelRulesMap[sub] = append(p.subscriptionChannelRulesMap[sub], sub.ChannelRules()...)
+func (p *Processor) AddPlaylist(playlist listing.Playlist) {
+	for _, rule := range playlist.Rules() {
+		switch rule.Type {
+		case rules.StoreRule:
+			if !p.containsStoreRule(rule) {
+				p.storeRules = append(p.storeRules, rule)
+			}
+		case rules.ChannelRule:
+			p.channelRules[playlist] = append(p.channelRules[playlist], rule)
+		}
+	}
 }
 
 func (p *Processor) Process(store *Store) {
@@ -31,7 +39,7 @@ func (p *Processor) Process(store *Store) {
 }
 
 func (p *Processor) processStoreRules(store *Store) {
-	for _, rule := range p.playlistRules {
+	for _, rule := range p.storeRules {
 		if rule.SortRule != nil {
 			processor := NewSortProcessor(rule.SortRule)
 			processor.Apply(store)
@@ -45,7 +53,7 @@ func (p *Processor) processStoreRules(store *Store) {
 
 func (p *Processor) processTrackRules(store *Store) {
 	for _, ch := range store.All() {
-		if subRules, exists := p.subscriptionChannelRulesMap[ch.Subscription()]; exists {
+		if subRules, exists := p.channelRules[ch.Subscription()]; exists {
 			for _, rule := range subRules {
 				p.processChannelRule(ch, rule)
 			}
@@ -53,16 +61,7 @@ func (p *Processor) processTrackRules(store *Store) {
 	}
 }
 
-func (p *Processor) processChannelWithRules(ch *Channel, rules []channel.Rule) {
-	for _, rule := range rules {
-		stop := p.processChannelRule(ch, rule)
-		if stop {
-			return
-		}
-	}
-}
-
-func (p *Processor) processChannelRule(ch *Channel, rule channel.Rule) (stop bool) {
+func (p *Processor) processChannelRule(ch *Channel, rule *rules.Rule) (stop bool) {
 	if rule.SetField != nil {
 		p.processSetField(ch, rule.SetField)
 		stop = false
@@ -78,7 +77,7 @@ func (p *Processor) processChannelRule(ch *Channel, rule channel.Rule) (stop boo
 	return
 }
 
-func (p *Processor) processSetField(ch *Channel, rule *channel.SetFieldRule) {
+func (p *Processor) processSetField(ch *Channel, rule *rules.SetFieldRule) {
 	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
 		return
 	}
@@ -111,7 +110,7 @@ func (p *Processor) processSetField(ch *Channel, rule *channel.SetFieldRule) {
 	}
 }
 
-func (p *Processor) processRemoveField(ch *Channel, rule *channel.RemoveFieldRule) {
+func (p *Processor) processRemoveField(ch *Channel, rule *rules.RemoveFieldRule) {
 	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
 		return
 	}
@@ -138,7 +137,7 @@ func (p *Processor) processRemoveField(ch *Channel, rule *channel.RemoveFieldRul
 	}
 }
 
-func (p *Processor) processRemoveChannel(ch *Channel, rule *channel.RemoveChannelRule) bool {
+func (p *Processor) processRemoveChannel(ch *Channel, rule *rules.RemoveChannelRule) bool {
 	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
 		return false
 	}
@@ -146,14 +145,14 @@ func (p *Processor) processRemoveChannel(ch *Channel, rule *channel.RemoveChanne
 	return true
 }
 
-func (p *Processor) processMarkHidden(ch *Channel, rule *channel.MarkHiddenRule) {
+func (p *Processor) processMarkHidden(ch *Channel, rule *rules.MarkHiddenRule) {
 	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
 		return
 	}
 	ch.MarkHidden()
 }
 
-func (p *Processor) matchesCondition(ch *Channel, condition rules.Condition) bool {
+func (p *Processor) matchesCondition(ch *Channel, condition types.Condition) bool {
 	if condition.IsEmpty() {
 		return true
 	}
@@ -173,7 +172,7 @@ func (p *Processor) matchesCondition(ch *Channel, condition rules.Condition) boo
 	return result
 }
 
-func (p *Processor) evaluateFieldCondition(ch *Channel, condition rules.Condition) bool {
+func (p *Processor) evaluateFieldCondition(ch *Channel, condition types.Condition) bool {
 	if condition.NamePatterns != nil {
 		return p.matchesRegexps(ch.Name(), condition.NamePatterns)
 	}
@@ -190,7 +189,7 @@ func (p *Processor) evaluateFieldCondition(ch *Channel, condition rules.Conditio
 	return false
 }
 
-func (p *Processor) evaluateAndConditions(ch *Channel, conditions rules.ConditionList) bool {
+func (p *Processor) evaluateAndConditions(ch *Channel, conditions types.ConditionList) bool {
 	for _, sub := range conditions {
 		if !p.matchesCondition(ch, sub) {
 			return false
@@ -199,7 +198,7 @@ func (p *Processor) evaluateAndConditions(ch *Channel, conditions rules.Conditio
 	return true
 }
 
-func (p *Processor) evaluateOrConditions(ch *Channel, conditions rules.ConditionList) bool {
+func (p *Processor) evaluateOrConditions(ch *Channel, conditions types.ConditionList) bool {
 	for _, sub := range conditions {
 		if p.matchesCondition(ch, sub) {
 			return true
@@ -211,6 +210,15 @@ func (p *Processor) evaluateOrConditions(ch *Channel, conditions rules.Condition
 func (p *Processor) matchesRegexps(value string, regexps types.RegexpArr) bool {
 	for _, re := range regexps {
 		if re.MatchString(value) {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Processor) containsStoreRule(rule *rules.Rule) bool {
+	for _, existing := range p.storeRules {
+		if existing == rule {
 			return true
 		}
 	}

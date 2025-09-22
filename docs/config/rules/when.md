@@ -6,16 +6,16 @@ The `when` clause is a conditional system used to apply rules only to specific c
 
 ```yaml
 when:
-  name_patterns: [""]             # Match channel name
-  attr: # OR match attribute
+  name_patterns: [""]
+  attr:
     name: ""
     patterns: [""]
-  tag: # OR match tag
+  tag:
     name: ""
     patterns: [""]
-  and: []               # Logical operators
-  or: []                # Logical operators
-  invert: false         # Invert result
+  and: []
+  or: []
+  invert: false
 ```
 
 ## Fields

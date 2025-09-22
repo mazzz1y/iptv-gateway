@@ -23,8 +23,8 @@ channel_rules:
 | Field | Type                           | Required     | Description                                 |
 |-------|--------------------------------|--------------|---------------------------------------------|
 | name  | `string`                       | Conditional* | New channel name                            |
-| attr  | [`NameValue`](../../common.md) | Conditional* | Set attribute (must include name and value) |
-| tag   | [`NameValue`](../../common.md) | Conditional* | Set tag (must include name and value)       |
-| when  | [When](../when.md)             | No           | Conditions specifying when to apply         |
+| attr  | [`NameValue`](../common.md) | Conditional* | Set attribute (must include name and value) |
+| tag   | [`NameValue`](../common.md) | Conditional* | Set tag (must include name and value)       |
+| when  | [When](when.md)             | No           | Conditions specifying when to apply         |
 
 *Exactly one of `name`, `attr`, or `tag` is required.*

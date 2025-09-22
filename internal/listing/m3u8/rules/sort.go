@@ -1,16 +1,16 @@
 package rules
 
 import (
-	"iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/config/rules"
 	"regexp"
 	"sort"
 )
 
 type SortProcessor struct {
-	rule *playlist.SortRule
+	rule *rules.SortRule
 }
 
-func NewSortProcessor(rule *playlist.SortRule) *SortProcessor {
+func NewSortProcessor(rule *rules.SortRule) *SortProcessor {
 	return &SortProcessor{rule: rule}
 }
 

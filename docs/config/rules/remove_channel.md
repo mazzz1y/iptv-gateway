@@ -17,7 +17,7 @@ channel_rules:
 
 | Field | Type               | Required | Description                                    |
 |-------|------------------- |----------|------------------------------------------------|
-| when  | [When](../when.md) | Yes      | Conditions specifying which channels to remove |
+| when  | [When](when.md) | Yes      | Conditions specifying which channels to remove |
 
 ## Examples
 

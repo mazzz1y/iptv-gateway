@@ -12,29 +12,27 @@ presets:
     playlists: []
     epgs: []
     presets: []
-    channel_rules: []
-    playlist_rules: []
+    rules: []
     proxy: {}
 ```
 
 ## Fields
 
-| Field            | Type                                         | Required | Description                                 |
-|------------------|----------------------------------------------|----------|---------------------------------------------|
-| `name`           | `string`                                     | Yes      | Unique name identifier for this preset      |
-| `playlists`      | `[]string`                                   | No       | Playlist name(s) to include in this preset  |
-| `epgs`           | `[]string`                                   | No       | EPG name(s) to include in this preset       |
-| `presets`        | `[]string`                                   | No       | Other preset names to inherit from          |
-| `channel_rules`  | [[]Channel Rule](./channel_rules/index.md)   | No       | Array of channel processing rules to apply  |
-| `playlist_rules` | [[]Playlist Rule](./playlist_rules/index.md) | No       | Array of playlist processing rules to apply |
-| `proxy`          | [Proxy](./proxy.md)                          | No       | Proxy configuration settings                |
-
+| Field       | Type                     | Required | Description                                |
+|-------------|--------------------------|----------|--------------------------------------------|
+| `name`      | `string`                 | Yes      | Unique name identifier for this preset     |
+| `playlists` | `[]string`               | No       | Playlist name(s) to include in this preset |
+| `epgs`      | `[]string`               | No       | EPG name(s) to include in this preset      |
+| `presets`   | `[]string`               | No       | Other preset names to inherit from         |
+| `rules`     | [[]Rule](rules/index.md) | No       | Array of rules to apply to this preset     |
+| `proxy`     | [Proxy](./proxy.md)      | No       | Proxy configuration settings               |
 
 !!! note "How Nested Presets Work"
-     1. Parent presets are resolved first, followed by their nested presets recursively.
-     2. Settings from nested presets are merged with the current preset's configuration.
-     3. Circular and diamond dependencies are allowed and will not trigger an error.
-        Each preset is resolved only once, preventing infinite loops and duplicate processing.
+
+1. Parent presets are resolved first, followed by their nested presets recursively.
+2. Settings from nested presets are merged with the current preset's configuration.
+3. Circular and diamond dependencies are allowed and will not trigger an error.
+   Each preset is resolved only once, preventing infinite loops and duplicate processing.
 
 ## Examples
 
@@ -58,7 +56,7 @@ presets:
     playlist_rules:
       - remove_duplicates:
           name_patterns: ["4K", "UHD", "FHD", "HD", ""]
-    channel_rules:
+    rules:
       - set_field:
           attr:
             name: "group-title"

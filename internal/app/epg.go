@@ -2,23 +2,19 @@ package app
 
 import (
 	"iptv-gateway/internal/config/proxy"
+	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 )
 
 type EPG struct {
-	name string
-
-	sources []string
-
+	name         string
+	sources      []string
 	urlGenerator *urlgen.Generator
 	proxyConfig  proxy.Proxy
 }
 
-func NewEPG(
-	name string, urlGen urlgen.Generator,
-	sources []string,
-	proxy proxy.Proxy) (*EPG, error) {
-
+func NewEPGProvider(
+	name string, urlGen urlgen.Generator, sources []string, proxy proxy.Proxy) (*EPG, error) {
 	return &EPG{
 		name:         name,
 		urlGenerator: &urlGen,
@@ -49,4 +45,8 @@ func (es *EPG) IsProxied() bool {
 
 func (es *EPG) ProxyConfig() proxy.Proxy {
 	return es.proxyConfig
+}
+
+func (es *EPG) ExpiredLinkStreamer() *shell.Streamer {
+	return nil
 }

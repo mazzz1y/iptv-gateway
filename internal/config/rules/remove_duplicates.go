@@ -1,8 +1,7 @@
-package playlist
+package rules
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 )
 
@@ -11,7 +10,6 @@ type RemoveDuplicatesRule struct {
 	AttrPatterns *types.NamePatterns `yaml:"attr,omitempty"`
 	TagPatterns  *types.NamePatterns `yaml:"tag,omitempty"`
 	TrimPattern  bool                `yaml:"trim_pattern,omitempty"`
-	When         *rules.Condition    `yaml:"when,omitempty"`
 }
 
 func (r *RemoveDuplicatesRule) Validate() error {
@@ -30,6 +28,10 @@ func (r *RemoveDuplicatesRule) Validate() error {
 	}
 
 	return nil
+}
+
+func (r *RemoveDuplicatesRule) String() string {
+	return "remove_duplicates"
 }
 
 func (r *RemoveDuplicatesRule) countPatternFields() int {

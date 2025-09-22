@@ -38,7 +38,7 @@ func (s *Server) clientAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		client := s.manager.GetClient(secret)
+		client := s.manager.Client(secret)
 		if client == nil {
 			logging.Debug(r.Context(), "authentication failed: invalid secret", "secret", secret)
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
@@ -62,21 +62,21 @@ func (s *Server) proxyAuthMiddleware(next http.Handler) http.Handler {
 
 		ctx := r.Context()
 		for _, c := range s.manager.Clients() {
-			for pr := range c.URLProviders() {
-				data, err := pr.URLGen.Decrypt(token)
+			for _, pr := range c.Providers() {
+				data, err := pr.URLGenerator().Decrypt(token)
 				if err == nil {
 					ctx = ctxutil.WithClient(ctx, c)
-					ctx = ctxutil.WithProvider(ctx, pr.Provider)
+					ctx = ctxutil.WithProvider(ctx, pr)
 					ctx = ctxutil.WithStreamData(ctx, data)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
 
 				if errors.Is(err, urlgen.ErrExpiredStreamURL) {
-					if pr.ExpiredStreamer != nil {
+					if pr.ExpiredLinkStreamer() != nil {
 						ctx = ctxutil.WithClient(ctx, c)
-						ctx = ctxutil.WithProvider(ctx, pr.Provider)
-						pr.ExpiredStreamer.Stream(ctx, w)
+						ctx = ctxutil.WithProvider(ctx, pr)
+						pr.ExpiredLinkStreamer().Stream(ctx, w)
 					} else {
 						http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 					}

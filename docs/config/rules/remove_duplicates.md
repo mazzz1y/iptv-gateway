@@ -3,6 +3,10 @@
 The `remove_duplicates` rule identifies and removes duplicate channels based on various criteria. This is useful for
 cleaning up playlists that contain the same channel in multiple resolutions, quality levels, timezones, etc.
 
+!!! note
+    This rule applies to the entire channel list.
+    It can only be set globally or in presets/user config, not in individual playlists.
+
 ## YAML Structure
 
 ```yaml
@@ -56,4 +60,3 @@ playlist_rules:
       name_patterns: ["4K", "UHD", "FHD", "HD", ""]
       trim_pattern: true
 ```
-

@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/listing"
-	"iptv-gateway/internal/listing/m3u8/rules"
+	m3u8Rules "iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 )
 
@@ -14,16 +13,13 @@ type Streamer struct {
 	subscriptions []listing.Playlist
 	httpClient    listing.HTTPClient
 	epgURL        string
-	playlistRules []playlist.Rule
 }
 
-func NewStreamer(subs []listing.Playlist, epgLink string,
-	playlistRules []playlist.Rule, httpClient listing.HTTPClient) *Streamer {
+func NewStreamer(subs []listing.Playlist, epgLink string, httpClient listing.HTTPClient) *Streamer {
 	return &Streamer{
 		subscriptions: subs,
 		httpClient:    httpClient,
 		epgURL:        epgLink,
-		playlistRules: playlistRules,
 	}
 }
 
@@ -53,7 +49,7 @@ func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]string, error
 	return channelMap, nil
 }
 
-func (s *Streamer) getChannels(ctx context.Context) ([]*rules.Channel, error) {
+func (s *Streamer) getChannels(ctx context.Context) ([]*m3u8Rules.Channel, error) {
 	store, err := s.fetchPlaylists(ctx)
 	if err != nil {
 		return nil, err
@@ -65,8 +61,8 @@ func (s *Streamer) getChannels(ctx context.Context) ([]*rules.Channel, error) {
 	return processor.Process(store, rulesProcessor)
 }
 
-func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
-	store := rules.NewStore()
+func (s *Streamer) fetchPlaylists(ctx context.Context) (*m3u8Rules.Store, error) {
+	store := m3u8Rules.NewStore()
 
 	var decoders []*decoderWrapper
 	for _, sub := range s.subscriptions {
@@ -103,7 +99,7 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*rules.Store, error) {
 	return store, nil
 }
 
-func (s *Streamer) processTracks(ctx context.Context, decoder *decoderWrapper, store *rules.Store) error {
+func (s *Streamer) processTracks(ctx context.Context, decoder *decoderWrapper, store *m3u8Rules.Store) error {
 	decoder.StopBuffer()
 
 	for {
@@ -119,18 +115,18 @@ func (s *Streamer) processTracks(ctx context.Context, decoder *decoderWrapper, s
 				return err
 			}
 			if track, ok := item.(*m3u8.Track); ok {
-				ch := rules.NewChannel(track, decoder.subscription)
+				ch := m3u8Rules.NewChannel(track, decoder.subscription)
 				store.Add(ch)
 			}
 		}
 	}
 }
 
-func (s *Streamer) createRulesProcessor() *rules.Processor {
-	processor := rules.NewProcessor(s.playlistRules)
+func (s *Streamer) createRulesProcessor() *m3u8Rules.Processor {
+	processor := m3u8Rules.NewProcessor()
 
 	for _, sub := range s.subscriptions {
-		processor.AddSubscription(sub)
+		processor.AddPlaylist(sub)
 	}
 
 	return processor

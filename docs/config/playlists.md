@@ -13,7 +13,7 @@ playlists:
       - "/path/to/local/playlist-2.m3u8"
     proxy:
       enabled: true
-    channel_rules:
+    rules:
       - remove_channel:
           when:
             name_patterns: ["^Test.*"]
@@ -21,12 +21,12 @@ playlists:
 
 ## Fields
 
-| Field            | Type                                         | Required | Description                                                     |
-|------------------|----------------------------------------------|----------|-----------------------------------------------------------------|
-| `name`           | `string`                                     | Yes      | Unique name identifier for this playlist                        |
-| `sources`        | `string` or `[]string`                       | Yes      | Array of playlist sources (URLs or file paths, M3U/M3U8 format) |
-| `proxy`          | [Proxy](./proxy.md)                          | No       | Playlist-specific proxy configuration                           |
-| `channel_rules`  | [[]Channel Rule](./channel_rules/index.md)   | No       | Array of channel processing rules applied to this playlist      |
+| Field     | Type                     | Required | Description                                                     |
+|-----------|--------------------------|----------|-----------------------------------------------------------------|
+| `name`    | `string`                 | Yes      | Unique name identifier for this playlist                        |
+| `sources` | `string` or `[]string`   | Yes      | Array of playlist sources (URLs or file paths, M3U/M3U8 format) |
+| `proxy`   | [Proxy](./proxy.md)      | No       | Playlist-specific proxy configuration                           |
+| `rules`   | [[]Rule](rules/index.md) | No       | Array of rules applied to this playlist                         |
 
 ## Examples
 
@@ -47,7 +47,7 @@ playlists:
     sources:
       - "https://sports-provider.com/premium.m3u8"
       - "https://sports-provider.com/international.m3u8"
-    channel_rules:
+    rules:
       - set_field:
           attr:
             name: "group-title"
@@ -65,7 +65,7 @@ playlists:
       - "https://family-provider.com/channels.m3u8"
     proxy:
       enabled: true
-    channel_rules:
+    rules:
       - remove_channel:
           when:
             or:

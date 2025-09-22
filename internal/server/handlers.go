@@ -49,9 +49,8 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 	setHeaders(w, playlistHeaders)
 
 	streamer := m3u8.NewStreamer(
-		client.PlaylistSubscriptions(),
-		client.EpgLink(),
-		client.PlaylistRules(),
+		client.PlaylistProviders(),
+		client.EPGLink(),
 		s.httpClient,
 	)
 
@@ -257,9 +256,8 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 	client := ctxutil.Client(ctx).(*app.Client)
 
 	m3u8Streamer := m3u8.NewStreamer(
-		client.PlaylistSubscriptions(),
+		client.PlaylistProviders(),
 		"",
-		client.PlaylistRules(),
 		s.httpClient,
 	)
 
@@ -269,7 +267,7 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 		return nil, err
 	}
 
-	return xmltv.NewStreamer(client.EPGSubscriptions(), s.httpClient, channels), nil
+	return xmltv.NewStreamer(client.EPGProviders(), s.httpClient, channels), nil
 }
 
 func setHeaders(w http.ResponseWriter, headers responseHeaders) {

@@ -1,13 +1,12 @@
-package channel
+package rules
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 )
 
 type RemoveFieldRule struct {
-	When         *rules.Condition `yaml:"when,omitempty"`
+	When         *types.Condition `yaml:"when,omitempty"`
 	AttrPatterns types.RegexpArr  `yaml:"attr_patterns,omitempty"`
 	TagPatterns  types.RegexpArr  `yaml:"tag_patterns,omitempty"`
 }

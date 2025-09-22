@@ -1,16 +1,16 @@
 package rules
 
 import (
-	"iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/config/rules"
 	"regexp"
 	"strings"
 )
 
 type RemoveDuplicatesProcessor struct {
-	rule *playlist.RemoveDuplicatesRule
+	rule *rules.RemoveDuplicatesRule
 }
 
-func NewRemoveDuplicatesActionProcessor(rule *playlist.RemoveDuplicatesRule) *RemoveDuplicatesProcessor {
+func NewRemoveDuplicatesActionProcessor(rule *rules.RemoveDuplicatesRule) *RemoveDuplicatesProcessor {
 	return &RemoveDuplicatesProcessor{rule: rule}
 }
 

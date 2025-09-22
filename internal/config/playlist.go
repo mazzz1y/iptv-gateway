@@ -3,17 +3,15 @@ package config
 import (
 	"fmt"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 )
 
 type Playlist struct {
-	Name          string            `yaml:"name"`
-	Sources       types.StringOrArr `yaml:"sources"`
-	Proxy         proxy.Proxy       `yaml:"proxy,omitempty"`
-	ChannelRules  []channel.Rule    `yaml:"channel_rules,omitempty"`
-	PlaylistRules []playlist.Rule   `yaml:"playlist_rules,omitempty"`
+	Name    string            `yaml:"name"`
+	Sources types.StringOrArr `yaml:"sources"`
+	Proxy   proxy.Proxy       `yaml:"proxy,omitempty"`
+	Rules   []*rules.Rule     `yaml:"rules,omitempty"`
 }
 
 func (p *Playlist) Validate() error {
@@ -29,15 +27,12 @@ func (p *Playlist) Validate() error {
 		}
 	}
 
-	for i, rule := range p.ChannelRules {
-		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("playlist channel_rules[%d]: %w", i, err)
+	for i, rule := range p.Rules {
+		if rule.Type == rules.StoreRule {
+			return fmt.Errorf("playlist rules[%d] cannot be a playlist rule", i)
 		}
-	}
-
-	for i, rule := range p.PlaylistRules {
 		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("playlist playlist_rules[%d]: %w", i, err)
+			return fmt.Errorf("playlist rules[%d]: %w", i, err)
 		}
 	}
 

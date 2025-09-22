@@ -3,24 +3,22 @@ package config
 import (
 	"fmt"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/config/rules"
 	"strings"
 )
 
 type Config struct {
-	YamlSnippets  map[string]any     `yaml:",inline"`
-	Server        ServerConfig       `yaml:"server"`
-	Logs          Logs               `yaml:"logs"`
-	URLGenerator  URLGeneratorConfig `yaml:"url_generator"`
-	Cache         CacheConfig        `yaml:"cache"`
-	Proxy         proxy.Proxy        `yaml:"proxy"`
-	Clients       []Client           `yaml:"clients"`
-	Playlists     []Playlist         `yaml:"playlists"`
-	EPGs          []EPG              `yaml:"epgs"`
-	ChannelRules  []channel.Rule     `yaml:"channel_rules,omitempty"`
-	PlaylistRules []playlist.Rule    `yaml:"playlist_rules,omitempty"`
-	Presets       []Preset           `yaml:"presets,omitempty"`
+	YamlSnippets map[string]any     `yaml:",inline"`
+	Server       ServerConfig       `yaml:"server"`
+	Logs         Logs               `yaml:"logs"`
+	URLGenerator URLGeneratorConfig `yaml:"url_generator"`
+	Cache        CacheConfig        `yaml:"cache"`
+	Proxy        proxy.Proxy        `yaml:"proxy"`
+	Clients      []Client           `yaml:"clients"`
+	Playlists    []Playlist         `yaml:"playlists"`
+	EPGs         []EPG              `yaml:"epgs"`
+	Rules        []*rules.Rule      `yaml:"rules,omitempty"`
+	Presets      []Preset           `yaml:"presets,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -103,15 +101,9 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	for i, rule := range c.ChannelRules {
+	for i, rule := range c.Rules {
 		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("channel_rules[%d] validation failed: %w", i, err)
-		}
-	}
-
-	for i, rule := range c.PlaylistRules {
-		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("playlist_rules[%d] validation failed: %w", i, err)
+			return fmt.Errorf("global rules[%d] validation failed: %w", i, err)
 		}
 	}
 

@@ -7,59 +7,6 @@ import (
 	"testing"
 )
 
-func TestMergeArrays(t *testing.T) {
-	tests := []struct {
-		name     string
-		arrays   [][]int
-		expected []int
-	}{
-		{
-			name:     "empty arrays",
-			arrays:   [][]int{},
-			expected: []int{},
-		},
-		{
-			name:     "single array",
-			arrays:   [][]int{{1, 2, 3}},
-			expected: []int{1, 2, 3},
-		},
-		{
-			name:     "multiple arrays",
-			arrays:   [][]int{{1, 2}, {3, 4}, {5}},
-			expected: []int{1, 2, 3, 4, 5},
-		},
-		{
-			name:     "empty and non-empty arrays",
-			arrays:   [][]int{{1}, {}, {2, 3}},
-			expected: []int{1, 2, 3},
-		},
-		{
-			name:     "all empty arrays",
-			arrays:   [][]int{{}, {}, {}},
-			expected: []int{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := mergeArrays(tt.arrays...)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("mergeArrays() = %v, expected %v", result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestMergeArraysStrings(t *testing.T) {
-	arrays := [][]string{{"a", "b"}, {"c"}, {"d", "e"}}
-	expected := []string{"a", "b", "c", "d", "e"}
-	result := mergeArrays(arrays...)
-
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("mergeArrays() = %v, expected %v", result, expected)
-	}
-}
-
 func TestMergeProxies(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -14,13 +14,11 @@ epgs:
 
 ## Fields
 
-| Field            | Type                                          | Required | Description                                                          |
-|------------------|-----------------------------------------------|----------|----------------------------------------------------------------------|
-| `name`           | `string`                                      | Yes      | Unique name identifier for this EPG                                  |
-| `sources`        | `[]string`                                    | Yes      | Array of EPG sources (URLs or file paths, XML format, .gz supported) |
-| `proxy`          | [`Proxy`](./proxy.md)                         | No       | EPG-specific proxy configuration, only enabled takes effect          |
-| `channel_rules`  | [`[]ChannelRule`](./channel_rules/index.md)   | No       | Per-EPG channel rules                                                |
-| `playlist_rules` | [`[]PlaylistRule`](./playlist_rules/index.md) | No       | Per-EPG playlist rules                                               |
+| Field     | Type                  | Required | Description                                                          |
+|-----------|-----------------------|----------|----------------------------------------------------------------------|
+| `name`    | `string`              | Yes      | Unique name identifier for this EPG                                  |
+| `sources` | `[]string`            | Yes      | Array of EPG sources (URLs or file paths, XML format, .gz supported) |
+| `proxy`   | [`Proxy`](./proxy.md) | No       | EPG-specific proxy configuration, only enabled takes effect          |
 
 ## Examples
 

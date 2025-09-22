@@ -30,7 +30,7 @@ func (s *Server) acquireSemaphores(ctx context.Context) bool {
 		}
 	}
 
-	if managerSem := s.manager.GlobalSemaphore(); managerSem != nil {
+	if managerSem := s.manager.Semaphore(); managerSem != nil {
 		g.Go(acquireSem(managerSem, metrics.FailureReasonGlobalLimit))
 	}
 
@@ -44,7 +44,7 @@ func (s *Server) acquireSemaphores(ctx context.Context) bool {
 func (s *Server) releaseSemaphores(ctx context.Context) {
 	c := ctxutil.Client(ctx).(*app.Client)
 
-	if managerSem := s.manager.GlobalSemaphore(); managerSem != nil {
+	if managerSem := s.manager.Semaphore(); managerSem != nil {
 		managerSem.Release(1)
 	}
 

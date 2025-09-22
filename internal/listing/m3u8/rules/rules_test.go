@@ -2,11 +2,9 @@ package rules_test
 
 import (
 	"bytes"
-	configrules "iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
-	"iptv-gateway/internal/listing/m3u8/rules"
+	rulesprocessor "iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
@@ -20,8 +18,8 @@ import (
 )
 
 type mockSubscription struct {
-	name         string
-	channelRules []channel.Rule
+	name  string
+	rules []*rules.Rule
 }
 
 func (m mockSubscription) IsProxied() bool {
@@ -36,15 +34,11 @@ func (m mockSubscription) URLGenerator() *urlgen.Generator {
 	return nil
 }
 
-func (m mockSubscription) ChannelRules() []channel.Rule {
-	return m.channelRules
+func (m mockSubscription) Rules() []*rules.Rule {
+	return m.rules
 }
 
-func (m mockSubscription) PlaylistRules() []playlist.Rule {
-	return nil
-}
-
-func (m mockSubscription) NamedConditions() []configrules.Condition {
+func (m mockSubscription) NamedConditions() []rules.Rule {
 	return nil
 }
 
@@ -59,17 +53,18 @@ func (m mockSubscription) ExpiredCommandStreamer() *shell.Streamer {
 func TestRulesProcessor_RemoveField(t *testing.T) {
 	tests := []struct {
 		name          string
-		rules         []channel.Rule
+		rules         []*rules.Rule
 		track         *m3u8.Track
 		shouldRemove  bool
 		expectedTrack *m3u8.Track
 	}{
 		{
 			name: "remove channel by attr",
-			rules: []channel.Rule{
+			rules: []*rules.Rule{
 				{
-					RemoveChannel: &channel.RemoveChannelRule{
-						When: &configrules.Condition{
+					Type: rules.ChannelRule,
+					RemoveChannel: &rules.RemoveChannelRule{
+						When: &types.Condition{
 							Attr: &types.NamePatterns{
 								Name:     "tvg-group",
 								Patterns: types.RegexpArr{mustCompileRegexp("unwanted")},
@@ -84,60 +79,16 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 			},
 			shouldRemove: true,
 		},
-		{
-			name: "remove fields",
-			rules: []channel.Rule{
-				{
-					SetField: &channel.SetFieldRule{
-						AttrTemplate: &types.NameTemplate{
-							Name:     "tvg-id",
-							Template: mustCreateTemplate(""),
-						},
-						When: &configrules.Condition{
-							Attr: &types.NamePatterns{
-								Name:     "tvg-group",
-								Patterns: types.RegexpArr{mustCompileRegexp("test")},
-							},
-						},
-					},
-				},
-			},
-			track: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-group": "test",
-					"tvg-id":    "123",
-					"tvg-name":  "Channel",
-				},
-				Tags: map[string]string{
-					"EXTBYT": "data",
-					"EXTGRP": "group",
-				},
-			},
-			shouldRemove: false,
-			expectedTrack: &m3u8.Track{
-				Name: "Test Channel",
-				Attrs: map[string]string{
-					"tvg-group": "test",
-					"tvg-id":    "",
-					"tvg-name":  "Channel",
-				},
-				Tags: map[string]string{
-					"EXTBYT": "data",
-					"EXTGRP": "group",
-				},
-			},
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			processor := rules.NewProcessor(nil)
-			sub := &mockSubscription{name: "test", channelRules: tt.rules}
-			processor.AddSubscription(sub)
+			processor := rulesprocessor.NewProcessor()
+			sub := &mockSubscription{name: "test", rules: tt.rules}
+			processor.AddPlaylist(sub)
 
-			store := rules.NewStore()
-			ch := rules.NewChannel(tt.track, sub)
+			store := rulesprocessor.NewStore()
+			ch := rulesprocessor.NewChannel(tt.track, sub)
 			store.Add(ch)
 
 			processor.Process(store)
@@ -153,9 +104,10 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 }
 
 func TestRulesProcessor_SetField(t *testing.T) {
-	channelRules := []channel.Rule{
+	channelRules := []*rules.Rule{
 		{
-			SetField: &channel.SetFieldRule{
+			Type: rules.ChannelRule,
+			SetField: &rules.SetFieldRule{
 				AttrTemplate: &types.NameTemplate{
 					Name:     "tvg-group",
 					Template: mustCreateTemplate("music"),
@@ -164,9 +116,9 @@ func TestRulesProcessor_SetField(t *testing.T) {
 		},
 	}
 
-	processor := rules.NewProcessor(nil)
-	sub := &mockSubscription{name: "test", channelRules: channelRules}
-	processor.AddSubscription(sub)
+	processor := rulesprocessor.NewProcessor()
+	sub := &mockSubscription{name: "test", rules: channelRules}
+	processor.AddPlaylist(sub)
 
 	track := &m3u8.Track{
 		Name: "Test Channel",
@@ -175,8 +127,8 @@ func TestRulesProcessor_SetField(t *testing.T) {
 		},
 	}
 
-	store := rules.NewStore()
-	ch := rules.NewChannel(track, sub)
+	store := rulesprocessor.NewStore()
+	ch := rulesprocessor.NewChannel(track, sub)
 	store.Add(ch)
 
 	processor.Process(store)

@@ -15,42 +15,30 @@ import (
 type Manager struct {
 	config         *config.Config
 	semaphore      *semaphore.Weighted
-	subSemaphores  map[string]*semaphore.Weighted
 	clients        []*Client
 	secretToClient map[string]*Client
 	publicURLBase  string
 }
 
 func NewManager(cfg *config.Config) (*Manager, error) {
-	manager := &Manager{
+	m := &Manager{
 		config:         cfg,
 		secretToClient: make(map[string]*Client),
 		publicURLBase:  cfg.Server.PublicURL.String(),
 	}
 
 	if cfg.Proxy.Enabled != nil && *cfg.Proxy.Enabled && cfg.Proxy.ConcurrentStreams > 0 {
-		manager.semaphore = semaphore.NewWeighted(cfg.Proxy.ConcurrentStreams)
+		m.semaphore = semaphore.NewWeighted(cfg.Proxy.ConcurrentStreams)
 	}
 
-	for _, playlist := range cfg.Playlists {
-		metrics.PlaylistStreamsActive.WithLabelValues(playlist.Name).Set(0)
-	}
-
-	manager.subSemaphores = make(map[string]*semaphore.Weighted, len(cfg.Playlists))
-	for _, playlist := range cfg.Playlists {
-		if playlist.Proxy.ConcurrentStreams > 0 {
-			manager.subSemaphores[playlist.Name] = semaphore.NewWeighted(playlist.Proxy.ConcurrentStreams)
-		}
-	}
-
-	if err := manager.initClients(); err != nil {
+	if err := m.initClients(); err != nil {
 		return nil, err
 	}
 
-	return manager, nil
+	return m, nil
 }
 
-func (m *Manager) GetClient(secret string) *Client {
+func (m *Manager) Client(secret string) *Client {
 	return m.secretToClient[secret]
 }
 
@@ -58,7 +46,7 @@ func (m *Manager) Clients() []*Client {
 	return m.clients
 }
 
-func (m *Manager) GlobalSemaphore() *semaphore.Weighted {
+func (m *Manager) Semaphore() *semaphore.Weighted {
 	return m.semaphore
 }
 
@@ -66,7 +54,7 @@ func (m *Manager) initClients() error {
 	m.clients = make([]*Client, 0, len(m.config.Clients))
 
 	for _, clientConf := range m.config.Clients {
-		clientInstance, err := m.createClient(clientConf.Name, clientConf)
+		clientInstance, err := m.createClient(clientConf)
 		if err != nil {
 			return err
 		}
@@ -76,10 +64,11 @@ func (m *Manager) initClients() error {
 
 		logging.Debug(context.TODO(), "client initialized", "name", clientConf.Name)
 	}
+
 	return nil
 }
 
-func (m *Manager) createClient(clientName string, clientConf config.Client) (*Client, error) {
+func (m *Manager) createClient(clientConf config.Client) (*Client, error) {
 	var presets []config.Preset
 	var err error
 
@@ -90,118 +79,107 @@ func (m *Manager) createClient(clientName string, clientConf config.Client) (*Cl
 		}
 	}
 
-	clientInstance, err := NewClient(clientName, clientConf, presets, m.config.PlaylistRules, m.publicURLBase)
+	cl, err := NewClient(clientConf, presets, m.publicURLBase)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize client %s: %w", clientName, err)
+		return nil, fmt.Errorf(
+			"failed to initialize client %s: %w", clientConf.Name, err)
 	}
 
-	if err := m.addSubscriptionsToClient(clientInstance, clientName, clientConf); err != nil {
-		return nil, fmt.Errorf("failed to add subscriptions for client %s: %w", clientName, err)
+	playlistNames := collectPlaylists(presets, clientConf.Playlists)
+	epgNames := collectEPGs(presets, clientConf.EPGs)
+
+	if err := m.initClientProviders(cl, playlistNames, epgNames); err != nil {
+		return nil, fmt.Errorf(
+			"failed to add subscriptions for client %s: %w", clientConf.Name, err)
 	}
 
-	return clientInstance, nil
+	return cl, nil
 }
 
-func (m *Manager) addSubscriptionsToClient(clientInstance *Client, clientName string, clientConf config.Client) error {
-	clientPlaylistNames := m.collectPlaylists(clientInstance, clientConf)
-	for _, playlistName := range clientPlaylistNames {
-		if err := m.addPlaylistSubscription(clientInstance, clientName, clientConf, playlistName); err != nil {
+func (m *Manager) initClientProviders(cl *Client, playlistNames, epgNames []string) error {
+	if len(playlistNames) == 0 && len(epgNames) == 0 {
+		return fmt.Errorf("no playlists or EPGs specified for %s", cl.name)
+	}
+
+	for _, playlistName := range playlistNames {
+		if err := m.addPlaylistProvider(cl, playlistName); err != nil {
 			return err
 		}
 	}
 
-	clientEPGNames := m.collectEPGs(clientInstance, clientConf)
-	for _, epgName := range clientEPGNames {
-		if err := m.addEPGSubscription(clientInstance, clientName, clientConf, epgName); err != nil {
+	for _, epgName := range epgNames {
+		if err := m.addEPGProvider(cl, epgName); err != nil {
 			return err
 		}
-	}
-
-	if len(clientPlaylistNames) == 0 && len(clientEPGNames) == 0 {
-		return fmt.Errorf("no playlists or EPGs specified for %s", clientName)
 	}
 
 	return nil
 }
 
-func (m *Manager) collectPlaylists(clientInstance *Client, clientConf config.Client) []string {
-	var playlists []string
-	for _, preset := range clientInstance.presets {
-		playlists = append(playlists, preset.Playlists...)
+func (m *Manager) addPlaylistProvider(cl *Client, playlistName string) error {
+	playlistConf, err := m.findPlaylist(playlistName)
+	if err != nil {
+		return fmt.Errorf(
+			"playlist '%s' for client '%s' is not defined in config", playlistName, cl.name)
 	}
-	playlists = append(playlists, clientConf.Playlists...)
-	return uniqueNames(playlists)
+
+	urlGen, err := m.createURLGenerator(cl.secret, playlistName)
+	if err != nil {
+		return fmt.Errorf("failed to create URL generator: %w", err)
+	}
+
+	var sem *semaphore.Weighted
+	if playlistConf.Proxy.ConcurrentStreams > 0 {
+		sem = semaphore.NewWeighted(playlistConf.Proxy.ConcurrentStreams)
+	}
+
+	metrics.PlaylistStreamsActive.WithLabelValues(playlistConf.Name).Set(0)
+
+	if err := cl.BuildPlaylistProvider(
+		playlistConf, *urlGen, m.config.Rules, m.config.Proxy, sem); err != nil {
+		return fmt.Errorf(
+			"failed to build playlist subscription '%s' for client '%s': %w",
+			playlistName, cl.name, err)
+	}
+
+	return nil
 }
 
-func (m *Manager) collectEPGs(clientInstance *Client, clientConf config.Client) []string {
-	var epgs []string
-	for _, preset := range clientInstance.presets {
-		epgs = append(epgs, preset.EPGs...)
+func (m *Manager) addEPGProvider(cl *Client, epgName string) error {
+	epgConf, err := m.findEPG(epgName)
+	if err != nil {
+		return fmt.Errorf("EPG '%s' for client '%s' is not defined in config", epgName, cl.name)
 	}
-	epgs = append(epgs, clientConf.EPGs...)
-	return uniqueNames(epgs)
+
+	urlGen, err := m.createURLGenerator(cl.secret, epgName)
+	if err != nil {
+		return fmt.Errorf("failed to create URL generator: %w", err)
+	}
+
+	if err := cl.BuildEPGProvider(epgConf, *urlGen, m.config.Proxy); err != nil {
+		return fmt.Errorf("failed to build EPG subscription '%s' for client '%s': %w",
+			epgName, cl.name, err)
+	}
+
+	return nil
 }
 
-func (m *Manager) addPlaylistSubscription(
-	clientInstance *Client, clientName string, clientConf config.Client, playlistName string) error {
-	var playlistConf config.Playlist
-
-	found := false
+func (m *Manager) findPlaylist(name string) (config.Playlist, error) {
 	for _, playlist := range m.config.Playlists {
-		if playlist.Name == playlistName {
-			playlistConf = playlist
-			found = true
-			break
+		if playlist.Name == name {
+			return playlist, nil
 		}
 	}
-	if !found {
-		return fmt.Errorf("playlist '%s' for client '%s' is not defined in config", playlistName, clientName)
-	}
-
-	urlGen, err := m.createURLGenerator(clientConf.Secret, playlistName)
-	if err != nil {
-		return fmt.Errorf("failed to create URL generator: %w", err)
-	}
-
-	err = clientInstance.BuildPlaylistSubscription(
-		playlistConf, *urlGen,
-		m.config.ChannelRules,
-		m.config.Proxy,
-		m.subSemaphores[playlistName])
-	if err != nil {
-		return fmt.Errorf("failed to build playlist subscription '%s' for client '%s': %w", playlistName, clientName, err)
-	}
-
-	return nil
+	return config.Playlist{}, fmt.Errorf("playlist not found: %s", name)
 }
 
-func (m *Manager) addEPGSubscription(
-	clientInstance *Client, clientName string, clientConf config.Client, epgName string) error {
-	var epgConf config.EPG
-
-	found := false
+func (m *Manager) findEPG(name string) (config.EPG, error) {
 	for _, epg := range m.config.EPGs {
-		if epg.Name == epgName {
-			epgConf = epg
-			found = true
-			break
+		if epg.Name == name {
+			return epg, nil
 		}
 	}
-	if !found {
-		return fmt.Errorf("EPG '%s' for client '%s' is not defined in config", epgName, clientName)
-	}
-
-	urlGen, err := m.createURLGenerator(clientConf.Secret, epgName)
-	if err != nil {
-		return fmt.Errorf("failed to create URL generator: %w", err)
-	}
-
-	err = clientInstance.BuildEPGSubscription(epgConf, *urlGen, m.config.Proxy)
-	if err != nil {
-		return fmt.Errorf("failed to build EPG subscription '%s' for client '%s': %w", epgName, clientName, err)
-	}
-
-	return nil
+	return config.EPG{}, fmt.Errorf("EPG not found: %s", name)
 }
 
 func (m *Manager) createURLGenerator(clientSecret, srcName string) (*urlgen.Generator, error) {
@@ -212,4 +190,22 @@ func (m *Manager) createURLGenerator(clientSecret, srcName string) (*urlgen.Gene
 		time.Duration(m.config.URLGenerator.StreamTTL),
 		time.Duration(m.config.URLGenerator.FileTTL),
 	)
+}
+
+func collectPlaylists(presets []config.Preset, clientPlaylists []string) []string {
+	var playlists []string
+	for _, preset := range presets {
+		playlists = append(playlists, preset.Playlists...)
+	}
+	playlists = append(playlists, clientPlaylists...)
+	return uniqueNames(playlists)
+}
+
+func collectEPGs(presets []config.Preset, clientEPGs []string) []string {
+	var epgs []string
+	for _, preset := range presets {
+		epgs = append(epgs, preset.EPGs...)
+	}
+	epgs = append(epgs, clientEPGs...)
+	return uniqueNames(epgs)
 }

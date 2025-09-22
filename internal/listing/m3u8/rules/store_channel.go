@@ -61,12 +61,12 @@ func (c *Channel) IsHidden() bool {
 	return c.hidden
 }
 
-func (c *Channel) MarkHidden() {
-	c.hidden = true
-}
-
 func (c *Channel) IsRemoved() bool {
 	return c.removed
+}
+
+func (c *Channel) MarkHidden() {
+	c.hidden = true
 }
 
 func (c *Channel) MarkRemoved() {

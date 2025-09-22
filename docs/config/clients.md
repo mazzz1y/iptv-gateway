@@ -14,35 +14,27 @@ Each client can access the following endpoints:
 ## YAML Structure
 
 ```yaml
-
-
 clients:
   - name: ""
     secret: ""
     presets: []
     proxy: {}
-    channel_rules: []
-    playlist_rules: []
+    rules: []
     playlists: []
     epgs: []
 ```
 
 ## Fields
 
-    # proxy: { }  # optional
-    # channel_rules: []
-    # playlist_rules: []
-
-| Field            | Type       | Required | Description                                  |
-|------------------|------------|----------|----------------------------------------------|
-| `name`           | `string`   | Yes      | Unique name identifier for this client       |
-| `secret`         | `string`   | Yes      | Authentication secret key for the client     |
-| `presets`        | `[]string` | No       | List of preset names to apply to this client |
-| `playlists`      | `[]string` | No       | List of playlist names for this client       |
-| `epgs`           | `[]string` | No       | List of EPG names for this client            |
-| `proxy`          | `object`   | No       | Optional per-client proxy config             |
-| `channel_rules`  | `array`    | No       | Per-client channel rules                     |
-| `playlist_rules` | `array`    | No       | Per-client playlist rules                    |
+| Field       | Type                     | Required | Description                                  |
+|-------------|--------------------------|----------|----------------------------------------------|
+| `name`      | `string`                 | Yes      | Unique name identifier for this client       |
+| `secret`    | `string`                 | Yes      | Authentication secret key for the client     |
+| `presets`   | `[]string`               | No       | List of preset names to apply to this client |
+| `playlists` | `[]string`               | No       | List of playlist names for this client       |
+| `epgs`      | `[]string`               | No       | List of EPG names for this client            |
+| `proxy`     | `object`                 | No       | Optional per-client proxy config             |
+| `rules`     | [[]Rule](rules/index.md) | No       | Per-client list of rules                     |
 
 ## Examples
 

@@ -1,13 +1,12 @@
-package channel
+package rules
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 )
 
 type SetFieldRule struct {
-	When         *rules.Condition    `yaml:"when,omitempty"`
+	When         *types.Condition    `yaml:"when,omitempty"`
 	NameTemplate *types.Template     `yaml:"name,omitempty"`
 	AttrTemplate *types.NameTemplate `yaml:"attr,omitempty"`
 	TagTemplate  *types.NameTemplate `yaml:"tag,omitempty"`
@@ -35,4 +34,8 @@ func (s *SetFieldRule) Validate() error {
 		return fmt.Errorf("set_field: exactly one of name, attr, or tag is required")
 	}
 	return nil
+}
+
+func (s *SetFieldRule) String() string {
+	return "set_field"
 }

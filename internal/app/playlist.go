@@ -3,8 +3,7 @@ package app
 import (
 	"fmt"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 
@@ -19,8 +18,7 @@ type Playlist struct {
 	urlGenerator *urlgen.Generator
 	semaphore    *semaphore.Weighted
 
-	channelRules  []channel.Rule
-	playlistRules []playlist.Rule
+	rules []*rules.Rule
 
 	proxyConfig proxy.Proxy
 
@@ -30,10 +28,10 @@ type Playlist struct {
 	expiredLinkStreamer   *shell.Streamer
 }
 
-func NewPlaylist(
+func NewPlaylistProvider(
 	name string, urlGen urlgen.Generator,
 	sources []string,
-	proxy proxy.Proxy, channelRules []channel.Rule, sem *semaphore.Weighted) (*Playlist, error) {
+	proxy proxy.Proxy, rules []*rules.Rule, sem *semaphore.Weighted) (*Playlist, error) {
 
 	streamStreamer, err := shell.NewShellStreamer(
 		proxy.Stream.Command,
@@ -77,7 +75,7 @@ func NewPlaylist(
 		sources:               sources,
 		semaphore:             sem,
 		proxyConfig:           proxy,
-		channelRules:          channelRules,
+		rules:                 rules,
 		linkStreamer:          streamStreamer,
 		rateLimitStreamer:     rateLimitStreamer,
 		upstreamErrorStreamer: upstreamErrorStreamer,
@@ -101,12 +99,8 @@ func (ps *Playlist) URLGenerator() *urlgen.Generator {
 	return ps.urlGenerator
 }
 
-func (ps *Playlist) ChannelRules() []channel.Rule {
-	return ps.channelRules
-}
-
-func (ps *Playlist) PlaylistRules() []playlist.Rule {
-	return ps.playlistRules
+func (ps *Playlist) Rules() []*rules.Rule {
+	return ps.rules
 }
 
 func (ps *Playlist) Semaphore() *semaphore.Weighted {
@@ -133,6 +127,6 @@ func (ps *Playlist) UpstreamErrorStreamer() *shell.Streamer {
 	return ps.upstreamErrorStreamer
 }
 
-func (ps *Playlist) ExpiredCommandStreamer() *shell.Streamer {
+func (ps *Playlist) ExpiredLinkStreamer() *shell.Streamer {
 	return ps.expiredLinkStreamer
 }

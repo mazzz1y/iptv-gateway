@@ -46,7 +46,7 @@ func createTestSubscription(name string, playlists []string) (*app.Playlist, err
 	if err != nil {
 		return nil, err
 	}
-	return app.NewPlaylist(
+	return app.NewPlaylistProvider(
 		name,
 		*generator,
 		playlists,

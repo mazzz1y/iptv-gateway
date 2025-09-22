@@ -45,12 +45,12 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
-func createTestSubscription(name string, epgs []string) (*app.EPG, error) {
+func createTestProvider(name string, epgs []string) (*app.EPG, error) {
 	generator, err := urlgen.NewGenerator("http://localhost", "secret", time.Hour, time.Hour)
 	if err != nil {
 		return nil, err
 	}
-	return app.NewEPG(
+	return app.NewEPGProvider(
 		name,
 		*generator,
 		epgs,
@@ -92,7 +92,7 @@ func TestStreamer_WriteTo(t *testing.T) {
   </programme>
 </tv>`
 
-	sub, err := createTestSubscription("test-subscription", []string{"http://example.com/epg.xml"})
+	sub, err := createTestProvider("test-subscription", []string{"http://example.com/epg.xml"})
 	require.NoError(t, err)
 
 	response := &http.Response{
@@ -162,7 +162,7 @@ func TestStreamerWithMultipleEPGSources(t *testing.T) {
 		return req.Method == "GET" && req.URL.String() == "http://example.com/epg2.xml"
 	})).Return(response2, nil)
 
-	sub, err := createTestSubscription(
+	sub, err := createTestProvider(
 		"test-subscription",
 		[]string{
 			"http://example.com/epg1.xml",
@@ -229,13 +229,13 @@ func TestStreamerWithMultipleSubscriptionsAndEPGs(t *testing.T) {
 		return req.Method == "GET" && req.URL.String() == "http://example.com/sub2_epg.xml"
 	})).Return(response2, nil)
 
-	sub1, err := createTestSubscription(
+	sub1, err := createTestProvider(
 		"subscription-1",
 		[]string{"http://example.com/sub1_epg.xml"},
 	)
 	require.NoError(t, err)
 
-	sub2, err := createTestSubscription(
+	sub2, err := createTestProvider(
 		"subscription-2",
 		[]string{"http://example.com/sub2_epg.xml"},
 	)
@@ -306,7 +306,7 @@ func TestChannelIDConflicts(t *testing.T) {
 		return req.URL.String() == "http://example.com/epg3.xml"
 	})).Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(epg3DifferentChannel))}, nil)
 
-	sub, err := createTestSubscription("test", []string{
+	sub, err := createTestProvider("test", []string{
 		"http://example.com/epg1.xml",
 		"http://example.com/epg2.xml",
 		"http://example.com/epg3.xml",
@@ -362,7 +362,7 @@ func TestChannelNameMatching(t *testing.T) {
 		return req.URL.String() == "http://example.com/epg2.xml"
 	})).Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(epg2))}, nil)
 
-	sub, err := createTestSubscription("test", []string{
+	sub, err := createTestProvider("test", []string{
 		"http://example.com/epg1.xml",
 		"http://example.com/epg2.xml",
 	})
@@ -442,11 +442,11 @@ func TestTVGIDConflictIssue(t *testing.T) {
 		return req.URL.String() == "http://example.com/source3"
 	})).Return(response3, nil)
 
-	sub1, err := createTestSubscription("source1", []string{"http://example.com/source1"})
+	sub1, err := createTestProvider("source1", []string{"http://example.com/source1"})
 	require.NoError(t, err)
-	sub2, err := createTestSubscription("source2", []string{"http://example.com/source2"})
+	sub2, err := createTestProvider("source2", []string{"http://example.com/source2"})
 	require.NoError(t, err)
-	sub3, err := createTestSubscription("source3", []string{"http://example.com/source3"})
+	sub3, err := createTestProvider("source3", []string{"http://example.com/source3"})
 	require.NoError(t, err)
 
 	expectedTVGID := listing.GenerateHashID("CNN")
@@ -510,9 +510,9 @@ func TestSameOriginalIDDifferentSources(t *testing.T) {
 		return req.URL.String() == "http://example.com/source2"
 	})).Return(response2, nil)
 
-	sub1, err := createTestSubscription("source1", []string{"http://example.com/source1"})
+	sub1, err := createTestProvider("source1", []string{"http://example.com/source1"})
 	require.NoError(t, err)
-	sub2, err := createTestSubscription("source2", []string{"http://example.com/source2"})
+	sub2, err := createTestProvider("source2", []string{"http://example.com/source2"})
 	require.NoError(t, err)
 
 	tvgID1 := listing.GenerateHashID("CNN US")

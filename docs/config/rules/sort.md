@@ -3,6 +3,10 @@
 The `sort` rule allows you to control the order in which channels are presented in a playlist, with support for grouping
 and custom ordering patterns.
 
+!!! note
+    This rule applies to the entire channel list.
+    It can only be set globally or in presets/user config, not in individual playlists.
+
 ## YAML Structure
 
 ```yaml

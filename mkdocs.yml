@@ -35,17 +35,15 @@ nav:
       - Proxy: config/proxy.md
       - Playlists: config/playlists.md
       - EPGs: config/epgs.md
-      - Channel Rules:
-          - Overview: config/channel_rules/index.md
-          - Set Field: config/channel_rules/rule_list/set_field.md
-          - Remove Field: config/channel_rules/rule_list/remove_field.md
-          - Remove Channel: config/channel_rules/rule_list/remove_channel.md
-          - Mark Hidden: config/channel_rules/rule_list/mark_hidden.md
-          - When Conditions: config/channel_rules/when.md
-      - Playlist Rules:
-          - Overview: config/playlist_rules/index.md
-          - Remove Duplicates: config/playlist_rules/remove_duplicates.md
-          - Sort: config/playlist_rules/sort.md
+      - Rules:
+          - Overview: config/rules/index.md
+          - Set Field: config/rules/set_field.md
+          - Remove Field: config/rules/remove_field.md
+          - Remove Channel: config/rules/remove_channel.md
+          - Mark Hidden: config/rules/mark_hidden.md
+          - Remove Duplicates: config/rules/remove_duplicates.md
+          - Sort: config/rules/sort.md
+          - When: config/rules/when.md
       - Presets: config/presets.md
       - Clients: config/clients.md
       - Common Fields: config/common.md

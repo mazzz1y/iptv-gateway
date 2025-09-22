@@ -3,19 +3,17 @@ package config
 import (
 	"fmt"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 )
 
 type Preset struct {
-	Name          string            `yaml:"name"`
-	Proxy         proxy.Proxy       `yaml:"proxy,omitempty"`
-	Playlists     types.StringOrArr `yaml:"playlists"`
-	Presets       types.StringOrArr `yaml:"presets"`
-	EPGs          types.StringOrArr `yaml:"epgs"`
-	ChannelRules  []channel.Rule    `yaml:"channel_rules,omitempty"`
-	PlaylistRules []playlist.Rule   `yaml:"playlist_rules,omitempty"`
+	Name      string            `yaml:"name"`
+	Proxy     proxy.Proxy       `yaml:"proxy,omitempty"`
+	Playlists types.StringOrArr `yaml:"playlists"`
+	Presets   types.StringOrArr `yaml:"presets"`
+	EPGs      types.StringOrArr `yaml:"epgs"`
+	Rules     []*rules.Rule     `yaml:"rules,omitempty"`
 }
 
 func (p *Preset) Validate(playlistNames, epgNames map[string]bool) error {
@@ -35,15 +33,9 @@ func (p *Preset) Validate(playlistNames, epgNames map[string]bool) error {
 		}
 	}
 
-	for i, rule := range p.ChannelRules {
+	for i, rule := range p.Rules {
 		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("preset channel_rules[%d]: %w", i, err)
-		}
-	}
-
-	for i, rule := range p.PlaylistRules {
-		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("preset playlist_rules[%d]: %w", i, err)
+			return fmt.Errorf("preset rules[%d]: %w", i, err)
 		}
 	}
 

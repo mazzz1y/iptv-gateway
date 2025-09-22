@@ -20,7 +20,7 @@ channel_rules:
 |---------------|--------------------|--------------|----------------------------------------|
 | tag_patterns  | `[]regex`          | Conditional* | Regex patterns of tags to remove       |
 | attr_patterns | `[]regex`          | Conditional* | Regex patterns of attributes to remove |
-| when          | [When](../when.md) | No           | Conditions specifying when to apply    |
+| when          | [When](when.md) | No           | Conditions specifying when to apply    |
 
 *Exactly one of `tag_patterns`, or `attr_patterns` is required.*
 

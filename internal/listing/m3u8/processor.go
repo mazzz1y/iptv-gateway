@@ -8,13 +8,11 @@ import (
 	"iptv-gateway/internal/urlgen"
 	"net/url"
 	"strings"
-	"sync"
 )
 
 type Processor struct {
 	addedTrackIDs   map[string]struct{}
 	addedTrackNames map[string]struct{}
-	mu              sync.RWMutex
 }
 
 func NewProcessor() *Processor {
@@ -67,22 +65,15 @@ func (p *Processor) isDuplicate(ch *rules.Channel) bool {
 	id, hasID := ch.GetAttr(m3u8.AttrTvgID)
 	trackName := strings.ToLower(ch.Name())
 
-	p.mu.RLock()
 	if hasID && id != "" {
 		if _, exists := p.addedTrackIDs[id]; exists {
-			p.mu.RUnlock()
 			return true
 		}
 	} else {
 		if _, exists := p.addedTrackNames[trackName]; exists {
-			p.mu.RUnlock()
 			return true
 		}
 	}
-	p.mu.RUnlock()
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	if hasID && id != "" {
 		if _, exists := p.addedTrackIDs[id]; exists {
