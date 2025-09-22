@@ -68,9 +68,7 @@ func NewClient(name string, clientCfg config.Client,
 
 func (c *Client) BuildPlaylistSubscription(
 	playlistConf config.Playlist, urlGen urlgen.Generator,
-	globalChannelRules []channel.Rule, globalPlaylistRules []playlist.Rule,
-	serverProxy proxy.Proxy,
-	sem *semaphore.Weighted) error {
+	globalChannelRules []channel.Rule, serverProxy proxy.Proxy, sem *semaphore.Weighted) error {
 
 	mergedPlaylistProxy := mergeProxies(serverProxy, playlistConf.Proxy)
 	mergedChannelRules := mergeArrays(globalChannelRules, playlistConf.ChannelRules)

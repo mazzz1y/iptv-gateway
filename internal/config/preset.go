@@ -12,6 +12,7 @@ type Preset struct {
 	Name          string            `yaml:"name"`
 	Proxy         proxy.Proxy       `yaml:"proxy,omitempty"`
 	Playlists     types.StringOrArr `yaml:"playlists"`
+	Presets       types.StringOrArr `yaml:"presets"`
 	EPGs          types.StringOrArr `yaml:"epgs"`
 	ChannelRules  []channel.Rule    `yaml:"channel_rules,omitempty"`
 	PlaylistRules []playlist.Rule   `yaml:"playlist_rules,omitempty"`

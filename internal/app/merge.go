@@ -18,34 +18,34 @@ func mergeArrays[T any](arrays ...[]T) []T {
 func mergeProxies(proxies ...proxy.Proxy) proxy.Proxy {
 	result := proxy.Proxy{}
 
-	for _, proxy := range proxies {
-		if proxy.Enabled != nil {
-			result.Enabled = proxy.Enabled
+	for _, p := range proxies {
+		if p.Enabled != nil {
+			result.Enabled = p.Enabled
 		}
 
-		if proxy.ConcurrentStreams > 0 {
-			result.ConcurrentStreams = proxy.ConcurrentStreams
+		if p.ConcurrentStreams > 0 {
+			result.ConcurrentStreams = p.ConcurrentStreams
 		}
 
-		result.Stream = mergeHandlers(result.Stream, proxy.Stream)
-		result.Error.Handler = mergeHandlers(result.Error.Handler, proxy.Error.Handler)
+		result.Stream = mergeHandlers(result.Stream, p.Stream)
+		result.Error.Handler = mergeHandlers(result.Error.Handler, p.Error.Handler)
 
 		result.Error.RateLimitExceeded = mergeHandlers(
 			result.Error.Handler,
 			result.Error.RateLimitExceeded,
-			proxy.Error.RateLimitExceeded,
+			p.Error.RateLimitExceeded,
 		)
 
 		result.Error.LinkExpired = mergeHandlers(
 			result.Error.Handler,
 			result.Error.LinkExpired,
-			proxy.Error.LinkExpired,
+			p.Error.LinkExpired,
 		)
 
 		result.Error.UpstreamError = mergeHandlers(
 			result.Error.Handler,
 			result.Error.UpstreamError,
-			proxy.Error.UpstreamError,
+			p.Error.UpstreamError,
 		)
 	}
 
@@ -86,4 +86,18 @@ func mergePairs[T ~[]types.NameValue](result *T, handler T) {
 	}
 
 	*result = merged
+}
+
+func uniqueNames(names []string) []string {
+	seen := make(map[string]bool)
+	var result []string
+
+	for _, name := range names {
+		if !seen[name] {
+			seen[name] = true
+			result = append(result, name)
+		}
+	}
+
+	return result
 }

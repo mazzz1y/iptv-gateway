@@ -80,9 +80,14 @@ func (m *Manager) initClients() error {
 }
 
 func (m *Manager) createClient(clientName string, clientConf config.Client) (*Client, error) {
-	presets, err := m.resolvePresets(clientName, clientConf.Presets)
-	if err != nil {
-		return nil, err
+	var presets []config.Preset
+	var err error
+
+	if len(clientConf.Presets) > 0 {
+		presets, err = newPresetResolver(m.config.Presets, clientConf).resolve(clientConf.Presets)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	clientInstance, err := NewClient(clientName, clientConf, presets, m.config.PlaylistRules, m.publicURLBase)
@@ -95,30 +100,6 @@ func (m *Manager) createClient(clientName string, clientConf config.Client) (*Cl
 	}
 
 	return clientInstance, nil
-}
-
-func (m *Manager) resolvePresets(clientName string, presetNames []string) ([]config.Preset, error) {
-	if len(presetNames) == 0 {
-		return nil, nil
-	}
-
-	presets := make([]config.Preset, 0, len(presetNames))
-	for _, presetName := range presetNames {
-		var preset config.Preset
-		found := false
-		for _, p := range m.config.Presets {
-			if p.Name == presetName {
-				preset = p
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, fmt.Errorf("preset '%s' for client '%s' is not defined in config", presetName, clientName)
-		}
-		presets = append(presets, preset)
-	}
-	return presets, nil
 }
 
 func (m *Manager) addSubscriptionsToClient(clientInstance *Client, clientName string, clientConf config.Client) error {
@@ -144,17 +125,21 @@ func (m *Manager) addSubscriptionsToClient(clientInstance *Client, clientName st
 }
 
 func (m *Manager) collectPlaylists(clientInstance *Client, clientConf config.Client) []string {
-	return collectNames(clientConf, clientInstance,
-		func(c config.Client) []string { return c.Playlists },
-		func(p config.Preset) []string { return p.Playlists },
-	)
+	var playlists []string
+	for _, preset := range clientInstance.presets {
+		playlists = append(playlists, preset.Playlists...)
+	}
+	playlists = append(playlists, clientConf.Playlists...)
+	return uniqueNames(playlists)
 }
 
 func (m *Manager) collectEPGs(clientInstance *Client, clientConf config.Client) []string {
-	return collectNames(clientConf, clientInstance,
-		func(c config.Client) []string { return c.EPGs },
-		func(p config.Preset) []string { return p.EPGs },
-	)
+	var epgs []string
+	for _, preset := range clientInstance.presets {
+		epgs = append(epgs, preset.EPGs...)
+	}
+	epgs = append(epgs, clientConf.EPGs...)
+	return uniqueNames(epgs)
 }
 
 func (m *Manager) addPlaylistSubscription(
@@ -180,7 +165,7 @@ func (m *Manager) addPlaylistSubscription(
 
 	err = clientInstance.BuildPlaylistSubscription(
 		playlistConf, *urlGen,
-		m.config.ChannelRules, m.config.PlaylistRules,
+		m.config.ChannelRules,
 		m.config.Proxy,
 		m.subSemaphores[playlistName])
 	if err != nil {
@@ -227,28 +212,4 @@ func (m *Manager) createURLGenerator(clientSecret, srcName string) (*urlgen.Gene
 		time.Duration(m.config.URLGenerator.StreamTTL),
 		time.Duration(m.config.URLGenerator.FileTTL),
 	)
-}
-
-func collectNames(clientConf config.Client, clientInstance *Client,
-	getClientNames func(config.Client) []string,
-	getPresetNames func(config.Preset) []string) []string {
-
-	nameSet := make(map[string]bool)
-
-	for _, name := range getClientNames(clientConf) {
-		nameSet[name] = true
-	}
-
-	for _, preset := range clientInstance.presets {
-		for _, name := range getPresetNames(preset) {
-			nameSet[name] = true
-		}
-	}
-
-	names := make([]string, 0, len(nameSet))
-	for name := range nameSet {
-		names = append(names, name)
-	}
-
-	return names
 }

@@ -11,6 +11,7 @@ presets:
   - name: ""
     playlists: []
     epgs: []
+    presets: []
     channel_rules: []
     playlist_rules: []
     proxy: {}
@@ -23,9 +24,17 @@ presets:
 | `name`           | `string`                                     | Yes      | Unique name identifier for this preset      |
 | `playlists`      | `[]string`                                   | No       | Playlist name(s) to include in this preset  |
 | `epgs`           | `[]string`                                   | No       | EPG name(s) to include in this preset       |
+| `presets`        | `[]string`                                   | No       | Other preset names to inherit from          |
 | `channel_rules`  | [[]Channel Rule](./channel_rules/index.md)   | No       | Array of channel processing rules to apply  |
 | `playlist_rules` | [[]Playlist Rule](./playlist_rules/index.md) | No       | Array of playlist processing rules to apply |
 | `proxy`          | [Proxy](./proxy.md)                          | No       | Proxy configuration settings                |
+
+
+!!! note "How Nested Presets Work"
+     1. Parent presets are resolved first, followed by their nested presets recursively.
+     2. Settings from nested presets are merged with the current preset's configuration.
+     3. Circular and diamond dependencies are allowed and will not trigger an error.
+        Each preset is resolved only once, preventing infinite loops and duplicate processing.
 
 ## Examples
 
