@@ -3,20 +3,40 @@ hide:
   - navigation
   - toc
 ---
-<div style="max-width: 800px; margin: 0 auto;" markdown>
+<div style="max-width: 850px; margin: 0 auto;" markdown>
+
 # IPTV Gateway
 
-**A minimal, functional IPTV gateway for your Home TVs.**
+<div style="display: flex; align-items: center; gap: 1em; flex-wrap: wrap;">
+  <img src="assets/logo-tv.svg" alt="logo" width="100"/>
+  <div style="flex: 1; min-width: 250px;">
+    <strong>A minimal, functional IPTV gateway for your home TVs.</strong><br/>
+    Transform and proxy your M3U playlists, EPG, and video streams through a single entry point.
+    Configure playlists exactly how each client needs them, declaratively.
+  </div>
+</div>
 
-Transform and proxy your IPTV streams through a single entry point.
-Configure playlists exactly how each client needs them.
-
-
-!!! note "⚠️ Warning"
-
-    This project is currently under construction. Some features might be unstable or incomplete.
+<style>
+@media (max-width: 500px) {
+  div[style*="flex-wrap"] {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+</style>
 
 ---
+
+### :material-playlist-music: Playlist Control
+
+Take full control of your M3U playlists. Filter out unwanted channels, sort by your preferences, rename groups, or
+modify any field. The gateway processes everything on-the-fly.
+
+Duplicate channels with different quality markers (4K/HD/SD) are automatically detected and can be consolidated based on
+your rules.
+
+EPG data streams directly to clients without loading entire XML files into memory. Attach multiple EPG sources and the
+gateway intelligently filters to include only relevant program data.
 
 ### :material-shield-lock: Smart Proxying
 
@@ -31,17 +51,6 @@ connection, reducing bandwidth and server load.
 
 **Need to transcode?** Configure any FFmpeg command or external tool for stream processing. The gateway handles the
 pipeline, you define the transformation.
-
-### :material-playlist-music: Playlist Control
-
-Take full control of your M3U playlists. Filter out unwanted channels, sort by your preferences, rename groups, or
-modify any field. The gateway processes everything on-the-fly.
-
-Duplicate channels with different quality markers (4K/HD/SD) are automatically detected and can be consolidated based on
-your rules.
-
-EPG data streams directly to clients without loading entire XML files into memory. Attach multiple EPG sources and the
-gateway intelligently filters to include only relevant program data.
 
 ### :material-tune: Flexible Configuration
 

@@ -2,6 +2,9 @@ site_name: IPTV Gateway
 site_url: https://mazzz1y.github.io/iptv-gateway
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  custom_dir: docs/overrides
   palette:
     scheme: slate
   features:
