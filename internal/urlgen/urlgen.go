@@ -1,12 +1,11 @@
 package urlgen
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -16,17 +15,22 @@ import (
 )
 
 type RequestType int
+type ProviderType int
 
 const (
-	Stream RequestType = iota
-	File
+	RequestTypeStream RequestType = iota
+	RequestTypeFile
+)
+
+const (
+	ProviderTypePlaylist ProviderType = iota
+	ProviderTypeEPG
 )
 
 var (
 	ErrExpiredStreamURL = errors.New("expired stream URL")
 	ErrExpiredFileURL   = errors.New("expired file URL")
 	ErrInvalidToken     = errors.New("invalid token")
-	ErrInvalidData      = errors.New("invalid data")
 )
 
 type Generator struct {
@@ -37,11 +41,31 @@ type Generator struct {
 }
 
 type Data struct {
-	RequestType RequestType
-	URL         string
-	Playlist    string
-	ChannelID   string
-	Hidden      bool
+	RequestType RequestType `json:"rt"`
+	CreatedAt   int64       `json:"ca"`
+	StreamData  StreamData  `json:"sd,omitempty"`
+	File        FileData    `json:"f,omitempty"`
+}
+
+type ProviderInfo struct {
+	ProviderType ProviderType `json:"pt"`
+	ProviderName string       `json:"pn"`
+}
+
+type StreamData struct {
+	ChannelName string   `json:"cn"`
+	Streams     []Stream `json:"s"`
+}
+
+type Stream struct {
+	ProviderInfo ProviderInfo `json:"pi"`
+	URL          string       `json:"u"`
+	Hidden       bool         `json:"h,omitempty"`
+}
+
+type FileData struct {
+	ProviderInfo ProviderInfo `json:"pi"`
+	URL          string       `json:"u"`
 }
 
 func NewGenerator(publicURL, secret string, streamTTL, fileTTL time.Duration) (*Generator, error) {
@@ -57,27 +81,35 @@ func NewGenerator(publicURL, secret string, streamTTL, fileTTL time.Duration) (*
 	return &Generator{PublicURL: publicURL, aead: aead, streamTTL: streamTTL, fileTTL: fileTTL}, nil
 }
 
+func (g *Generator) CreateStreamURL(channelName string, streams []Stream) (*url.URL, error) {
+	return g.CreateURL(Data{
+		RequestType: RequestTypeStream,
+		StreamData:  StreamData{ChannelName: channelName, Streams: streams},
+		CreatedAt:   time.Now().Unix(),
+	})
+}
+
+func (g *Generator) CreateFileURL(providerInfo ProviderInfo, fileURL string) (*url.URL, error) {
+	return g.CreateURL(Data{
+		RequestType: RequestTypeFile,
+		File: FileData{
+			ProviderInfo: providerInfo,
+			URL:          fileURL,
+		},
+		CreatedAt: time.Now().Unix(),
+	})
+}
+
 func (g *Generator) CreateURL(d Data) (*url.URL, error) {
-	buf := &bytes.Buffer{}
-
-	buf.WriteByte(byte(d.RequestType))
-
-	g.writeString(buf, d.URL)
-	g.writeString(buf, d.Playlist)
-	g.writeString(buf, d.ChannelID)
-
-	if d.Hidden {
-		buf.WriteByte(1)
-	} else {
-		buf.WriteByte(0)
+	jsonData, err := json.Marshal(d)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON: %w", err)
 	}
 
-	binary.Write(buf, binary.LittleEndian, g.expireInt64(d.RequestType))
-
-	hash := sha256.Sum256(buf.Bytes())
+	hash := sha256.Sum256(jsonData)
 	nonce := hash[:g.aead.NonceSize()]
 
-	ct := g.aead.Seal(nonce, nonce, buf.Bytes(), nil)
+	ct := g.aead.Seal(nonce, nonce, jsonData, nil)
 	token := base64.RawURLEncoding.EncodeToString(ct)
 	ext := determineExtension(d)
 
@@ -86,25 +118,6 @@ func (g *Generator) CreateURL(d Data) (*url.URL, error) {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}
 	return u, nil
-}
-
-func (g *Generator) writeString(buf *bytes.Buffer, s string) {
-	b := []byte(s)
-	binary.Write(buf, binary.LittleEndian, uint16(len(b)))
-	buf.Write(b)
-}
-
-func (g *Generator) readString(buf *bytes.Buffer) (string, error) {
-	var length uint16
-	if err := binary.Read(buf, binary.LittleEndian, &length); err != nil {
-		return "", err
-	}
-	if buf.Len() < int(length) {
-		return "", ErrInvalidData
-	}
-	data := make([]byte, length)
-	buf.Read(data)
-	return string(data), nil
 }
 
 func (g *Generator) Decrypt(token string) (*Data, error) {
@@ -123,78 +136,41 @@ func (g *Generator) Decrypt(token string) (*Data, error) {
 		return nil, fmt.Errorf("failed to decrypt: %w", err)
 	}
 
-	buf := bytes.NewBuffer(plain)
-
-	rt, err := buf.ReadByte()
-	if err != nil {
-		return nil, ErrInvalidData
+	var data Data
+	if err := json.Unmarshal(plain, &data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
-	u, err := g.readString(buf)
-	if err != nil {
-		return nil, ErrInvalidData
-	}
-
-	playlist, err := g.readString(buf)
-	if err != nil {
-		return nil, ErrInvalidData
-	}
-
-	channelID, err := g.readString(buf)
-	if err != nil {
-		return nil, ErrInvalidData
-	}
-
-	hiddenByte, err := buf.ReadByte()
-	if err != nil {
-		return nil, ErrInvalidData
-	}
-	hidden := hiddenByte == 1
-
-	var expireAt int64
-	if err := binary.Read(buf, binary.LittleEndian, &expireAt); err != nil {
-		return nil, ErrInvalidData
-	}
-
-	if expireAt > 0 && time.Unix(expireAt, 0).Before(time.Now()) {
-		if RequestType(rt) == Stream {
-			return nil, ErrExpiredStreamURL
+	if data.CreatedAt > 0 {
+		createdTime := time.Unix(data.CreatedAt, 0)
+		var ttl time.Duration
+		if data.RequestType == RequestTypeStream {
+			ttl = g.streamTTL
+		} else {
+			ttl = g.fileTTL
 		}
-		return nil, ErrExpiredFileURL
+
+		if ttl > 0 && createdTime.Add(ttl).Before(time.Now()) {
+			if data.RequestType == RequestTypeStream {
+				return nil, ErrExpiredStreamURL
+			}
+			return nil, ErrExpiredFileURL
+		}
 	}
 
-	return &Data{
-		RequestType: RequestType(rt),
-		URL:         u,
-		Playlist:    playlist,
-		ChannelID:   channelID,
-		Hidden:      hidden,
-	}, nil
-}
-
-func (g *Generator) expireInt64(r RequestType) int64 {
-	switch r {
-	case Stream:
-		if g.streamTTL == 0 {
-			return 0
-		}
-		return time.Now().Add(g.streamTTL).Unix()
-	case File:
-		if g.fileTTL == 0 {
-			return 0
-		}
-		return time.Now().Add(g.fileTTL).Unix()
-	default:
-		return 0
-	}
+	return &data, nil
 }
 
 func determineExtension(d Data) string {
-	if d.RequestType == Stream {
+	if d.RequestType == RequestTypeStream {
 		return ".ts"
 	}
 
-	base, _, _ := strings.Cut(d.URL, "?")
+	if d.File.URL == "" {
+		return ".file"
+	}
+
+	base, _, _ := strings.Cut(d.File.URL, "?")
 	ext := filepath.Ext(base)
 	if ext == "" {
 		return ".file"

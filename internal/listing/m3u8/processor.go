@@ -11,14 +11,16 @@ import (
 )
 
 type Processor struct {
-	addedTrackIDs   map[string]struct{}
-	addedTrackNames map[string]struct{}
+	addedTrackIDs   map[string]*rules.Channel
+	addedTrackNames map[string]*rules.Channel
+	channelStreams  map[*rules.Channel][]urlgen.Stream
 }
 
 func NewProcessor() *Processor {
 	return &Processor{
-		addedTrackIDs:   make(map[string]struct{}),
-		addedTrackNames: make(map[string]struct{}),
+		addedTrackIDs:   make(map[string]*rules.Channel),
+		addedTrackNames: make(map[string]*rules.Channel),
+		channelStreams:  make(map[*rules.Channel][]urlgen.Stream),
 	}
 }
 
@@ -34,7 +36,8 @@ func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor)
 
 		p.ensureTvgID(ch)
 
-		if p.isDuplicate(ch) {
+		if existingChannel := p.isDuplicate(ch); existingChannel != nil {
+			p.addURLChannel(existingChannel, ch)
 			continue
 		}
 
@@ -44,6 +47,7 @@ func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor)
 			}
 		}
 
+		p.trackChannel(ch)
 		filteredChannels = append(filteredChannels, ch)
 	}
 
@@ -61,33 +65,55 @@ func (p *Processor) ensureTvgID(ch *rules.Channel) {
 	}
 }
 
-func (p *Processor) isDuplicate(ch *rules.Channel) bool {
+func (p *Processor) isDuplicate(ch *rules.Channel) *rules.Channel {
 	id, hasID := ch.GetAttr(m3u8.AttrTvgID)
 	trackName := strings.ToLower(ch.Name())
 
 	if hasID && id != "" {
-		if _, exists := p.addedTrackIDs[id]; exists {
-			return true
+		if existingChannel, exists := p.addedTrackIDs[id]; exists {
+			return existingChannel
 		}
 	} else {
-		if _, exists := p.addedTrackNames[trackName]; exists {
-			return true
+		if existingChannel, exists := p.addedTrackNames[trackName]; exists {
+			return existingChannel
 		}
 	}
+
+	return nil
+}
+
+func (p *Processor) trackChannel(ch *rules.Channel) {
+	id, hasID := ch.GetAttr(m3u8.AttrTvgID)
+	trackName := strings.ToLower(ch.Name())
 
 	if hasID && id != "" {
-		if _, exists := p.addedTrackIDs[id]; exists {
-			return true
-		}
-		p.addedTrackIDs[id] = struct{}{}
-		return false
+		p.addedTrackIDs[id] = ch
+	} else {
+		p.addedTrackNames[trackName] = ch
+	}
+}
+
+func (p *Processor) addURLChannel(existingChannel, newChannel *rules.Channel) {
+	if !newChannel.Subscription().IsProxied() || newChannel.URI() == nil {
+		return
 	}
 
-	if _, exists := p.addedTrackNames[trackName]; exists {
-		return true
+	newStream := urlgen.Stream{
+		ProviderInfo: urlgen.ProviderInfo{
+			ProviderType: urlgen.ProviderTypePlaylist,
+			ProviderName: newChannel.Subscription().Name(),
+		},
+		URL:    newChannel.URI().String(),
+		Hidden: newChannel.IsHidden(),
 	}
-	p.addedTrackNames[trackName] = struct{}{}
-	return false
+
+	p.channelStreams[existingChannel] = append(p.channelStreams[existingChannel], newStream)
+
+	urlGen := existingChannel.Subscription().URLGenerator()
+	u, err := urlGen.CreateStreamURL(existingChannel.Name(), p.channelStreams[existingChannel])
+	if err == nil {
+		existingChannel.SetURI(u)
+	}
 }
 
 func (p *Processor) processProxyLinks(ch *rules.Channel) error {
@@ -96,30 +122,36 @@ func (p *Processor) processProxyLinks(ch *rules.Channel) error {
 
 	for key, value := range ch.Attrs() {
 		if isURL(value) {
-			encURL, err := urlGen.CreateURL(urlgen.Data{
-				RequestType: urlgen.File,
-				URL:         value,
-			})
+			u, err := urlGen.CreateFileURL(urlgen.ProviderInfo{
+				ProviderType: urlgen.ProviderTypePlaylist,
+				ProviderName: ch.Subscription().Name(),
+			}, value)
 			if err != nil {
 				return fmt.Errorf("failed to encode attribute URL: %w", err)
 			}
-			ch.SetAttr(key, encURL.String())
+			ch.SetAttr(key, u.String())
 		}
 	}
 
 	if ch.URI() != nil {
 		uriStr := ch.URI().String()
 		if isURL(uriStr) {
-			newURL, err := urlGen.CreateURL(urlgen.Data{
-				RequestType: urlgen.Stream,
-				ChannelID:   ch.Name(),
-				URL:         uriStr,
-				Hidden:      ch.IsHidden(),
-			})
+			stream := urlgen.Stream{
+				ProviderInfo: urlgen.ProviderInfo{
+					ProviderType: urlgen.ProviderTypePlaylist,
+					ProviderName: ch.Subscription().Name(),
+				},
+				URL:    uriStr,
+				Hidden: ch.IsHidden(),
+			}
+
+			p.channelStreams[ch] = []urlgen.Stream{stream}
+
+			u, err := urlGen.CreateStreamURL(ch.Name(), p.channelStreams[ch])
 			if err != nil {
 				return fmt.Errorf("failed to encode stream URL: %w", err)
 			}
-			ch.SetURI(newURL)
+			ch.SetURI(u)
 		}
 	}
 

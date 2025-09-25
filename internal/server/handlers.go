@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 
 	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/ctxutil"
-	"iptv-gateway/internal/demux"
 	"iptv-gateway/internal/listing/m3u8"
 	"iptv-gateway/internal/listing/xmltv"
 	"iptv-gateway/internal/logging"
@@ -125,9 +123,9 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 	logging.Debug(ctx, "handling proxy request", "type", data.RequestType)
 
 	switch data.RequestType {
-	case urlgen.File:
+	case urlgen.RequestTypeFile:
 		s.handleFileProxy(ctx, w, data)
-	case urlgen.Stream:
+	case urlgen.RequestTypeStream:
 		s.handleStreamProxy(ctx, w, r)
 	default:
 		logging.Error(ctx, nil, "invalid proxy request type", "type", data.RequestType)
@@ -136,10 +134,12 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, data *urlgen.Data) {
-	logging.Debug(ctx, "proxying file", "url", data.URL)
+	stream := data.File
+
+	logging.Debug(ctx, "proxying file", "url", stream.URL)
 	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypeFile)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, data.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, stream.URL, nil)
 	if err != nil {
 		logging.Error(ctx, err, "failed to create request")
 		http.Error(w, "Failed to create request", http.StatusBadGateway)
@@ -166,84 +166,6 @@ func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, dat
 
 	if _, err = io.Copy(w, resp.Body); err != nil {
 		logging.Error(ctx, err, "file copy failed")
-	}
-}
-
-func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	logging.Debug(ctx, "proxying stream")
-
-	playlist := ctxutil.Provider(ctx).(*app.Playlist)
-	data := ctxutil.StreamData(ctx).(*urlgen.Data)
-
-	ctx = ctxutil.WithChannelID(ctx, data.ChannelID)
-	ctx = ctxutil.WithChannelHidden(ctx, data.Hidden)
-
-	clientName := ctxutil.ClientName(ctx)
-	playlistName := playlist.Name()
-
-	if !s.acquireSemaphores(ctx) {
-		logging.Error(ctx, errors.New("failed to acquire semaphores"), "")
-		playlist.LimitStreamer().Stream(ctx, w)
-		return
-	}
-	defer s.releaseSemaphores(ctx)
-
-	streamURL := buildStreamURL(data.URL, r.URL.RawQuery)
-	streamKey := generateStreamKey(streamURL)
-
-	streamSource := playlist.LinkStreamer(streamURL)
-	if streamSource == nil {
-		logging.Error(ctx, errors.New("failed to create stream source"), "")
-		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
-		return
-	}
-
-	demuxReq := demux.Request{
-		Context:   ctx,
-		StreamKey: streamKey,
-		Streamer:  streamSource,
-		Semaphore: playlist.Semaphore(),
-	}
-
-	reader, err := s.demux.GetReader(demuxReq)
-	if errors.Is(err, demux.ErrSubscriptionSemaphore) {
-		logging.Error(ctx, err, "failed to get stream")
-		if !data.Hidden {
-			metrics.StreamsFailuresTotal.WithLabelValues(
-				clientName, playlistName, data.ChannelID, metrics.FailureReasonPlaylistLimit,
-			).Inc()
-		}
-		playlist.LimitStreamer().Stream(ctx, w)
-		return
-	}
-	if err != nil {
-		logging.Error(ctx, err, "failed to get stream")
-		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
-		return
-	}
-	defer reader.Close()
-
-	if !data.Hidden {
-		metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.ChannelID).Inc()
-		defer metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.ChannelID).Dec()
-	}
-
-	w.Header().Set("Content-Type", streamContentType)
-	written, err := io.Copy(w, reader)
-
-	if err == nil && written == 0 {
-		if !data.Hidden {
-			logging.Error(ctx, errors.New("no data written to response"), "")
-			metrics.StreamsFailuresTotal.WithLabelValues(
-				clientName, playlistName, data.ChannelID, metrics.FailureReasonUpstreamError,
-			).Inc()
-		}
-		playlist.UpstreamErrorStreamer().Stream(ctx, w)
-		return
-	}
-
-	if err != nil && !errors.Is(err, io.ErrClosedPipe) {
-		logging.Error(ctx, err, "error copying stream to response")
 	}
 }
 
@@ -283,8 +205,11 @@ func buildStreamURL(baseURL, rawQuery string) string {
 	return baseURL
 }
 
-func generateStreamKey(url string) string {
-	return generateHash(url, time.Now().Unix())
+func buildStreamKey(baseURL, rawQuery string) string {
+	if rawQuery != "" {
+		return generateHash(baseURL+"?"+rawQuery, time.Now().Unix())
+	}
+	return generateHash(baseURL)
 }
 
 func generateHash(parts ...any) string {

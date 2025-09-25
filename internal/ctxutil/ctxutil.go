@@ -54,7 +54,7 @@ func WithStreamID(ctx context.Context, streamID string) context.Context {
 	return context.WithValue(ctx, streamIDKey, streamID)
 }
 
-func WithChannelID(ctx context.Context, channelID string) context.Context {
+func WithChannelName(ctx context.Context, channelID string) context.Context {
 	return context.WithValue(ctx, channelIDKey, channelID)
 }
 

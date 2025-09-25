@@ -57,54 +57,60 @@ func (m *Demuxer) LockStream(streamKey string) func() {
 	mtx := mutex.(*sync.Mutex)
 
 	mtx.Lock()
-
-	return func() {
-		mtx.Unlock()
-	}
+	return mtx.Unlock
 }
 
-func (m *Demuxer) GetReader(req Request) (io.ReadCloser, error) {
+func (m *Demuxer) GetReader(ctx context.Context, req Request) (io.ReadCloser, error) {
 	unlock := m.LockStream(req.StreamKey)
 	defer unlock()
 
 	pr, pw := io.Pipe()
 
-	ctx := ctxutil.WithStreamID(req.Context, req.StreamKey)
-	hidden := ctxutil.ChannelHidden(ctx)
+	clientCtx := ctxutil.WithStreamID(ctx, req.StreamKey)
+	streamCtx := context.WithoutCancel(clientCtx)
+	hidden := ctxutil.ChannelHidden(streamCtx)
 
-	go func() {
-		<-ctx.Done()
-		pr.Close()
-		pw.Close()
+	sr := &streamReader{
+		PipeReader: pr,
+	}
+
+	stop := context.AfterFunc(clientCtx, func() {
+		_ = pr.CloseWithError(clientCtx.Err())
+		_ = sr.Close()
+	})
+
+	sr.closeFunc = func() {
+		stop()
+		_ = pw.Close()
 		m.pool.RemoveClient(req.StreamKey, pw)
-		logging.Debug(ctx, "context done, reader closed")
-	}()
+		logging.Debug(clientCtx, "reader closed")
+	}
 
 	isNewStream := m.pool.AddClient(req.StreamKey, pw)
 	if isNewStream {
-		if utils.AcquireSemaphore(ctx, req.Semaphore, "subscription") {
-			logging.Debug(ctx, "acquired subscription semaphore")
+		if utils.TryAcquireSemaphore(streamCtx, req.Semaphore, "subscription") {
+			logging.Debug(streamCtx, "acquired subscription semaphore")
 		} else {
+			sr.Close()
 			return nil, ErrSubscriptionSemaphore
 		}
-
-		go m.startStream(ctx, req, pw)
+		go m.startStream(streamCtx, req)
 		if !hidden {
-			logging.Info(ctx, "started new stream")
+			logging.Info(streamCtx, "started new stream")
 		}
 	} else {
-		subscriptionName := ctxutil.ProviderName(ctx)
-		channelID := ctxutil.ChannelID(ctx)
 		if !hidden {
+			subscriptionName := ctxutil.ProviderName(clientCtx)
+			channelID := ctxutil.ChannelID(clientCtx)
 			metrics.StreamsReusedTotal.WithLabelValues(subscriptionName, channelID).Inc()
-			logging.Info(ctx, "joined existing stream")
+			logging.Info(clientCtx, "joined existing stream")
 		}
 	}
 
-	return pr, nil
+	return sr, nil
 }
 
-func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
+func (m *Demuxer) startStream(ctx context.Context, req Request) {
 	key := req.StreamKey
 	hidden := ctxutil.ChannelHidden(ctx)
 
@@ -120,9 +126,6 @@ func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 
 	if writer == nil {
 		logging.Error(ctx, nil, "failed to get writer")
-		if closer, ok := w.(io.Closer); ok {
-			closer.Close()
-		}
 		return
 	}
 
@@ -162,9 +165,5 @@ func (m *Demuxer) startStream(ctx context.Context, req Request, w io.Writer) {
 		logging.Error(streamCtx, nil, "stream produced no output")
 	} else {
 		logging.Debug(streamCtx, "stream ended")
-	}
-
-	if closer, ok := w.(io.Closer); ok {
-		closer.Close()
 	}
 }

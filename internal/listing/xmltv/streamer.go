@@ -264,17 +264,16 @@ func (s *Streamer) processIcons(sub listing.EPG, icons []xmltv.Icon) []xmltv.Ico
 		return icons
 	}
 
-	urlData := urlgen.Data{
-		RequestType: urlgen.File,
-	}
-
 	for i := range icons {
 		if icons[i].Source == "" {
 			continue
 		}
 
-		urlData.URL = icons[i].Source
-		link, err := gen.CreateURL(urlData)
+		link, err := gen.CreateFileURL(
+			urlgen.ProviderInfo{
+				ProviderType: urlgen.ProviderTypeEPG,
+				ProviderName: sub.Name(),
+			}, icons[i].Source)
 		if err != nil {
 			continue
 		}

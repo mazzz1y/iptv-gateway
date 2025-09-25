@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/urlgen"
@@ -52,8 +53,7 @@ func (s *Server) clientAuthMiddleware(next http.Handler) http.Handler {
 
 func (s *Server) proxyAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		token, ok := vars[muxEncryptedTokenVar]
+		token, ok := mux.Vars(r)[muxEncryptedTokenVar]
 		if !ok || token == "" {
 			logging.Debug(r.Context(), "authentication failed: no token")
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
@@ -61,30 +61,59 @@ func (s *Server) proxyAuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := r.Context()
-		for _, c := range s.manager.Clients() {
-			for _, pr := range c.Providers() {
-				data, err := pr.URLGenerator().Decrypt(token)
-				if err == nil {
-					ctx = ctxutil.WithClient(ctx, c)
-					ctx = ctxutil.WithProvider(ctx, pr)
-					ctx = ctxutil.WithStreamData(ctx, data)
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
+
+		for _, client := range s.manager.Clients() {
+			data, err := client.URLGenerator().Decrypt(token)
+
+			if err == nil && data != nil {
+				provider := s.getProviderFromData(client, data)
+				if provider == nil {
+					continue
 				}
 
-				if errors.Is(err, urlgen.ErrExpiredStreamURL) {
-					if pr.ExpiredLinkStreamer() != nil {
-						ctx = ctxutil.WithClient(ctx, c)
-						ctx = ctxutil.WithProvider(ctx, pr)
-						pr.ExpiredLinkStreamer().Stream(ctx, w)
-					} else {
-						http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-					}
-					return
+				ctx = ctxutil.WithClient(ctx, client)
+				ctx = ctxutil.WithProvider(ctx, provider)
+				ctx = ctxutil.WithStreamData(ctx, data)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			if errors.Is(err, urlgen.ErrExpiredStreamURL) {
+				provider := s.getProviderFromData(client, data)
+				if provider != nil && provider.ExpiredLinkStreamer() != nil {
+					ctx = ctxutil.WithClient(ctx, client)
+					ctx = ctxutil.WithProvider(ctx, provider)
+					provider.ExpiredLinkStreamer().Stream(ctx, w)
+				} else {
+					http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				}
+				return
 			}
 		}
 
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 	})
+}
+
+func (s *Server) getProviderFromData(client *app.Client, data *urlgen.Data) app.Provider {
+	if data == nil {
+		return nil
+	}
+
+	var providerInfo *urlgen.ProviderInfo
+
+	switch data.RequestType {
+	case urlgen.RequestTypeStream:
+		if len(data.StreamData.Streams) > 0 {
+			providerInfo = &data.StreamData.Streams[0].ProviderInfo
+		}
+	case urlgen.RequestTypeFile:
+		providerInfo = &data.File.ProviderInfo
+	}
+
+	if providerInfo == nil {
+		return nil
+	}
+
+	return client.GetProvider(providerInfo.ProviderType, providerInfo.ProviderName)
 }

@@ -21,6 +21,7 @@ type URLGenerator interface {
 }
 
 type Playlist interface {
+	Name() string
 	Playlists() []string
 	URLGenerator() *urlgen.Generator
 	Rules() []*rules.Rule
@@ -28,6 +29,7 @@ type Playlist interface {
 }
 
 type EPG interface {
+	Name() string
 	EPGs() []string
 	URLGenerator() *urlgen.Generator
 	IsProxied() bool

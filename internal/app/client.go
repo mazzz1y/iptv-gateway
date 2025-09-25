@@ -24,6 +24,7 @@ type Client struct {
 	rules             []*rules.Rule
 	rulesProcessor    *m3u8Rules.Processor
 	epgLink           string
+	urlGen            *urlgen.Generator
 }
 
 type Provider interface {
@@ -33,7 +34,7 @@ type Provider interface {
 	ExpiredLinkStreamer() *shell.Streamer
 }
 
-func NewClient(clientCfg config.Client, presets []config.Preset, publicURL string) (*Client, error) {
+func NewClient(clientCfg config.Client, urlGen *urlgen.Generator, presets []config.Preset, publicURL string) (*Client, error) {
 	if clientCfg.Secret == "" {
 		return nil, fmt.Errorf("client secret cannot be empty")
 	}
@@ -52,12 +53,12 @@ func NewClient(clientCfg config.Client, presets []config.Preset, publicURL strin
 		rules:          clientCfg.Rules,
 		rulesProcessor: m3u8Rules.NewProcessor(),
 		epgLink:        fmt.Sprintf("%s/%s/epg.xml.gz", publicURL, clientCfg.Secret),
+		urlGen:         urlGen,
 	}, nil
 }
 
 func (c *Client) BuildPlaylistProvider(
-	playlistConf config.Playlist, urlGen urlgen.Generator,
-	globalRules []*rules.Rule, serverProxy proxy.Proxy, sem *semaphore.Weighted) error {
+	playlistConf config.Playlist, globalRules []*rules.Rule, serverProxy proxy.Proxy, sem *semaphore.Weighted) error {
 
 	var mergedRules []*rules.Rule
 	mergedRules = append(mergedRules, playlistConf.Rules...)
@@ -67,7 +68,7 @@ func (c *Client) BuildPlaylistProvider(
 
 	pr, err := NewPlaylistProvider(
 		playlistConf.Name,
-		urlGen,
+		c.urlGen,
 		playlistConf.Sources,
 		mergeProxies(serverProxy, playlistConf.Proxy, presetProxy(c.presets), c.proxy),
 		mergedRules,
@@ -83,11 +84,11 @@ func (c *Client) BuildPlaylistProvider(
 }
 
 func (c *Client) BuildEPGProvider(
-	epgConf config.EPG, urlGen urlgen.Generator, serverProxy proxy.Proxy) error {
+	epgConf config.EPG, serverProxy proxy.Proxy) error {
 
 	subscription, err := NewEPGProvider(
 		epgConf.Name,
-		urlGen,
+		c.urlGen,
 		epgConf.Sources,
 		mergeProxies(serverProxy, epgConf.Proxy, presetProxy(c.presets), c.proxy),
 	)
@@ -115,15 +116,23 @@ func (c *Client) EPGProviders() []listing.EPG {
 	return result
 }
 
-func (c *Client) Providers() []Provider {
-	providers := make([]Provider, 0, len(c.playlistProviders)+len(c.epgProviders))
-	for _, ps := range c.playlistProviders {
-		providers = append(providers, ps)
+func (c *Client) GetProvider(prType urlgen.ProviderType, prName string) Provider {
+	switch prType {
+	case urlgen.ProviderTypePlaylist:
+		for _, ps := range c.playlistProviders {
+			if prName == ps.Name() {
+				return ps
+			}
+		}
+	case urlgen.ProviderTypeEPG:
+		for _, ps := range c.epgProviders {
+			if prName == ps.Name() {
+				return ps
+			}
+		}
 	}
-	for _, es := range c.epgProviders {
-		providers = append(providers, es)
-	}
-	return providers
+
+	return nil
 }
 
 func (c *Client) Semaphore() *semaphore.Weighted {
@@ -136,6 +145,10 @@ func (c *Client) EPGLink() string {
 
 func (c *Client) Name() string {
 	return c.name
+}
+
+func (c *Client) URLGenerator() *urlgen.Generator {
+	return c.urlGen
 }
 
 func presetRules(presets []config.Preset) []*rules.Rule {

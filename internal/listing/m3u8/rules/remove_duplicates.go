@@ -16,15 +16,21 @@ func NewRemoveDuplicatesActionProcessor(rule *rules.RemoveDuplicatesRule) *Remov
 
 func (p *RemoveDuplicatesProcessor) Apply(global *Store) {
 	grouped := make(map[string][]*Channel)
+	fieldValues := make(map[*Channel]string)
+
 	for _, ch := range global.All() {
-		key := p.extractBaseName(ch)
-		grouped[key] = append(grouped[key], ch)
+		originalValue := p.getFieldValue(ch)
+		fieldValues[ch] = originalValue
+		baseName := p.extractBaseName(originalValue)
+
+		if baseName != originalValue {
+			grouped[baseName] = append(grouped[baseName], ch)
+		}
 	}
-	p.processDuplicateGroups(grouped)
+	p.processDuplicateGroups(grouped, fieldValues)
 }
 
-func (p *RemoveDuplicatesProcessor) extractBaseName(ch *Channel) string {
-	name := p.getFieldValue(ch)
+func (p *RemoveDuplicatesProcessor) extractBaseName(name string) string {
 	if name == "" {
 		return ""
 	}
@@ -66,15 +72,15 @@ func (p *RemoveDuplicatesProcessor) getPatterns() []*regexp.Regexp {
 	return nil
 }
 
-func (p *RemoveDuplicatesProcessor) selectBestChannel(channels []*Channel) *Channel {
+func (p *RemoveDuplicatesProcessor) selectBestChannel(channels []*Channel, fieldValues map[*Channel]string) *Channel {
 	patterns := p.getPatterns()
 	if len(patterns) == 0 {
 		return channels[0]
 	}
+
 	for _, pattern := range patterns {
 		for _, ch := range channels {
-			fv := p.getFieldValue(ch)
-			if pattern.MatchString(fv) {
+			if pattern.MatchString(fieldValues[ch]) {
 				return ch
 			}
 		}
@@ -82,12 +88,12 @@ func (p *RemoveDuplicatesProcessor) selectBestChannel(channels []*Channel) *Chan
 	return channels[0]
 }
 
-func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*Channel) {
+func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*Channel, fieldValues map[*Channel]string) {
 	for baseName, group := range groups {
 		if len(group) <= 1 {
 			continue
 		}
-		best := p.selectBestChannel(group)
+		best := p.selectBestChannel(group, fieldValues)
 		for _, ch := range group {
 			if ch == best {
 				if p.rule.TrimPattern {

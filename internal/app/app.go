@@ -79,7 +79,12 @@ func (m *Manager) createClient(clientConf config.Client) (*Client, error) {
 		}
 	}
 
-	cl, err := NewClient(clientConf, presets, m.publicURLBase)
+	urlGen, err := m.createURLGenerator(clientConf.Secret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create URL generator: %w", err)
+	}
+
+	cl, err := NewClient(clientConf, urlGen, presets, m.publicURLBase)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to initialize client %s: %w", clientConf.Name, err)
@@ -123,11 +128,6 @@ func (m *Manager) addPlaylistProvider(cl *Client, playlistName string) error {
 			"playlist '%s' for client '%s' is not defined in config", playlistName, cl.name)
 	}
 
-	urlGen, err := m.createURLGenerator(cl.secret, playlistName)
-	if err != nil {
-		return fmt.Errorf("failed to create URL generator: %w", err)
-	}
-
 	var sem *semaphore.Weighted
 	if playlistConf.Proxy.ConcurrentStreams > 0 {
 		sem = semaphore.NewWeighted(playlistConf.Proxy.ConcurrentStreams)
@@ -136,7 +136,7 @@ func (m *Manager) addPlaylistProvider(cl *Client, playlistName string) error {
 	metrics.PlaylistStreamsActive.WithLabelValues(playlistConf.Name).Set(0)
 
 	if err := cl.BuildPlaylistProvider(
-		playlistConf, *urlGen, m.config.Rules, m.config.Proxy, sem); err != nil {
+		playlistConf, m.config.Rules, m.config.Proxy, sem); err != nil {
 		return fmt.Errorf(
 			"failed to build playlist subscription '%s' for client '%s': %w",
 			playlistName, cl.name, err)
@@ -151,12 +151,7 @@ func (m *Manager) addEPGProvider(cl *Client, epgName string) error {
 		return fmt.Errorf("EPG '%s' for client '%s' is not defined in config", epgName, cl.name)
 	}
 
-	urlGen, err := m.createURLGenerator(cl.secret, epgName)
-	if err != nil {
-		return fmt.Errorf("failed to create URL generator: %w", err)
-	}
-
-	if err := cl.BuildEPGProvider(epgConf, *urlGen, m.config.Proxy); err != nil {
+	if err := cl.BuildEPGProvider(epgConf, m.config.Proxy); err != nil {
 		return fmt.Errorf("failed to build EPG subscription '%s' for client '%s': %w",
 			epgName, cl.name, err)
 	}
@@ -182,8 +177,8 @@ func (m *Manager) findEPG(name string) (config.EPG, error) {
 	return config.EPG{}, fmt.Errorf("EPG not found: %s", name)
 }
 
-func (m *Manager) createURLGenerator(clientSecret, srcName string) (*urlgen.Generator, error) {
-	secretKey := m.config.URLGenerator.Secret + srcName + clientSecret
+func (m *Manager) createURLGenerator(clientSecret string) (*urlgen.Generator, error) {
+	secretKey := m.config.URLGenerator.Secret + clientSecret
 
 	return urlgen.NewGenerator(
 		m.publicURLBase, secretKey,

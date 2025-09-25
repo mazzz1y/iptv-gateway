@@ -29,7 +29,7 @@ type Playlist struct {
 }
 
 func NewPlaylistProvider(
-	name string, urlGen urlgen.Generator,
+	name string, urlGen *urlgen.Generator,
 	sources []string,
 	proxy proxy.Proxy, rules []*rules.Rule, sem *semaphore.Weighted) (*Playlist, error) {
 
@@ -71,7 +71,7 @@ func NewPlaylistProvider(
 
 	return &Playlist{
 		name:                  name,
-		urlGenerator:          &urlGen,
+		urlGenerator:          urlGen,
 		sources:               sources,
 		semaphore:             sem,
 		proxyConfig:           proxy,

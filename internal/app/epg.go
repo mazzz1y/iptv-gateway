@@ -14,10 +14,10 @@ type EPG struct {
 }
 
 func NewEPGProvider(
-	name string, urlGen urlgen.Generator, sources []string, proxy proxy.Proxy) (*EPG, error) {
+	name string, urlGen *urlgen.Generator, sources []string, proxy proxy.Proxy) (*EPG, error) {
 	return &EPG{
 		name:         name,
-		urlGenerator: &urlGen,
+		urlGenerator: urlGen,
 		sources:      sources,
 		proxyConfig:  proxy,
 	}, nil

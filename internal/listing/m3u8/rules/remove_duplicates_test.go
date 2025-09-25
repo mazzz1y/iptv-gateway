@@ -4,6 +4,7 @@ import (
 	configrules "iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/parser/m3u8"
+	"net/url"
 	"regexp"
 	"testing"
 )
@@ -76,7 +77,8 @@ func TestRemoveDuplicatesProcessor_extractKey(t *testing.T) {
 					Name: tt.input,
 				},
 			}
-			result := processor.extractBaseName(ch)
+			originalValue := processor.getFieldValue(ch)
+			result := processor.extractBaseName(originalValue)
 			if result != tt.expected {
 				t.Errorf("extractKey(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
@@ -138,10 +140,69 @@ func TestRemoveDuplicatesProcessor_extractKey_attr(t *testing.T) {
 					Attrs: map[string]string{tt.attrName: tt.attrVal},
 				},
 			}
-			result := processor.extractBaseName(ch)
+			originalValue := processor.getFieldValue(ch)
+			result := processor.extractBaseName(originalValue)
 			if result != tt.expected {
 				t.Errorf("extractKey(attr=%q) = %q, want %q", tt.attrVal, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestRemoveDuplicatesProcessor_shouldNotRemoveIdenticalChannels(t *testing.T) {
+	rule := &configrules.RemoveDuplicatesRule{
+		NamePatterns: types.RegexpArr{
+			regexp.MustCompile(`\[HD\]`),
+			regexp.MustCompile(`\(FHD\)`),
+		},
+	}
+
+	processor := NewRemoveDuplicatesActionProcessor(rule)
+	store := NewStore()
+
+	uri1, _ := url.Parse("http://example.com/url1")
+	uri2, _ := url.Parse("http://example.com/url2")
+	uri3, _ := url.Parse("http://example.com/url3")
+	uri4, _ := url.Parse("http://example.com/url4")
+
+	ch1 := &Channel{track: &m3u8.Track{Name: "Channel Name [HD]", URI: uri1}}
+	ch2 := &Channel{track: &m3u8.Track{Name: "Channel Name (FHD)", URI: uri2}}
+
+	ch3 := &Channel{track: &m3u8.Track{Name: "Channel Name", URI: uri3}}
+	ch4 := &Channel{track: &m3u8.Track{Name: "Channel Name", URI: uri4}}
+
+	store.Add(ch1)
+	store.Add(ch2)
+	store.Add(ch3)
+	store.Add(ch4)
+
+	processor.Apply(store)
+
+	activeChannels := make([]*Channel, 0)
+	for _, ch := range store.All() {
+		if !ch.IsRemoved() {
+			activeChannels = append(activeChannels, ch)
+		}
+	}
+
+	expectedActive := 3
+	if len(activeChannels) != expectedActive {
+		t.Errorf("Expected %d active channels, got %d", expectedActive, len(activeChannels))
+
+		for i, ch := range store.All() {
+			t.Logf("Channel %d: Name='%s', URI='%s', Removed=%v",
+				i, ch.Name(), ch.URI(), ch.IsRemoved())
+		}
+	}
+
+	identicalChannelsActive := 0
+	for _, ch := range activeChannels {
+		if ch.Name() == "Channel Name" {
+			identicalChannelsActive++
+		}
+	}
+
+	if identicalChannelsActive != 2 {
+		t.Errorf("Expected 2 identical channels to remain active, got %d", identicalChannelsActive)
 	}
 }

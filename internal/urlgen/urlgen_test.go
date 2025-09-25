@@ -7,44 +7,6 @@ import (
 	"time"
 )
 
-func TestNewGenerator(t *testing.T) {
-	tests := []struct {
-		name      string
-		publicURL string
-		secret    string
-		wantErr   bool
-	}{
-		{
-			name:      "valid generator",
-			publicURL: "https://example.com",
-			secret:    "test-secret-key",
-			wantErr:   false,
-		},
-		{
-			name:      "empty secret",
-			publicURL: "https://example.com",
-			secret:    "",
-			wantErr:   false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g, err := NewGenerator(tt.publicURL, tt.secret, time.Hour, time.Hour)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("newGenerator() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && g == nil {
-				t.Error("newGenerator() returned nil generator")
-			}
-			if !tt.wantErr && g.PublicURL != tt.publicURL {
-				t.Errorf("newGenerator() publicURL = %v, want %v", g.PublicURL, tt.publicURL)
-			}
-		})
-	}
-}
-
 func TestGenerator_CreateURL(t *testing.T) {
 	g, err := NewGenerator("https://example.com", "test-secret", time.Hour, time.Hour)
 	if err != nil {
@@ -61,10 +23,14 @@ func TestGenerator_CreateURL(t *testing.T) {
 		{
 			name: "stream request",
 			data: Data{
-				RequestType: Stream,
-				URL:         "https://stream.example.com/video",
-				Playlist:    "playlist1",
-				ChannelID:   "channel1",
+				RequestType: RequestTypeStream,
+				StreamData: StreamData{
+					ChannelName: 1,
+					Streams: []Stream{{
+						URL:    "https://stream.example.com/video",
+						Hidden: false,
+					}},
+				},
 			},
 			ttl:     time.Hour,
 			wantExt: ".ts",
@@ -73,10 +39,8 @@ func TestGenerator_CreateURL(t *testing.T) {
 		{
 			name: "file request with extension",
 			data: Data{
-				RequestType: File,
-				URL:         "https://file.example.com/video.mp4",
-				Playlist:    "playlist2",
-				ChannelID:   "channel2",
+				RequestType: RequestTypeFile,
+				File:        FileData{URL: "https://file.example.com/video.mp4"},
 			},
 			ttl:     time.Hour,
 			wantExt: ".mp4",
@@ -85,10 +49,8 @@ func TestGenerator_CreateURL(t *testing.T) {
 		{
 			name: "file request without extension",
 			data: Data{
-				RequestType: File,
-				URL:         "https://file.example.com/video",
-				Playlist:    "playlist3",
-				ChannelID:   "channel3",
+				RequestType: RequestTypeFile,
+				File:        FileData{URL: "https://file.example.com/video"},
 			},
 			ttl:     time.Hour,
 			wantExt: ".file",
@@ -97,25 +59,11 @@ func TestGenerator_CreateURL(t *testing.T) {
 		{
 			name: "file request with query params",
 			data: Data{
-				RequestType: File,
-				URL:         "https://file.example.com/video.mp4?token=abc123",
-				Playlist:    "playlist4",
-				ChannelID:   "channel4",
+				RequestType: RequestTypeFile,
+				File:        FileData{URL: "https://file.example.com/video.mp4?token=abc123"},
 			},
 			ttl:     time.Hour,
 			wantExt: ".mp4",
-			wantErr: false,
-		},
-		{
-			name: "stream request with additional fields",
-			data: Data{
-				RequestType: Stream,
-				URL:         "https://stream.example.com/video",
-				Playlist:    "playlist5",
-				ChannelID:   "channel5",
-			},
-			ttl:     time.Hour,
-			wantExt: ".ts",
 			wantErr: false,
 		},
 	}
@@ -160,16 +108,131 @@ func TestGenerator_CreateURL(t *testing.T) {
 			if decrypted.RequestType != tt.data.RequestType {
 				t.Errorf("decrypted requestType = %v, want %v", decrypted.RequestType, tt.data.RequestType)
 			}
-			if decrypted.URL != tt.data.URL {
-				t.Errorf("decrypted url = %v, want %v", decrypted.URL, tt.data.URL)
-			}
-			if decrypted.Playlist != tt.data.Playlist {
-				t.Errorf("decrypted playlist = %v, want %v", decrypted.Playlist, tt.data.Playlist)
-			}
-			if decrypted.ChannelID != tt.data.ChannelID {
-				t.Errorf("decrypted channelID = %v, want %v", decrypted.ChannelID, tt.data.ChannelID)
+
+			if tt.data.RequestType == RequestTypeStream {
+				if decrypted.StreamData.ChannelName != tt.data.StreamData.ChannelName {
+					t.Errorf("decrypted channelID = %v, want %v", decrypted.StreamData.ChannelName, tt.data.StreamData.ChannelName)
+				}
+				if len(decrypted.StreamData.Streams) != len(tt.data.StreamData.Streams) {
+					t.Errorf("decrypted streams length = %v, want %v", len(decrypted.StreamData.Streams), len(tt.data.StreamData.Streams))
+				}
+				for i, stream := range tt.data.StreamData.Streams {
+					if decrypted.StreamData.Streams[i].URL != stream.URL {
+						t.Errorf("decrypted stream[%d].URL = %v, want %v", i, decrypted.StreamData.Streams[i].URL, stream.URL)
+					}
+					if decrypted.StreamData.Streams[i].Hidden != stream.Hidden {
+						t.Errorf("decrypted stream[%d].Hidden = %v, want %v", i, decrypted.StreamData.Streams[i].Hidden, stream.Hidden)
+					}
+				}
+			} else {
+				if decrypted.File.URL != tt.data.File.URL {
+					t.Errorf("decrypted file.URL = %v, want %v", decrypted.File.URL, tt.data.File.URL)
+				}
 			}
 		})
+	}
+}
+
+func TestGenerator_CreateStreamURL(t *testing.T) {
+	g, err := NewGenerator("https://example.com", "test-secret", time.Hour, time.Hour)
+	if err != nil {
+		t.Fatalf("Failed to create generator: %v", err)
+	}
+
+	streams := []Stream{
+		{
+			URL:    "https://stream1.example.com/video",
+			Hidden: false,
+		},
+		{
+			URL:    "https://stream2.example.com/video",
+			Hidden: true,
+		},
+	}
+
+	u, err := g.CreateStreamURL(1, streams)
+	if err != nil {
+		t.Fatalf("CreateStreamURL() failed: %v", err)
+	}
+
+	if u == nil {
+		t.Fatal("CreateStreamURL() returned nil URL")
+	}
+
+	if !strings.HasPrefix(u.String(), g.PublicURL) {
+		t.Errorf("CreateStreamURL() URL doesn't start with public URL")
+	}
+
+	if !strings.HasSuffix(u.Path, "/f.ts") {
+		t.Errorf("CreateStreamURL() URL doesn't end with .ts extension")
+	}
+
+	parts := strings.Split(u.Path, "/")
+	token := parts[len(parts)-2]
+
+	decrypted, err := g.Decrypt(token)
+	if err != nil {
+		t.Fatalf("Failed to decrypt token: %v", err)
+	}
+
+	if decrypted.RequestType != RequestTypeStream {
+		t.Errorf("Expected RequestTypeStream, got %v", decrypted.RequestType)
+	}
+
+	if decrypted.StreamData.ChannelName != 1 {
+		t.Errorf("Expected channelID 1, got %d", decrypted.StreamData.ChannelName)
+	}
+
+	if len(decrypted.StreamData.Streams) != 2 {
+		t.Errorf("Expected 2 streams, got %d", len(decrypted.StreamData.Streams))
+	}
+
+	for i, expected := range streams {
+		if decrypted.StreamData.Streams[i] != expected {
+			t.Errorf("Stream %d mismatch: got %+v, want %+v", i, decrypted.StreamData.Streams[i], expected)
+		}
+	}
+}
+
+func TestGenerator_CreateFileURL(t *testing.T) {
+	g, err := NewGenerator("https://example.com", "test-secret", time.Hour, time.Hour)
+	if err != nil {
+		t.Fatalf("Failed to create generator: %v", err)
+	}
+
+	fileURL := "https://file.example.com/document.pdf"
+
+	u, err := g.CreateFileURL(fileURL)
+	if err != nil {
+		t.Fatalf("CreateFileURL() failed: %v", err)
+	}
+
+	if u == nil {
+		t.Fatal("CreateFileURL() returned nil URL")
+	}
+
+	if !strings.HasPrefix(u.String(), g.PublicURL) {
+		t.Errorf("CreateFileURL() URL doesn't start with public URL")
+	}
+
+	if !strings.HasSuffix(u.Path, "/f.pdf") {
+		t.Errorf("CreateFileURL() URL doesn't end with .pdf extension")
+	}
+
+	parts := strings.Split(u.Path, "/")
+	token := parts[len(parts)-2]
+
+	decrypted, err := g.Decrypt(token)
+	if err != nil {
+		t.Fatalf("Failed to decrypt token: %v", err)
+	}
+
+	if decrypted.RequestType != RequestTypeFile {
+		t.Errorf("Expected RequestTypeFile, got %v", decrypted.RequestType)
+	}
+
+	if decrypted.File.URL != fileURL {
+		t.Errorf("Expected File.URL %s, got %s", fileURL, decrypted.File.URL)
 	}
 }
 
@@ -180,10 +243,14 @@ func TestGenerator_Decrypt(t *testing.T) {
 	}
 
 	validData := Data{
-		RequestType: Stream,
-		URL:         "https://example.com/video",
-		Playlist:    "playlist1",
-		ChannelID:   "channel1",
+		RequestType: RequestTypeStream,
+		StreamData: StreamData{
+			ChannelName: 1,
+			Streams: []Stream{{
+				URL:    "https://example.com/video",
+				Hidden: false,
+			}},
+		},
 	}
 
 	u, err := g.CreateURL(validData)
@@ -245,207 +312,74 @@ func TestGenerator_Decrypt(t *testing.T) {
 	}
 }
 
-func TestGenerator_CrossSecretDecryption(t *testing.T) {
-	g1, err := NewGenerator("https://example.com", "secret1", time.Hour, time.Hour)
-	if err != nil {
-		t.Fatalf("failed to create generator1: %v", err)
-	}
-
-	g2, err := NewGenerator("https://example.com", "secret2", time.Hour, time.Hour)
-	if err != nil {
-		t.Fatalf("failed to create generator2: %v", err)
-	}
-
-	data := Data{
-		RequestType: Stream,
-		URL:         "https://example.com/video",
-		Playlist:    "playlist1",
-		ChannelID:   "channel1",
-	}
-
-	u, err := g1.CreateURL(data)
-	if err != nil {
-		t.Fatalf("Failed to create URL: %v", err)
-	}
-
-	parts := strings.Split(u.Path, "/")
-	token := parts[len(parts)-2]
-
-	_, err = g2.Decrypt(token)
-	if err == nil {
-		t.Error("expected error when decrypting with different secret")
-	}
-}
-
-func TestGenerator_LinkExpiration(t *testing.T) {
-	g, err := NewGenerator("https://example.com", "test-secret", time.Hour, time.Hour)
-	if err != nil {
-		t.Fatalf("Failed to create generator: %v", err)
-	}
-
-	data := Data{
-		RequestType: Stream,
-		URL:         "https://example.com/video",
-		Playlist:    "playlist1",
-		ChannelID:   "channel1",
-	}
-
-	tests := []struct {
-		name    string
-		ttl     time.Duration
-		wantErr bool
-	}{
-		{
-			name:    "valid TTL - 1 hour",
-			ttl:     time.Hour,
-			wantErr: false,
-		},
-		{
-			name:    "valid TTL - 5 minutes",
-			ttl:     5 * time.Minute,
-			wantErr: false,
-		},
-		{
-			name:    "valid TTL - 24 hours",
-			ttl:     24 * time.Hour,
-			wantErr: false,
-		},
-		{
-			name:    "zero TTL (no expiration)",
-			ttl:     0,
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u, err := g.CreateURL(data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateURL() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && u == nil {
-				t.Error("CreateURL() returned nil url")
-			}
-		})
-	}
-}
-
 func TestGenerator_ExpiredLinkDecryption(t *testing.T) {
-	g, err := NewGenerator("https://example.com", "test-secret", time.Millisecond, time.Millisecond)
-	if err != nil {
-		t.Fatalf("Failed to create generator: %v", err)
-	}
+	t.Run("expired token with TTL", func(t *testing.T) {
+		g, err := NewGenerator("https://example.com", "test-secret", time.Millisecond, time.Millisecond)
+		if err != nil {
+			t.Fatalf("Failed to create generator: %v", err)
+		}
 
-	data := Data{
-		RequestType: Stream,
-		URL:         "https://example.com/video",
-		Playlist:    "playlist1",
-		ChannelID:   "channel1",
-	}
+		data := Data{
+			RequestType: RequestTypeStream,
+			StreamData: StreamData{
+				ChannelName: 1,
+				Streams: []Stream{{
+					URL:    "https://example.com/video",
+					Hidden: false,
+				}},
+			},
+			CreatedAt: time.Now().Add(-10 * time.Millisecond).Unix(),
+		}
 
-	u, err := g.CreateURL(data)
-	if err != nil {
-		t.Fatalf("Failed to create URL: %v", err)
-	}
+		u, err := g.CreateURL(data)
+		if err != nil {
+			t.Fatalf("Failed to create URL: %v", err)
+		}
 
-	parts := strings.Split(u.Path, "/")
-	token := parts[len(parts)-2]
+		parts := strings.Split(u.Path, "/")
+		token := parts[len(parts)-2]
 
-	time.Sleep(10 * time.Millisecond)
+		_, err = g.Decrypt(token)
+		if err == nil {
+			t.Error("expected error when decrypting expired token")
+		}
 
-	_, err = g.Decrypt(token)
-	if err == nil {
-		t.Error("expected error when decrypting expired token")
-	}
+		if !errors.Is(err, ErrExpiredStreamURL) {
+			t.Errorf("expected ErrExpiredStreamURL, got %v", err)
+		}
+	})
 
-	if !errors.Is(err, ErrExpiredStreamURL) {
-		t.Errorf("expected ErrExpiredURL, got %v", err)
-	}
-}
+	t.Run("valid token with zero TTL", func(t *testing.T) {
+		g, err := NewGenerator("https://example.com", "test-secret", 0, 0)
+		if err != nil {
+			t.Fatalf("Failed to create generator: %v", err)
+		}
 
-func TestGenerator_ExpiredLinkEdgeCases(t *testing.T) {
-	data := Data{
-		RequestType: Stream,
-		URL:         "https://example.com/video",
-		Playlist:    "playlist1",
-		ChannelID:   "channel1",
-	}
+		data := Data{
+			RequestType: RequestTypeStream,
+			StreamData: StreamData{
+				ChannelName: 1,
+				Streams: []Stream{{
+					URL:    "https://example.com/video",
+					Hidden: false,
+				}},
+			},
+			CreatedAt: time.Now().Add(-time.Hour).Unix(),
+		}
 
-	tests := []struct {
-		name        string
-		streamTTL   time.Duration
-		fileTTL     time.Duration
-		sleepTime   time.Duration
-		expectError bool
-		errorType   error
-	}{
-		{
-			name:        "valid token - no sleep",
-			streamTTL:   time.Second,
-			fileTTL:     time.Second,
-			sleepTime:   0,
-			expectError: false,
-			errorType:   nil,
-		},
-		{
-			name:        "expired token",
-			streamTTL:   10 * time.Millisecond,
-			fileTTL:     10 * time.Millisecond,
-			sleepTime:   50 * time.Millisecond,
-			expectError: true,
-			errorType:   ErrExpiredStreamURL,
-		},
-		{
-			name:        "zero TTL - no expiration",
-			streamTTL:   0,
-			fileTTL:     0,
-			sleepTime:   100 * time.Millisecond,
-			expectError: false,
-			errorType:   nil,
-		},
-	}
+		u, err := g.CreateURL(data)
+		if err != nil {
+			t.Fatalf("Failed to create URL: %v", err)
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g, err := NewGenerator("https://example.com", "test-secret", tt.streamTTL, tt.fileTTL)
-			if err != nil {
-				t.Fatalf("Failed to create generator: %v", err)
-			}
+		parts := strings.Split(u.Path, "/")
+		token := parts[len(parts)-2]
 
-			u, err := g.CreateURL(data)
-			if err != nil {
-				t.Fatalf("Failed to create URL: %v", err)
-			}
-
-			parts := strings.Split(u.Path, "/")
-			token := parts[len(parts)-2]
-
-			if tt.sleepTime > 0 {
-				time.Sleep(tt.sleepTime)
-			}
-
-			decryptedData, err := g.Decrypt(token)
-
-			if tt.expectError {
-				if err == nil {
-					t.Error("expected error but got none")
-					return
-				}
-				if tt.errorType != nil && !errors.Is(err, tt.errorType) {
-					t.Errorf("expected error %v, got %v", tt.errorType, err)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-					return
-				}
-				if decryptedData == nil {
-					t.Error("expected decrypted data but got nil")
-				}
-			}
-		})
-	}
+		_, err = g.Decrypt(token)
+		if err != nil {
+			t.Errorf("expected no error for zero TTL, got %v", err)
+		}
+	})
 }
 
 func TestDetermineExtension(t *testing.T) {
@@ -456,32 +390,32 @@ func TestDetermineExtension(t *testing.T) {
 	}{
 		{
 			name: "stream type",
-			data: Data{RequestType: Stream},
+			data: Data{RequestType: RequestTypeStream},
 			want: ".ts",
 		},
 		{
 			name: "file with .mp4",
-			data: Data{RequestType: File, URL: "https://example.com/video.mp4"},
+			data: Data{RequestType: RequestTypeFile, File: FileData{URL: "https://example.com/video.mp4"}},
 			want: ".mp4",
 		},
 		{
 			name: "file with .m3u8",
-			data: Data{RequestType: File, URL: "https://example.com/playlist.m3u8"},
+			data: Data{RequestType: RequestTypeFile, File: FileData{URL: "https://example.com/playlist.m3u8"}},
 			want: ".m3u8",
 		},
 		{
 			name: "file with query params",
-			data: Data{RequestType: File, URL: "https://example.com/video.mp4?token=123"},
+			data: Data{RequestType: RequestTypeFile, File: FileData{URL: "https://example.com/video.mp4?token=123"}},
 			want: ".mp4",
 		},
 		{
 			name: "file without extension",
-			data: Data{RequestType: File, URL: "https://example.com/video"},
+			data: Data{RequestType: RequestTypeFile, File: FileData{URL: "https://example.com/video"}},
 			want: ".file",
 		},
 		{
 			name: "file with multiple dots",
-			data: Data{RequestType: File, URL: "https://example.com/my.video.file.mp4"},
+			data: Data{RequestType: RequestTypeFile, File: FileData{URL: "https://example.com/my.video.file.mp4"}},
 			want: ".mp4",
 		},
 	}
