@@ -8,6 +8,7 @@ import (
 	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/config/proxy"
 	"iptv-gateway/internal/listing"
+	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"strings"
@@ -21,10 +22,12 @@ import (
 )
 
 func createStreamer(subscriptions []listing.Playlist, epgLink string, httpClient listing.HTTPClient) *Streamer {
+	rulesProcessor := rules.NewProcessor("test", nil)
 	return &Streamer{
-		subscriptions: subscriptions,
-		httpClient:    httpClient,
-		epgURL:        epgLink,
+		subscriptions:  subscriptions,
+		httpClient:     httpClient,
+		epgURL:         epgLink,
+		rulesProcessor: rulesProcessor,
 	}
 }
 
@@ -48,7 +51,7 @@ func createTestSubscription(name string, playlists []string) (*app.Playlist, err
 	}
 	return app.NewPlaylistProvider(
 		name,
-		*generator,
+		generator,
 		playlists,
 		proxy.Proxy{},
 		nil,

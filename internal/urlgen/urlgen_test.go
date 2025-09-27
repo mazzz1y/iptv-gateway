@@ -25,7 +25,7 @@ func TestGenerator_CreateURL(t *testing.T) {
 			data: Data{
 				RequestType: RequestTypeStream,
 				StreamData: StreamData{
-					ChannelName: 1,
+					ChannelName: "1",
 					Streams: []Stream{{
 						URL:    "https://stream.example.com/video",
 						Hidden: false,
@@ -141,16 +141,18 @@ func TestGenerator_CreateStreamURL(t *testing.T) {
 
 	streams := []Stream{
 		{
-			URL:    "https://stream1.example.com/video",
-			Hidden: false,
+			ProviderInfo: ProviderInfo{ProviderType: ProviderTypePlaylist, ProviderName: "test1"},
+			URL:          "https://stream1.example.com/video",
+			Hidden:       false,
 		},
 		{
-			URL:    "https://stream2.example.com/video",
-			Hidden: true,
+			ProviderInfo: ProviderInfo{ProviderType: ProviderTypePlaylist, ProviderName: "test2"},
+			URL:          "https://stream2.example.com/video",
+			Hidden:       true,
 		},
 	}
 
-	u, err := g.CreateStreamURL(1, streams)
+	u, err := g.CreateStreamURL("1", streams)
 	if err != nil {
 		t.Fatalf("CreateStreamURL() failed: %v", err)
 	}
@@ -179,8 +181,8 @@ func TestGenerator_CreateStreamURL(t *testing.T) {
 		t.Errorf("Expected RequestTypeStream, got %v", decrypted.RequestType)
 	}
 
-	if decrypted.StreamData.ChannelName != 1 {
-		t.Errorf("Expected channelID 1, got %d", decrypted.StreamData.ChannelName)
+	if decrypted.StreamData.ChannelName != "1" {
+		t.Errorf("Expected channelID 1, got %s", decrypted.StreamData.ChannelName)
 	}
 
 	if len(decrypted.StreamData.Streams) != 2 {
@@ -202,7 +204,8 @@ func TestGenerator_CreateFileURL(t *testing.T) {
 
 	fileURL := "https://file.example.com/document.pdf"
 
-	u, err := g.CreateFileURL(fileURL)
+	providerInfo := ProviderInfo{ProviderType: ProviderTypePlaylist, ProviderName: "test"}
+	u, err := g.CreateFileURL(providerInfo, fileURL)
 	if err != nil {
 		t.Fatalf("CreateFileURL() failed: %v", err)
 	}
@@ -245,7 +248,7 @@ func TestGenerator_Decrypt(t *testing.T) {
 	validData := Data{
 		RequestType: RequestTypeStream,
 		StreamData: StreamData{
-			ChannelName: 1,
+			ChannelName: "1",
 			Streams: []Stream{{
 				URL:    "https://example.com/video",
 				Hidden: false,
@@ -322,7 +325,7 @@ func TestGenerator_ExpiredLinkDecryption(t *testing.T) {
 		data := Data{
 			RequestType: RequestTypeStream,
 			StreamData: StreamData{
-				ChannelName: 1,
+				ChannelName: "1",
 				Streams: []Stream{{
 					URL:    "https://example.com/video",
 					Hidden: false,
@@ -358,7 +361,7 @@ func TestGenerator_ExpiredLinkDecryption(t *testing.T) {
 		data := Data{
 			RequestType: RequestTypeStream,
 			StreamData: StreamData{
-				ChannelName: 1,
+				ChannelName: "1",
 				Streams: []Stream{{
 					URL:    "https://example.com/video",
 					Hidden: false,

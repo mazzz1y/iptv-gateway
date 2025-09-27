@@ -10,16 +10,12 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const (
-	SemaphoreTimeout = 3 * time.Second
-)
-
-func AcquireSemaphore(ctx context.Context, sem *semaphore.Weighted, name string) bool {
+func AcquireSemaphore(ctx context.Context, sem *semaphore.Weighted, timeout time.Duration, name string) bool {
 	if sem == nil {
 		return true
 	}
 
-	semCtx, cancel := context.WithTimeout(ctx, SemaphoreTimeout)
+	semCtx, cancel := context.WithTimeout(ctx, timeout)
 	semCtx = ctxutil.WithSemaphoreName(semCtx, name)
 
 	defer cancel()
@@ -32,24 +28,6 @@ func AcquireSemaphore(ctx context.Context, sem *semaphore.Weighted, name string)
 		} else {
 			logging.Error(ctx, err, "semaphore acquisition failed")
 		}
-		return false
-	}
-
-	logging.Debug(ctx, "semaphore acquired")
-	return true
-}
-
-func TryAcquireSemaphore(ctx context.Context, sem *semaphore.Weighted, name string) bool {
-	if sem == nil {
-		return true
-	}
-
-	ctx = ctxutil.WithSemaphoreName(ctx, name)
-
-	logging.Debug(ctx, "trying to acquire semaphore")
-
-	if ok := sem.TryAcquire(1); !ok {
-		logging.Debug(ctx, "semaphore not available")
 		return false
 	}
 

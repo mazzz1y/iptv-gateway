@@ -9,9 +9,12 @@ import (
 	"iptv-gateway/internal/metrics"
 	"iptv-gateway/internal/utils"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/semaphore"
 )
+
+const semaphoreTimeout = 200 * time.Millisecond
 
 var (
 	ErrSubscriptionSemaphore = errors.New("failed to acquire subscription semaphore")
@@ -88,7 +91,7 @@ func (m *Demuxer) GetReader(ctx context.Context, req Request) (io.ReadCloser, er
 
 	isNewStream := m.pool.AddClient(req.StreamKey, pw)
 	if isNewStream {
-		if utils.TryAcquireSemaphore(streamCtx, req.Semaphore, "subscription") {
+		if utils.AcquireSemaphore(streamCtx, req.Semaphore, semaphoreTimeout, "subscription") {
 			logging.Debug(streamCtx, "acquired subscription semaphore")
 		} else {
 			sr.Close()

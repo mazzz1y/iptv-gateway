@@ -83,9 +83,8 @@ func TestRulesProcessor_RemoveField(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			processor := rulesprocessor.NewProcessor()
+			processor := rulesprocessor.NewProcessor("test", tt.rules)
 			sub := &mockSubscription{name: "test", rules: tt.rules}
-			processor.AddPlaylist(sub)
 
 			store := rulesprocessor.NewStore()
 			ch := rulesprocessor.NewChannel(tt.track, sub)
@@ -116,9 +115,8 @@ func TestRulesProcessor_SetField(t *testing.T) {
 		},
 	}
 
-	processor := rulesprocessor.NewProcessor()
+	processor := rulesprocessor.NewProcessor("test", channelRules)
 	sub := &mockSubscription{name: "test", rules: channelRules}
-	processor.AddPlaylist(sub)
 
 	track := &m3u8.Track{
 		Name: "Test Channel",

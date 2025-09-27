@@ -8,9 +8,14 @@ import (
 	"iptv-gateway/internal/metrics"
 	"iptv-gateway/internal/urlgen"
 	"iptv-gateway/internal/utils"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+)
+
+const (
+	semaphoreTimeout = 3 * time.Second
 )
 
 func (s *Server) acquireSemaphores(ctx context.Context) bool {
@@ -21,7 +26,7 @@ func (s *Server) acquireSemaphores(ctx context.Context) bool {
 
 	acquireSem := func(sem *semaphore.Weighted, reason string) func() error {
 		return func() error {
-			if sem == nil || utils.AcquireSemaphore(gCtx, sem, reason) {
+			if sem == nil || utils.AcquireSemaphore(gCtx, sem, semaphoreTimeout, reason) {
 				return nil
 			}
 			metrics.StreamsFailuresTotal.WithLabelValues(

@@ -52,7 +52,7 @@ func createTestProvider(name string, epgs []string) (*app.EPG, error) {
 	}
 	return app.NewEPGProvider(
 		name,
-		*generator,
+		generator,
 		epgs,
 		proxy.Proxy{},
 	)
