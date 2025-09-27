@@ -33,7 +33,12 @@ func (s *SetFieldRule) Validate() error {
 	if setFields != 1 {
 		return fmt.Errorf("set_field: exactly one of name, attr, or tag is required")
 	}
-	return nil
+
+	if s.When == nil {
+		return nil
+	}
+
+	return s.When.Validate()
 }
 
 func (s *SetFieldRule) String() string {

@@ -80,5 +80,5 @@ func (r *MergeChannelsRule) validateWhen() error {
 		return fmt.Errorf("merge_channels: only clients field is allowed in when condition")
 	}
 
-	return nil
+	return r.When.Validate()
 }

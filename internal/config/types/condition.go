@@ -1,20 +1,48 @@
 package types
 
 import (
+	"fmt"
+
 	"gopkg.in/yaml.v3"
 )
 
 type ConditionList []Condition
 
 type Condition struct {
-	NamePatterns RegexpArr     `yaml:"name_patterns,omitempty"`
-	Attr         *NamePatterns `yaml:"attr,omitempty"`
-	Tag          *NamePatterns `yaml:"tag,omitempty"`
-	Clients      StringOrArr   `yaml:"clients,omitempty"`
-	Playlists    StringOrArr   `yaml:"playlists,omitempty"`
-	Invert       bool          `yaml:"invert,omitempty"`
-	And          ConditionList `yaml:"and,omitempty"`
-	Or           ConditionList `yaml:"or,omitempty"`
+	NamePatterns RegexpArr      `yaml:"name_patterns,omitempty"`
+	Attr         *NamePatterns  `yaml:"attr,omitempty"`
+	Tag          *NamePatterns  `yaml:"tag,omitempty"`
+	Clients      StringOrArr    `yaml:"clients,omitempty"`
+	Playlists    StringOrArr    `yaml:"playlists,omitempty"`
+	Invert       bool           `yaml:"invert,omitempty"`
+	And          ConditionList  `yaml:"and,omitempty"`
+	Or           ConditionList  `yaml:"or,omitempty"`
+	ExtraFields  map[string]any `yaml:",inline"`
+}
+
+func (c *Condition) Validate() error {
+	fields := make([]string, 0, len(c.ExtraFields))
+
+	for k := range c.ExtraFields {
+		fields = append(fields, k)
+	}
+
+	if len(fields) > 0 {
+		return fmt.Errorf("unknown extra fields: %v", fields)
+	}
+
+	for _, cond := range c.And {
+		if err := cond.Validate(); err != nil {
+			return err
+		}
+	}
+	for _, cond := range c.Or {
+		if err := cond.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *Condition) IsEmpty() bool {
@@ -29,5 +57,14 @@ func (cl *ConditionList) UnmarshalYAML(value *yaml.Node) error {
 		return err
 	}
 	*cl = conditions
+	return nil
+}
+
+func (cl *ConditionList) Validate() error {
+	for _, c := range *cl {
+		if err := c.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }

@@ -13,5 +13,5 @@ func (r *RemoveChannelRule) Validate() error {
 	if r.When == nil {
 		return errors.New("remove_channel: when is required")
 	}
-	return nil
+	return r.When.Validate()
 }

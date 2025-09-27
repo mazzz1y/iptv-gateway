@@ -13,7 +13,7 @@ func (m *MarkHiddenRule) Validate() error {
 	if m.When == nil {
 		return errors.New("when is required")
 	}
-	return nil
+	return m.When.Validate()
 }
 
 func (m *MarkHiddenRule) String() string {

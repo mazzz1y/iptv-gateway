@@ -24,5 +24,9 @@ func (r *RemoveFieldRule) Validate() error {
 		return fmt.Errorf("remove_field: exactly one of attr_patterns or tag_patterns is required")
 	}
 
-	return nil
+	if r.When == nil {
+		return nil
+	}
+
+	return r.When.Validate()
 }

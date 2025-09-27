@@ -77,5 +77,5 @@ func (r *RemoveDuplicatesRule) validateWhen() error {
 		return fmt.Errorf("remove_duplicates: only clients field is allowed in when condition")
 	}
 
-	return nil
+	return r.When.Validate()
 }
