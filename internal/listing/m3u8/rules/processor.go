@@ -4,32 +4,31 @@ import (
 	"bytes"
 	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
-	"iptv-gateway/internal/listing"
 )
 
 type Processor struct {
-	channelRules map[listing.Playlist][]*rules.Rule
+	userName     string
+	channelRules []*rules.Rule
 	storeRules   []*rules.Rule
 }
 
-func NewProcessor() *Processor {
-	var filteredStoreRules []*rules.Rule
-	return &Processor{
-		channelRules: make(map[listing.Playlist][]*rules.Rule),
-		storeRules:   filteredStoreRules,
-	}
-}
+func NewProcessor(userName string, globalRules []*rules.Rule) *Processor {
+	var channelRules []*rules.Rule
+	var storeRules []*rules.Rule
 
-func (p *Processor) AddPlaylist(playlist listing.Playlist) {
-	for _, rule := range playlist.Rules() {
+	for _, rule := range globalRules {
 		switch rule.Type {
 		case rules.StoreRule:
-			if !p.containsStoreRule(rule) {
-				p.storeRules = append(p.storeRules, rule)
-			}
+			storeRules = append(storeRules, rule)
 		case rules.ChannelRule:
-			p.channelRules[playlist] = append(p.channelRules[playlist], rule)
+			channelRules = append(channelRules, rule)
 		}
+	}
+
+	return &Processor{
+		userName:     userName,
+		channelRules: channelRules,
+		storeRules:   storeRules,
 	}
 }
 
@@ -53,10 +52,8 @@ func (p *Processor) processStoreRules(store *Store) {
 
 func (p *Processor) processTrackRules(store *Store) {
 	for _, ch := range store.All() {
-		if subRules, exists := p.channelRules[ch.Subscription()]; exists {
-			for _, rule := range subRules {
-				p.processChannelRule(ch, rule)
-			}
+		for _, rule := range p.channelRules {
+			p.processChannelRule(ch, rule)
 		}
 	}
 }
@@ -186,6 +183,12 @@ func (p *Processor) evaluateFieldCondition(ch *Channel, condition types.Conditio
 			return p.matchesRegexps(actual, condition.Tag.Patterns)
 		}
 	}
+	if len(condition.User) > 0 {
+		return p.matchesExactStrings(p.userName, condition.User)
+	}
+	if len(condition.Playlist) > 0 {
+		return p.matchesExactStrings(ch.Subscription().Name(), condition.Playlist)
+	}
 	return false
 }
 
@@ -210,6 +213,15 @@ func (p *Processor) evaluateOrConditions(ch *Channel, conditions types.Condition
 func (p *Processor) matchesRegexps(value string, regexps types.RegexpArr) bool {
 	for _, re := range regexps {
 		if re.MatchString(value) {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Processor) matchesExactStrings(value string, strings types.StringOrArr) bool {
+	for _, str := range strings {
+		if value == str {
 			return true
 		}
 	}

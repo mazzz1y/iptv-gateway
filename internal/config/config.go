@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"iptv-gateway/internal/config/proxy"
 	"iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/types"
 	"strings"
 )
 
@@ -18,7 +19,6 @@ type Config struct {
 	Playlists    []Playlist         `yaml:"playlists"`
 	EPGs         []EPG              `yaml:"epgs"`
 	Rules        []*rules.Rule      `yaml:"rules,omitempty"`
-	Presets      []Preset           `yaml:"presets,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -50,7 +50,6 @@ func (c *Config) Validate() error {
 
 	playlistNames := make(map[string]bool)
 	epgNames := make(map[string]bool)
-	presetNames := make(map[string]bool)
 
 	for i, pl := range c.Playlists {
 		if err := pl.Validate(); err != nil {
@@ -76,21 +75,9 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	for i, preset := range c.Presets {
-		if err := preset.Validate(playlistNames, epgNames); err != nil {
-			return fmt.Errorf("preset[%d] validation failed: %w", i, err)
-		}
-		if preset.Name != "" {
-			if presetNames[preset.Name] {
-				return fmt.Errorf("duplicate preset name: %s", preset.Name)
-			}
-			presetNames[preset.Name] = true
-		}
-	}
-
 	clientNames := make(map[string]bool)
 	for i, client := range c.Clients {
-		if err := client.Validate(playlistNames, epgNames, presetNames); err != nil {
+		if err := client.Validate(playlistNames, epgNames); err != nil {
 			return fmt.Errorf("client[%d] validation failed: %w", i, err)
 		}
 		if client.Name != "" {
@@ -103,7 +90,54 @@ func (c *Config) Validate() error {
 
 	for i, rule := range c.Rules {
 		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("global rules[%d] validation failed: %w", i, err)
+			return fmt.Errorf("rules[%d] validation failed: %w", i, err)
+		}
+		if err := c.validateRuleReferences(rule, clientNames, playlistNames); err != nil {
+			return fmt.Errorf("rules[%d] reference validation failed: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+func (c *Config) validateRuleReferences(rule *rules.Rule, clientNames, playlistNames map[string]bool) error {
+	if rule.SetField != nil && rule.SetField.When != nil {
+		return c.validateConditionReferences(*rule.SetField.When, clientNames, playlistNames)
+	}
+	if rule.RemoveField != nil && rule.RemoveField.When != nil {
+		return c.validateConditionReferences(*rule.RemoveField.When, clientNames, playlistNames)
+	}
+	if rule.RemoveChannel != nil && rule.RemoveChannel.When != nil {
+		return c.validateConditionReferences(*rule.RemoveChannel.When, clientNames, playlistNames)
+	}
+	if rule.MarkHidden != nil && rule.MarkHidden.When != nil {
+		return c.validateConditionReferences(*rule.MarkHidden.When, clientNames, playlistNames)
+	}
+	return nil
+}
+
+func (c *Config) validateConditionReferences(condition types.Condition, clientNames, playlistNames map[string]bool) error {
+	for _, userName := range condition.User {
+		if !clientNames[userName] {
+			return fmt.Errorf("rule references unknown user: %s", userName)
+		}
+	}
+
+	for _, playlistName := range condition.Playlist {
+		if !playlistNames[playlistName] {
+			return fmt.Errorf("rule references unknown playlist: %s", playlistName)
+		}
+	}
+
+	for _, andCondition := range condition.And {
+		if err := c.validateConditionReferences(andCondition, clientNames, playlistNames); err != nil {
+			return err
+		}
+	}
+
+	for _, orCondition := range condition.Or {
+		if err := c.validateConditionReferences(orCondition, clientNames, playlistNames); err != nil {
+			return err
 		}
 	}
 

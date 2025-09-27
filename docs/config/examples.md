@@ -31,7 +31,7 @@ clients:
 
 ## Advanced Configuration
 
-A full-featured setup including proxying, presets, channel rules, playlist rules, and multiple sources.
+A full-featured setup including proxying, global rules, and multiple sources.
 
 ```yaml
 log:
@@ -110,39 +110,47 @@ epgs:
       - "https://sports.com/guide.xml"
       - "https://sports2.com/guide.xml.gz"
 
-presets:
-  - name: sd-entertainment
-    playlists: ["tv", "movies"]
-    epgs: ["tv", "movies"]
-    playlist_rules:
-      - remove_duplicates:
-          name: ["SD", "HD", "FHD", "4K"] # Prefer SD quality
+rules:
+  # Remove duplicate channels, prefer highest quality for HD clients
+  - remove_duplicates:
+      name: ["4K", "FHD", "HD", "SD"]
+      when:
+        user: ["living-room", "bedroom"]
 
-  - name: hd-entertainment
-    playlists: ["tv", "movies"]
-    epgs: ["tv", "movies"]
-    playlist_rules:
-      - remove_duplicates:
-          name: ["4K", "FHD", "HD", "SD"] # Prefer highest quality available
+  # Remove duplicate channels, prefer SD quality for mobile/kitchen
+  - remove_duplicates:
+      name: ["SD", "HD", "FHD", "4K"]
+      when:
+        user: ["mobile", "kitchen"]
 
-  - name: sports-hd
-    playlists: ["sports", "tv"]
-    epgs: ["sports", "tv"]
+  # Set sports group for sports channels
+  - set_field:
+      attr:
+        name: "group-title"
+        template: "Sports"
+      when:
+        and:
+          - playlist: ["sports"]
+          - name_patterns: [".*ESPN.*", ".*Fox Sports.*", ".*Sky Sports.*"]
 
 clients:
   - name: "living-room"
     secret: "lr-secret"
-    presets: "hd-entertainment"
+    playlists: ["tv", "movies"]
+    epgs: ["tv", "movies"]
 
   - name: "bedroom"
     secret: "br-secret"
-    presets: "sports-hd"
+    playlists: ["sports", "tv"]
+    epgs: ["sports", "tv"]
 
   - name: "mobile"
     secret: "mb-secret"
-    presets: "sd-entertainment"
+    playlists: ["tv", "movies"]
+    epgs: ["tv", "movies"]
 
   - name: "kitchen"
     secret: "kt-secret"
-    presets: "sd-entertainment"
+    playlists: ["tv", "movies"]
+    epgs: ["tv", "movies"]
 ```

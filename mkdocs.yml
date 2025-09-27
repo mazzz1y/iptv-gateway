@@ -47,7 +47,6 @@ nav:
           - Remove Duplicates: config/rules/remove_duplicates.md
           - Sort: config/rules/sort.md
           - When: config/rules/when.md
-      - Presets: config/presets.md
       - Clients: config/clients.md
       - Common Fields: config/common.md
   - Examples: config/examples.md

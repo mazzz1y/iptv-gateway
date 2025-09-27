@@ -50,6 +50,7 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		client.PlaylistProviders(),
 		client.EPGLink(),
 		s.httpClient,
+		client.RulesProcessor(),
 	)
 
 	count, err := streamer.WriteTo(ctx, w)
@@ -181,6 +182,7 @@ func (s *Server) prepareEPGStreamer(ctx context.Context) (*xmltv.Streamer, error
 		client.PlaylistProviders(),
 		"",
 		s.httpClient,
+		client.RulesProcessor(),
 	)
 
 	channels, err := m3u8Streamer.GetAllChannels(ctx)

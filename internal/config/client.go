@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
 )
 
@@ -12,12 +11,10 @@ type Client struct {
 	Secret    string            `yaml:"secret"`
 	Playlists types.StringOrArr `yaml:"playlists"`
 	EPGs      types.StringOrArr `yaml:"epgs"`
-	Presets   types.StringOrArr `yaml:"presets,omitempty"`
 	Proxy     proxy.Proxy       `yaml:"proxy,omitempty"`
-	Rules     []*rules.Rule     `yaml:"rules,omitempty"`
 }
 
-func (c *Client) Validate(playlistNames, epgNames, presetNames map[string]bool) error {
+func (c *Client) Validate(playlistNames, epgNames map[string]bool) error {
 	if c.Name == "" {
 		return fmt.Errorf("client name is required")
 	}
@@ -34,18 +31,6 @@ func (c *Client) Validate(playlistNames, epgNames, presetNames map[string]bool) 
 	for _, epg := range c.EPGs {
 		if !epgNames[epg] {
 			return fmt.Errorf("client references unknown EPG: %s", epg)
-		}
-	}
-
-	for _, preset := range c.Presets {
-		if !presetNames[preset] {
-			return fmt.Errorf("client references unknown preset: %s", preset)
-		}
-	}
-
-	for i, rule := range c.Rules {
-		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("client rules[%d]: %w", i, err)
 		}
 	}
 

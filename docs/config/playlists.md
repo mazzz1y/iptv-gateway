@@ -1,7 +1,6 @@
 # Playlists
 
-Playlists define collections of IPTV channels from M3U/M3U8 sources. Each playlist can contain multiple sources and
-custom processing rules.
+Playlists define collections of IPTV channels from M3U/M3U8 sources. Each playlist can contain multiple sources with proxy configuration.
 
 ## YAML Structure
 
@@ -13,20 +12,15 @@ playlists:
       - "/path/to/local/playlist-2.m3u8"
     proxy:
       enabled: true
-    rules:
-      - remove_channel:
-          when:
-            name_patterns: ["^Test.*"]
 ```
 
 ## Fields
 
-| Field     | Type                     | Required | Description                                                     |
-|-----------|--------------------------|----------|-----------------------------------------------------------------|
-| `name`    | `string`                 | Yes      | Unique name identifier for this playlist                        |
-| `sources` | `string` or `[]string`   | Yes      | Array of playlist sources (URLs or file paths, M3U/M3U8 format) |
-| `proxy`   | [Proxy](./proxy.md)      | No       | Playlist-specific proxy configuration                           |
-| `rules`   | [[]Rule](rules/index.md) | No       | Array of rules applied to this playlist                         |
+| Field     | Type                   | Required | Description                                                     |
+|-----------|------------------------|----------|-----------------------------------------------------------------|
+| `name`    | `string`               | Yes      | Unique name identifier for this playlist                        |
+| `sources` | `string` or `[]string` | Yes      | Array of playlist sources (URLs or file paths, M3U/M3U8 format) |
+| `proxy`   | [Proxy](./proxy.md)    | No       | Playlist-specific proxy configuration                           |
 
 ## Examples
 
@@ -39,7 +33,7 @@ playlists:
       - "https://provider.com/basic.m3u8"
 ```
 
-### Sports Package
+### Multi-Source Playlist
 
 ```yaml
 playlists:
@@ -47,36 +41,16 @@ playlists:
     sources:
       - "https://sports-provider.com/premium.m3u8"
       - "https://sports-provider.com/international.m3u8"
-    rules:
-      - set_field:
-          attr:
-            name: "group-title"
-            patterns: ["Sports"]
-          when:
-            name: ".*ESPN.*|.*Fox Sports.*|.*Sky Sports.*"
 ```
 
-### Family Safe Playlist
+### Playlist with Proxy Configuration
 
 ```yaml
 playlists:
-  - name: family-safe
+  - name: premium-channels
     sources:
-      - "https://family-provider.com/channels.m3u8"
+      - "https://premium-provider.com/channels.m3u8"
     proxy:
       enabled: true
-    rules:
-      - remove_channel:
-          when:
-            or:
-              - attr:
-                  name: "group-title"
-                  patterns: ["(?i)(adult|xxx|18+)"]
-              - name: "(?i).*(adult|xxx|mature).*"
-      - set_field:
-          attr:
-            name: "group-title"
-            patterns: ["Family Safe"]
-          when:
-            name: ".*Kids.*"
+      concurrency: 5
 ```

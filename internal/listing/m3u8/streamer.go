@@ -10,16 +10,18 @@ import (
 )
 
 type Streamer struct {
-	subscriptions []listing.Playlist
-	httpClient    listing.HTTPClient
-	epgURL        string
+	subscriptions  []listing.Playlist
+	httpClient     listing.HTTPClient
+	epgURL         string
+	rulesProcessor *m3u8Rules.Processor
 }
 
-func NewStreamer(subs []listing.Playlist, epgLink string, httpClient listing.HTTPClient) *Streamer {
+func NewStreamer(subs []listing.Playlist, epgLink string, httpClient listing.HTTPClient, rulesProcessor *m3u8Rules.Processor) *Streamer {
 	return &Streamer{
-		subscriptions: subs,
-		httpClient:    httpClient,
-		epgURL:        epgLink,
+		subscriptions:  subs,
+		httpClient:     httpClient,
+		epgURL:         epgLink,
+		rulesProcessor: rulesProcessor,
 	}
 }
 
@@ -55,10 +57,9 @@ func (s *Streamer) getChannels(ctx context.Context) ([]*m3u8Rules.Channel, error
 		return nil, err
 	}
 
-	rulesProcessor := s.createRulesProcessor()
 	processor := NewProcessor()
 
-	return processor.Process(store, rulesProcessor)
+	return processor.Process(store, s.rulesProcessor)
 }
 
 func (s *Streamer) fetchPlaylists(ctx context.Context) (*m3u8Rules.Store, error) {
@@ -120,14 +121,4 @@ func (s *Streamer) processTracks(ctx context.Context, decoder *decoderWrapper, s
 			}
 		}
 	}
-}
-
-func (s *Streamer) createRulesProcessor() *m3u8Rules.Processor {
-	processor := m3u8Rules.NewProcessor()
-
-	for _, sub := range s.subscriptions {
-		processor.AddPlaylist(sub)
-	}
-
-	return processor
 }

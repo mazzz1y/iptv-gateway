@@ -69,31 +69,18 @@ func (m *Manager) initClients() error {
 }
 
 func (m *Manager) createClient(clientConf config.Client) (*Client, error) {
-	var presets []config.Preset
-	var err error
-
-	if len(clientConf.Presets) > 0 {
-		presets, err = newPresetResolver(m.config.Presets, clientConf).resolve(clientConf.Presets)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	urlGen, err := m.createURLGenerator(clientConf.Secret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create URL generator: %w", err)
 	}
 
-	cl, err := NewClient(clientConf, urlGen, presets, m.publicURLBase)
+	cl, err := NewClient(clientConf, urlGen, m.config.Rules, m.publicURLBase)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to initialize client %s: %w", clientConf.Name, err)
 	}
 
-	playlistNames := collectPlaylists(presets, clientConf.Playlists)
-	epgNames := collectEPGs(presets, clientConf.EPGs)
-
-	if err := m.initClientProviders(cl, playlistNames, epgNames); err != nil {
+	if err := m.initClientProviders(cl, clientConf.Playlists, clientConf.EPGs); err != nil {
 		return nil, fmt.Errorf(
 			"failed to add subscriptions for client %s: %w", clientConf.Name, err)
 	}
@@ -136,7 +123,7 @@ func (m *Manager) addPlaylistProvider(cl *Client, playlistName string) error {
 	metrics.PlaylistStreamsActive.WithLabelValues(playlistConf.Name).Set(0)
 
 	if err := cl.BuildPlaylistProvider(
-		playlistConf, m.config.Rules, m.config.Proxy, sem); err != nil {
+		playlistConf, m.config.Proxy, sem); err != nil {
 		return fmt.Errorf(
 			"failed to build playlist subscription '%s' for client '%s': %w",
 			playlistName, cl.name, err)
@@ -187,20 +174,4 @@ func (m *Manager) createURLGenerator(clientSecret string) (*urlgen.Generator, er
 	)
 }
 
-func collectPlaylists(presets []config.Preset, clientPlaylists []string) []string {
-	var playlists []string
-	for _, preset := range presets {
-		playlists = append(playlists, preset.Playlists...)
-	}
-	playlists = append(playlists, clientPlaylists...)
-	return uniqueNames(playlists)
-}
 
-func collectEPGs(presets []config.Preset, clientEPGs []string) []string {
-	var epgs []string
-	for _, preset := range presets {
-		epgs = append(epgs, preset.EPGs...)
-	}
-	epgs = append(epgs, clientEPGs...)
-	return uniqueNames(epgs)
-}

@@ -23,8 +23,7 @@ iptv-gateway -config ./config      # from directory
 | `log`           | [Log](config/logs.md)                      | Logging configuration                                             |
 | `proxy`         | [Proxy](./config/proxy.md)                 | Stream proxy configuration for remuxing with ffmpeg               |
 | `cache`         | [Cache](./config/cache.md)                 | Cache configuration for playlists and EPGs                        |
-| `playlists`     | [Playlists](./config/playlists.md)         | Array of playlist definitions with sources and rules              |
+| `playlists`     | [Playlists](./config/playlists.md)         | Array of playlist definitions with sources                        |
 | `epgs`          | [EPGs](./config/epgs.md)                   | Array of EPG definitions with sources                             |
-| `rules`         | [Rules](./config/rules/index.md)           | Global processing rules                                           |
-| `presets`       | [Presets](./config/presets.md)             | Array of reusable configuration templates                         |
+| `rules`         | [Rules](./config/rules/index.md)           | Global processing rules for all clients                           |
 | `clients`       | [Clients](./config/clients.md)             | Array of IPTV client definitions with individual settings         |
