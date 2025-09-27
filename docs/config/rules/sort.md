@@ -4,13 +4,12 @@ The `sort` rule allows you to control the order in which channels are presented 
 and custom ordering patterns.
 
 !!! note
-    This rule applies to the entire channel list.
-    It can only be set globally or in presets/user config, not in individual playlists.
+    This rule applies to the entire channel list after channel-level rules are processed.
 
 ## YAML Structure
 
 ```yaml
-playlist_rules:
+rules:
   - sort:
       attr: ""
       tag: ""
@@ -57,7 +56,7 @@ playlist_rules:
 
 ```yaml
 # Sort all channels alphabetically by name
-playlist_rules:
+rules:
   - sort: {}
 ```
 
@@ -65,7 +64,7 @@ playlist_rules:
 
 ```yaml
 # Move Sports and Music channels to the end of the playlist. Everything else is sorted alphabetically.
-playlist_rules:
+rules:
   - sort:
       order: ["", "Sports.*", "Music.*"]
 ```
@@ -74,7 +73,7 @@ playlist_rules:
 
 ```yaml
 # Sort channels by their tvg-name attribute
-playlist_rules:
+rules:
   - sort:
       attr: "tvg-name"
 ```
@@ -83,7 +82,7 @@ playlist_rules:
 
 ```yaml
 # Group channels by group-title, with News first, then Sports, then everything else
-playlist_rules:
+rules:
   - sort:
       group_by:
         attr: "group-title"
@@ -94,7 +93,7 @@ playlist_rules:
 
 ```yaml
 # Group by EXTGRP tag, prioritize HD channels within each group
-playlist_rules:
+rules:
   - sort:
       order: [".*HD.*", ".*FHD.*", ""]  # HD channels first in each group
       group_by:

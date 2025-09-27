@@ -117,13 +117,13 @@ func (c *Config) validateRuleReferences(rule *rules.Rule, clientNames, playlistN
 }
 
 func (c *Config) validateConditionReferences(condition types.Condition, clientNames, playlistNames map[string]bool) error {
-	for _, userName := range condition.User {
-		if !clientNames[userName] {
-			return fmt.Errorf("rule references unknown user: %s", userName)
+	for _, clientName := range condition.Clients {
+		if !clientNames[clientName] {
+			return fmt.Errorf("rule references unknown client: %s", clientName)
 		}
 	}
 
-	for _, playlistName := range condition.Playlist {
+	for _, playlistName := range condition.Playlists {
 		if !playlistNames[playlistName] {
 			return fmt.Errorf("rule references unknown playlist: %s", playlistName)
 		}

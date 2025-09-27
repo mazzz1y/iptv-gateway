@@ -13,8 +13,8 @@ when:
   tag:
     name: ""
     patterns: [""]
-  user: [""]
-  playlist: [""]
+  clients: [""]
+  playlists: [""]
   and: []
   or: []
   invert: false
@@ -29,8 +29,8 @@ when:
 | `name_patterns` | `[]regex`                      | No       | Match against channel name       |
 | `attr`          | [`NamePatterns`](../common.md) | No       | Match against M3U attributes     |
 | `tag`           | [`NamePatterns`](../common.md) | No       | Match against M3U tags           |
-| `user`          | `[]string`                     | No       | Match against client names       |
-| `playlist`      | `[]string`                     | No       | Match against playlist names     |
+| `clients`       | `[]string`                     | No       | Match against client names       |
+| `playlists`     | `[]string`                     | No       | Match against playlist names     |
 | `and`           | [`[]When`](./when.md)          | No       | All nested conditions must match |
 | `or`            | [`[]When`](./when.md)          | No       | Any nested condition must match  |
 | `invert`        | `bool`                         | No       | Invert result                    |
@@ -62,11 +62,11 @@ when:
     patterns: ["^Entertainment$"]
 ```
 
-### User-Specific Rule
+### clients-Specific Rule
 
 ```yaml
 when:
-  user: ["family-tablet", "living-room-tv"]
+  clients: ["family-tablet", "living-room-tv"]
 ```
 
 ### Playlist-Specific Rule
@@ -81,7 +81,7 @@ when:
 ```yaml
 when:
   and:
-    - user: ["premium-client"]
+    - clients: ["premium-client"]
     - name_patterns: ["^HD .*"]
 ```
 

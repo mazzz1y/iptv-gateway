@@ -7,12 +7,12 @@ import (
 )
 
 type Processor struct {
-	userName     string
+	clientName   string
 	channelRules []*rules.Rule
 	storeRules   []*rules.Rule
 }
 
-func NewProcessor(userName string, globalRules []*rules.Rule) *Processor {
+func NewProcessor(clientName string, globalRules []*rules.Rule) *Processor {
 	var channelRules []*rules.Rule
 	var storeRules []*rules.Rule
 
@@ -26,7 +26,7 @@ func NewProcessor(userName string, globalRules []*rules.Rule) *Processor {
 	}
 
 	return &Processor{
-		userName:     userName,
+		clientName:   clientName,
 		channelRules: channelRules,
 		storeRules:   storeRules,
 	}
@@ -39,12 +39,16 @@ func (p *Processor) Process(store *Store) {
 
 func (p *Processor) processStoreRules(store *Store) {
 	for _, rule := range p.storeRules {
-		if rule.SortRule != nil {
-			processor := NewSortProcessor(rule.SortRule)
+		if rule.MergeChannels != nil && evaluateStoreWhenCondition(rule.MergeChannels.When, p.clientName) {
+			processor := NewMergeChannelsActionProcessor(rule.MergeChannels)
 			processor.Apply(store)
 		}
-		if rule.RemoveDuplicates != nil {
+		if rule.RemoveDuplicates != nil && evaluateStoreWhenCondition(rule.RemoveDuplicates.When, p.clientName) {
 			processor := NewRemoveDuplicatesActionProcessor(rule.RemoveDuplicates)
+			processor.Apply(store)
+		}
+		if rule.SortRule != nil {
+			processor := NewSortProcessor(rule.SortRule)
 			processor.Apply(store)
 		}
 	}
@@ -183,11 +187,11 @@ func (p *Processor) evaluateFieldCondition(ch *Channel, condition types.Conditio
 			return p.matchesRegexps(actual, condition.Tag.Patterns)
 		}
 	}
-	if len(condition.User) > 0 {
-		return p.matchesExactStrings(p.userName, condition.User)
+	if len(condition.Clients) > 0 {
+		return p.matchesExactStrings(p.clientName, condition.Clients)
 	}
-	if len(condition.Playlist) > 0 {
-		return p.matchesExactStrings(ch.Subscription().Name(), condition.Playlist)
+	if len(condition.Playlists) > 0 {
+		return p.matchesExactStrings(ch.Subscription().Name(), condition.Playlists)
 	}
 	return false
 }

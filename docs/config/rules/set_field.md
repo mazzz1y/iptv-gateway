@@ -8,23 +8,31 @@ The `set_field` rule allows you to modify channel properties including the chann
 channel_rules:
   - set_field:
       # exactly one of the following:
-      name: "<new name>"          # Set channel name directly
+      name_template: "template"        # Set channel name using template
       attr:
         name: "<attr name>"
-        value: "<attr value>"     # Set M3U attribute
+        template: "template"           # Set M3U attribute using template
       tag:
         name: "<tag name>"
-        value: "<tag value>"       # Set M3U tag
+        template: "template"           # Set M3U tag using template
       when: {}
 ```
 
 ## Fields
 
-| Field | Type                           | Required     | Description                                 |
-|-------|--------------------------------|--------------|---------------------------------------------|
-| name  | `string`                       | Conditional* | New channel name                            |
-| attr  | [`NameValue`](../common.md) | Conditional* | Set attribute (must include name and value) |
-| tag   | [`NameValue`](../common.md) | Conditional* | Set tag (must include name and value)       |
-| when  | [When](when.md)             | No           | Conditions specifying when to apply         |
+| Field           | Type                           | Required     | Description                         |
+|-----------------|--------------------------------|--------------|-------------------------------------|
+| `name_template` | `template`                     | Conditional* | Template for channel name           |
+| `attr`          | [`NameTemplate`](../common.md) | Conditional* | Set attribute using template        |
+| `tag`           | [`NameTemplate`](../common.md) | Conditional* | Set tag using template              |
+| `when`          | [When](when.md)                | No           | Conditions specifying when to apply |
 
-*Exactly one of `name`, `attr`, or `tag` is required.*
+*Exactly one of `name_template`, `attr`, or `tag` is required.*
+
+## Template
+
+List of available template variables:
+
+- `{{.Channel.Name}}` - Original channel name
+- `{{.Channel.Attrs}}` - Channel attributes map
+- `{{.Channel.Tags}}` - Channel tags map

@@ -10,8 +10,8 @@ type Condition struct {
 	NamePatterns RegexpArr     `yaml:"name_patterns,omitempty"`
 	Attr         *NamePatterns `yaml:"attr,omitempty"`
 	Tag          *NamePatterns `yaml:"tag,omitempty"`
-	User         StringOrArr   `yaml:"user,omitempty"`
-	Playlist     StringOrArr   `yaml:"playlist,omitempty"`
+	Clients      StringOrArr   `yaml:"clients,omitempty"`
+	Playlists    StringOrArr   `yaml:"playlists,omitempty"`
 	Invert       bool          `yaml:"invert,omitempty"`
 	And          ConditionList `yaml:"and,omitempty"`
 	Or           ConditionList `yaml:"or,omitempty"`
@@ -19,7 +19,7 @@ type Condition struct {
 
 func (c *Condition) IsEmpty() bool {
 	return c.NamePatterns == nil &&
-		c.Attr == nil && c.Tag == nil && len(c.User) == 0 && len(c.Playlist) == 0 &&
+		c.Attr == nil && c.Tag == nil && len(c.Clients) == 0 && len(c.Playlists) == 0 &&
 		!c.Invert && len(c.And) == 0 && len(c.Or) == 0
 }
 

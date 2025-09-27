@@ -1,6 +1,6 @@
 # Configuration Examples
 
-This page provides example configurations to help users get started quickly.
+This page provides example configurations to help clients get started quickly.
 
 ## Simple Configuration
 
@@ -115,13 +115,13 @@ rules:
   - remove_duplicates:
       name: ["4K", "FHD", "HD", "SD"]
       when:
-        user: ["living-room", "bedroom"]
+        clients: ["living-room", "bedroom"]
 
   # Remove duplicate channels, prefer SD quality for mobile/kitchen
   - remove_duplicates:
       name: ["SD", "HD", "FHD", "4K"]
       when:
-        user: ["mobile", "kitchen"]
+        clients: ["mobile", "kitchen"]
 
   # Set sports group for sports channels
   - set_field:

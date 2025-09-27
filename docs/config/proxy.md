@@ -13,7 +13,7 @@ filtering, or other stream processing features.
 
     Proxy can be defined at multiple levels in the configuration. It will be merged in the following order, with each level overriding the previous one:
 
-    Global Proxy ➡ Subscription Proxy ➡ Preset Proxy ➡ Client Proxy
+    Global Proxy ➡ Subscription Proxy ➡ Client Proxy
 
     This applies to all proxy-related fields, **except concurrency**.
 

@@ -23,7 +23,9 @@ type Rule struct {
 	MarkHidden    *MarkHiddenRule    `yaml:"mark_hidden,omitempty"`
 
 	RemoveDuplicates *RemoveDuplicatesRule `yaml:"remove_duplicates,omitempty"`
-	SortRule         *SortRule             `yaml:"sort,omitempty"`
+	MergeChannels    *MergeChannelsRule    `yaml:"merge_channels,omitempty"`
+
+	SortRule *SortRule `yaml:"sort,omitempty"`
 }
 
 func (r *Rule) UnmarshalYAML(value *yaml.Node) error {
@@ -56,6 +58,10 @@ func (r *Rule) UnmarshalYAML(value *yaml.Node) error {
 	case rule.RemoveDuplicates != nil:
 		rule.Type = StoreRule
 		rule.Validate = rule.RemoveDuplicates.Validate
+
+	case rule.MergeChannels != nil:
+		rule.Type = StoreRule
+		rule.Validate = rule.MergeChannels.Validate
 
 	case rule.SortRule != nil:
 		rule.Type = StoreRule
