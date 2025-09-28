@@ -218,7 +218,9 @@ func TestRemoveDuplicatesProcessor_setPattern(t *testing.T) {
 			regexp.MustCompile(`HD`),
 			regexp.MustCompile(``),
 		},
-		SetField: mustTemplate("{{.BaseName}} HQ-Preferred"),
+		SetField: &types.SetFieldTemplate{
+			NameTemplate: mustTemplate("{{.BaseName}} HQ-Preferred"),
+		},
 	}
 
 	processor := NewRemoveDuplicatesActionProcessor(rule)
@@ -274,6 +276,134 @@ func TestRemoveDuplicatesProcessor_setPattern(t *testing.T) {
 		if !found {
 			t.Errorf("Expected channel name not found: %s", name)
 		}
+	}
+}
+
+func TestRemoveDuplicatesProcessor_setFieldAttr(t *testing.T) {
+	rule := &configrules.RemoveDuplicatesRule{
+		NamePatterns: types.RegexpArr{
+			regexp.MustCompile(`4K`),
+			regexp.MustCompile(`HD`),
+		},
+		SetField: &types.SetFieldTemplate{
+			AttrTemplate: &types.NameTemplate{
+				Name:     "group-title",
+				Template: mustTemplate("{{.BaseName}} Group"),
+			},
+		},
+	}
+
+	processor := NewRemoveDuplicatesActionProcessor(rule)
+	store := NewStore()
+
+	uri1, _ := url.Parse("http://example.com/url1")
+	uri2, _ := url.Parse("http://example.com/url2")
+
+	ch1 := &Channel{track: &m3u8.Track{
+		Name:  "CNN HD",
+		URI:   uri1,
+		Attrs: map[string]string{"group-title": "News HD"},
+	}}
+	ch2 := &Channel{track: &m3u8.Track{
+		Name:  "CNN 4K",
+		URI:   uri2,
+		Attrs: map[string]string{"group-title": "News 4K"},
+	}}
+
+	store.Add(ch1)
+	store.Add(ch2)
+
+	processor.Apply(store)
+
+	activeChannels := make([]*Channel, 0)
+	for _, ch := range store.All() {
+		if !ch.IsRemoved() {
+			activeChannels = append(activeChannels, ch)
+		}
+	}
+
+	if len(activeChannels) != 1 {
+		t.Errorf("Expected 1 active channel, got %d", len(activeChannels))
+		return
+	}
+
+	ch := activeChannels[0]
+	if ch.Name() != "CNN 4K" {
+		t.Errorf("Expected 'CNN 4K' as the best channel, got '%s'", ch.Name())
+	}
+
+	groupTitle, exists := ch.GetAttr("group-title")
+	if !exists {
+		t.Error("Expected group-title attribute to exist")
+		return
+	}
+	if groupTitle != "CNN Group" {
+		t.Errorf("Expected group-title 'CNN Group', got '%s'", groupTitle)
+	}
+}
+
+func TestRemoveDuplicatesProcessor_setFieldTag(t *testing.T) {
+	rule := &configrules.RemoveDuplicatesRule{
+		NamePatterns: types.RegexpArr{
+			regexp.MustCompile(`4K`),
+			regexp.MustCompile(`HD`),
+		},
+		SetField: &types.SetFieldTemplate{
+			TagTemplate: &types.NameTemplate{
+				Name:     "quality",
+				Template: mustTemplate("{{.BaseName}} Multi"),
+			},
+		},
+	}
+
+	processor := NewRemoveDuplicatesActionProcessor(rule)
+	store := NewStore()
+
+	uri1, _ := url.Parse("http://example.com/url1")
+	uri2, _ := url.Parse("http://example.com/url2")
+
+	ch1 := &Channel{track: &m3u8.Track{
+		Name:  "CNN HD",
+		URI:   uri1,
+		Attrs: map[string]string{"group-title": "News HD"},
+		Tags:  map[string]string{"quality": "HD"},
+	}}
+	ch2 := &Channel{track: &m3u8.Track{
+		Name:  "CNN 4K",
+		URI:   uri2,
+		Attrs: map[string]string{"group-title": "News 4K"},
+		Tags:  map[string]string{"quality": "4K"},
+	}}
+
+	store.Add(ch1)
+	store.Add(ch2)
+
+	processor.Apply(store)
+
+	activeChannels := make([]*Channel, 0)
+	for _, ch := range store.All() {
+		if !ch.IsRemoved() {
+			activeChannels = append(activeChannels, ch)
+		}
+	}
+
+	if len(activeChannels) != 1 {
+		t.Errorf("Expected 1 active channel, got %d", len(activeChannels))
+		return
+	}
+
+	ch := activeChannels[0]
+	if ch.Name() != "CNN 4K" {
+		t.Errorf("Expected 'CNN 4K' as the best channel, got '%s'", ch.Name())
+	}
+
+	quality, exists := ch.GetTag("quality")
+	if !exists {
+		t.Error("Expected quality tag to exist")
+		return
+	}
+	if quality != "CNN Multi" {
+		t.Errorf("Expected quality tag 'CNN Multi', got '%s'", quality)
 	}
 }
 

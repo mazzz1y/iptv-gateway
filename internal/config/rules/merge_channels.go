@@ -6,11 +6,11 @@ import (
 )
 
 type MergeChannelsRule struct {
-	NamePatterns types.RegexpArr     `yaml:"name_patterns,omitempty"`
-	AttrPatterns *types.NamePatterns `yaml:"attr,omitempty"`
-	TagPatterns  *types.NamePatterns `yaml:"tag,omitempty"`
-	SetField     *types.Template     `yaml:"set_field,omitempty"`
-	When         *types.Condition    `yaml:"when,omitempty"`
+	NamePatterns types.RegexpArr         `yaml:"name_patterns,omitempty"`
+	AttrPatterns *types.NamePatterns     `yaml:"attr,omitempty"`
+	TagPatterns  *types.NamePatterns     `yaml:"tag,omitempty"`
+	SetField     *types.SetFieldTemplate `yaml:"set_field,omitempty"`
+	When         *types.Condition        `yaml:"when,omitempty"`
 }
 
 func (r *MergeChannelsRule) Validate() error {
@@ -21,6 +21,12 @@ func (r *MergeChannelsRule) Validate() error {
 
 	if err := r.validateWhen(); err != nil {
 		return err
+	}
+
+	if r.SetField != nil {
+		if err := r.SetField.Validate(); err != nil {
+			return fmt.Errorf("merge_channels: %w", err)
+		}
 	}
 
 	switch {

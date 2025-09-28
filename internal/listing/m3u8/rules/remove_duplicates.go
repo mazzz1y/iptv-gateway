@@ -41,8 +41,19 @@ func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*
 		for _, ch := range group {
 			if ch == best {
 				if p.rule.SetField != nil {
-					finalValue := processSetField(ch, p.rule.SetField, baseName)
-					setFieldValue(ch, finalValue, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
+					switch {
+					case p.rule.SetField.NameTemplate != nil:
+						finalValue := processSetField(ch, p.rule.SetField.NameTemplate, baseName)
+						ch.SetName(finalValue)
+
+					case p.rule.SetField.AttrTemplate != nil:
+						finalValue := processSetField(ch, p.rule.SetField.AttrTemplate.Template, baseName)
+						ch.SetAttr(p.rule.SetField.AttrTemplate.Name, finalValue)
+
+					case p.rule.SetField.TagTemplate != nil:
+						finalValue := processSetField(ch, p.rule.SetField.TagTemplate.Template, baseName)
+						ch.SetTag(p.rule.SetField.TagTemplate.Name, finalValue)
+					}
 				}
 			} else {
 				ch.MarkRemoved()

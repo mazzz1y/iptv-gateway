@@ -106,21 +106,21 @@ func (p *Processor) processSetField(ch *Channel, rule *rules.SetFieldRule) {
 	var buf bytes.Buffer
 
 	switch {
-	case rule.NameTemplate != nil:
-		if err := rule.NameTemplate.ToTemplate().Execute(&buf, tmplMap); err != nil {
+	case rule.SetField.NameTemplate != nil:
+		if err := rule.SetField.NameTemplate.ToTemplate().Execute(&buf, tmplMap); err != nil {
 			return
 		}
 		ch.SetName(buf.String())
-	case rule.AttrTemplate != nil:
-		if err := rule.AttrTemplate.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
+	case rule.SetField.AttrTemplate != nil:
+		if err := rule.SetField.AttrTemplate.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
 			return
 		}
-		ch.SetAttr(rule.AttrTemplate.Name, buf.String())
-	case rule.TagTemplate != nil:
-		if err := rule.TagTemplate.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
+		ch.SetAttr(rule.SetField.AttrTemplate.Name, buf.String())
+	case rule.SetField.TagTemplate != nil:
+		if err := rule.SetField.TagTemplate.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
 			return
 		}
-		ch.SetTag(rule.TagTemplate.Name, buf.String())
+		ch.SetTag(rule.SetField.TagTemplate.Name, buf.String())
 	}
 }
 

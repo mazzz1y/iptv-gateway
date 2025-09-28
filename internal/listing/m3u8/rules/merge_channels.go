@@ -2,6 +2,7 @@ package rules
 
 import (
 	configrules "iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/parser/m3u8"
 )
 
 type MergeChannelsProcessor struct {
@@ -39,11 +40,10 @@ func (p *MergeChannelsProcessor) processMergeGroups(groups map[string][]*Channel
 
 		best := selectBestChannel(group, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
 
-		var finalValue string
-		if p.rule.SetField != nil {
-			finalValue = processSetField(best, p.rule.SetField, baseName)
-		} else {
-			finalValue = getFieldValue(best, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
+		if bestTvgId, exists := best.GetAttr(m3u8.AttrTvgID); exists {
+			for _, ch := range group {
+				ch.SetAttr(m3u8.AttrTvgID, bestTvgId)
+			}
 		}
 
 		for i, ch := range group {
@@ -53,8 +53,30 @@ func (p *MergeChannelsProcessor) processMergeGroups(groups map[string][]*Channel
 			}
 		}
 
-		for _, ch := range group {
-			setFieldValue(ch, finalValue, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
+		if p.rule.SetField != nil {
+			var finalValue string
+
+			switch {
+			case p.rule.SetField.NameTemplate != nil:
+				finalValue = processSetField(best, p.rule.SetField.NameTemplate, baseName)
+				for _, ch := range group {
+					ch.SetName(finalValue)
+				}
+
+			case p.rule.SetField.AttrTemplate != nil:
+				finalValue = processSetField(best, p.rule.SetField.AttrTemplate.Template, baseName)
+				attrName := p.rule.SetField.AttrTemplate.Name
+				for _, ch := range group {
+					ch.SetAttr(attrName, finalValue)
+				}
+
+			case p.rule.SetField.TagTemplate != nil:
+				finalValue = processSetField(best, p.rule.SetField.TagTemplate.Template, baseName)
+				tagName := p.rule.SetField.TagTemplate.Name
+				for _, ch := range group {
+					ch.SetTag(tagName, finalValue)
+				}
+			}
 		}
 	}
 }
