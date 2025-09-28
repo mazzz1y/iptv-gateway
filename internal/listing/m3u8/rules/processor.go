@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/listing"
 )
 
 type Processor struct {
@@ -59,6 +60,18 @@ func (p *Processor) processTrackRules(store *Store) {
 		for _, rule := range p.channelRules {
 			p.processChannelRule(ch, rule)
 		}
+		p.ensureTvgID(ch)
+	}
+}
+
+func (p *Processor) ensureTvgID(ch *Channel) {
+	if tvgID, exists := ch.GetAttr("tvg-id"); exists && tvgID != "" {
+		return
+	}
+	if tvgName, exists := ch.GetAttr("tvg-name"); exists && tvgName != "" {
+		ch.SetAttr("tvg-id", listing.GenerateHashID(tvgName))
+	} else {
+		ch.SetAttr("tvg-id", listing.GenerateHashID(ch.Name()))
 	}
 }
 

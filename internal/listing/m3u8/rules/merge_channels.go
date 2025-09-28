@@ -46,9 +46,8 @@ func (p *MergeChannelsProcessor) processMergeGroups(groups map[string][]*Channel
 			finalValue = getFieldValue(best, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
 		}
 
-		// Move best channel to front of group
 		for i, ch := range group {
-			if ch == best {
+			if ch == best { // Move the best channel to the front of the group
 				group[0], group[i] = group[i], group[0]
 				break
 			}

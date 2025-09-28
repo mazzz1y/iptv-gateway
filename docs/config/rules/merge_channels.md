@@ -36,7 +36,7 @@ rules:
 1. The rule scans all channels for configured patterns
 2. Any channel matching a pattern is processed
 3. If `set_field` is specified, it transforms the channel name accordingly
-4. Multiple channels with identical names will be collapsed by the application
+4. The gateway will collapse multiple channels with identical names
 5. Channels without matching patterns remain unchanged
 
 ## Examples

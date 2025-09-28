@@ -2,7 +2,6 @@ package m3u8
 
 import (
 	"fmt"
-	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
@@ -34,8 +33,6 @@ func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor)
 			continue
 		}
 
-		p.ensureTvgID(ch)
-
 		if existingChannel := p.isDuplicate(ch); existingChannel != nil {
 			p.addURLChannel(existingChannel, ch)
 			continue
@@ -52,17 +49,6 @@ func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor)
 	}
 
 	return filteredChannels, nil
-}
-
-func (p *Processor) ensureTvgID(ch *rules.Channel) {
-	if tvgID, exists := ch.GetAttr("tvg-id"); exists && tvgID != "" {
-		return
-	}
-	if tvgName, exists := ch.GetAttr("tvg-name"); exists && tvgName != "" {
-		ch.SetAttr("tvg-id", listing.GenerateHashID(tvgName))
-	} else {
-		ch.SetAttr("tvg-id", listing.GenerateHashID(ch.Name()))
-	}
 }
 
 func (p *Processor) isDuplicate(ch *rules.Channel) *rules.Channel {
