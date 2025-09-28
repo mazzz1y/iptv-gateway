@@ -22,7 +22,7 @@ type mockPlaylist struct {
 func (m mockPlaylist) Name() string                    { return m.name }
 func (m mockPlaylist) Playlists() []string             { return nil }
 func (m mockPlaylist) URLGenerator() *urlgen.Generator { return nil }
-func (m mockPlaylist) Rules() []*rules.Rule            { return nil }
+func (m mockPlaylist) Rules() []*rules.ChannelRule     { return nil }
 func (m mockPlaylist) IsProxied() bool                 { return false }
 
 func TestConditionLogic(t *testing.T) {
@@ -34,7 +34,7 @@ func TestConditionLogic(t *testing.T) {
 		Tags: map[string]string{"cat": "restricted"},
 	}
 	channel := NewChannel(track, playlist)
-	processor := NewProcessor("client1", nil)
+	processor := NewProcessor("client1", nil, nil)
 
 	tests := []struct {
 		condition   types.Condition
@@ -107,7 +107,7 @@ func TestPlaylistCondition(t *testing.T) {
 	uri, _ := url.Parse("http://example.com/stream")
 	track := &m3u8.Track{Name: "Channel B", URI: uri}
 	channel := NewChannel(track, playlist)
-	processor := NewProcessor("client1", nil)
+	processor := NewProcessor("client1", nil, nil)
 
 	condition := types.Condition{
 		Clients:   types.StringOrArr{"client1", "client2"},
@@ -139,7 +139,7 @@ func TestAdultChannelFilteringWithClientAndOrConditions(t *testing.T) {
 	}
 	channel := NewChannel(track, playlist)
 
-	restrictedProcessor := NewProcessor("tv-bedroom", nil)
+	restrictedProcessor := NewProcessor("tv-bedroom", nil, nil)
 	condition := types.Condition{
 		Clients: types.StringOrArr{"tv-bedroom", "tv2-bedroom"},
 		Or: []types.Condition{
@@ -160,13 +160,13 @@ func TestAdultChannelFilteringWithClientAndOrConditions(t *testing.T) {
 		t.Error("Expected match for restricted client with adult content")
 	}
 
-	allowedProcessor := NewProcessor("living-room", nil)
+	allowedProcessor := NewProcessor("living-room", nil, nil)
 	result = allowedProcessor.matchesCondition(channel, condition)
 	if result {
 		t.Error("Expected no match for non-restricted client - adult content should be available")
 	}
 
-	restrictedProcessor2 := NewProcessor("tv2-bedroom", nil)
+	restrictedProcessor2 := NewProcessor("tv2-bedroom", nil, nil)
 	result = restrictedProcessor2.matchesCondition(channel, condition)
 	if !result {
 		t.Error("Expected match for tv2-bedroom restricted client with adult content")
@@ -178,7 +178,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	uri, _ := url.Parse("http://example.com/stream")
 	track := &m3u8.Track{Name: "Test Channel", URI: uri}
 	channel := NewChannel(track, playlist)
-	processor := NewProcessor("client1", nil)
+	processor := NewProcessor("client1", nil, nil)
 
 	emptyCondition := types.Condition{}
 	result := processor.evaluateFieldCondition(channel, emptyCondition)

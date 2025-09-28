@@ -9,27 +9,15 @@ import (
 
 type Processor struct {
 	clientName   string
-	channelRules []*rules.Rule
-	storeRules   []*rules.Rule
+	channelRules []*rules.ChannelRule
+	storeRules   []*rules.PlaylistRule
 }
 
-func NewProcessor(clientName string, globalRules []*rules.Rule) *Processor {
-	var channelRules []*rules.Rule
-	var storeRules []*rules.Rule
-
-	for _, rule := range globalRules {
-		switch rule.Type {
-		case rules.StoreRule:
-			storeRules = append(storeRules, rule)
-		case rules.ChannelRule:
-			channelRules = append(channelRules, rule)
-		}
-	}
-
+func NewProcessor(clientName string, channelRules []*rules.ChannelRule, playlistRules []*rules.PlaylistRule) *Processor {
 	return &Processor{
 		clientName:   clientName,
 		channelRules: channelRules,
-		storeRules:   storeRules,
+		storeRules:   playlistRules,
 	}
 }
 
@@ -75,7 +63,7 @@ func (p *Processor) ensureTvgID(ch *Channel) {
 	}
 }
 
-func (p *Processor) processChannelRule(ch *Channel, rule *rules.Rule) (stop bool) {
+func (p *Processor) processChannelRule(ch *Channel, rule *rules.ChannelRule) (stop bool) {
 	if rule.SetField != nil {
 		p.processSetField(ch, rule.SetField)
 		stop = false
@@ -262,7 +250,7 @@ func (p *Processor) matchesExactStrings(value string, strings types.StringOrArr)
 	return false
 }
 
-func (p *Processor) containsStoreRule(rule *rules.Rule) bool {
+func (p *Processor) containsStoreRule(rule *rules.PlaylistRule) bool {
 	for _, existing := range p.storeRules {
 		if existing == rule {
 			return true

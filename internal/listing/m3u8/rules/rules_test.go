@@ -19,7 +19,6 @@ import (
 
 type mockSubscription struct {
 	name  string
-	rules []*rules.Rule
 }
 
 func (m mockSubscription) IsProxied() bool {
@@ -34,11 +33,11 @@ func (m mockSubscription) URLGenerator() *urlgen.Generator {
 	return nil
 }
 
-func (m mockSubscription) Rules() []*rules.Rule {
-	return m.rules
+func (m mockSubscription) Rules() []*rules.ChannelRule {
+	return nil
 }
 
-func (m mockSubscription) NamedConditions() []rules.Rule {
+func (m mockSubscription) NamedConditions() []rules.ChannelRule {
 	return nil
 }
 
@@ -50,73 +49,24 @@ func (m mockSubscription) ExpiredCommandStreamer() *shell.Streamer {
 	return nil
 }
 
-func TestRulesProcessor_RemoveField(t *testing.T) {
-	tests := []struct {
-		name          string
-		rules         []*rules.Rule
-		track         *m3u8.Track
-		shouldRemove  bool
-		expectedTrack *m3u8.Track
-	}{
+
+
+func TestRulesProcessor_SetField(t *testing.T) {
+	channelRules := []*rules.ChannelRule{
 		{
-			name: "remove channel by attr",
-			rules: []*rules.Rule{
-				{
-					Type: rules.ChannelRule,
-					RemoveChannel: &rules.RemoveChannelRule{
-						When: &types.Condition{
-							Attr: &types.NamePatterns{
-								Name:     "tvg-group",
-								Patterns: types.RegexpArr{mustCompileRegexp("unwanted")},
-							},
-						},
+			SetField: &rules.SetFieldRule{
+				SetField: &types.SetFieldTemplate{
+					AttrTemplate: &types.NameTemplate{
+						Name:     "tvg-group",
+						Template: mustCreateTemplate("music"),
 					},
 				},
 			},
-			track: &m3u8.Track{
-				Name:  "Test Channel",
-				Attrs: map[string]string{"tvg-group": "unwanted"},
-			},
-			shouldRemove: true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			processor := rulesprocessor.NewProcessor("test", tt.rules)
-			sub := &mockSubscription{name: "test", rules: tt.rules}
-
-			store := rulesprocessor.NewStore()
-			ch := rulesprocessor.NewChannel(tt.track, sub)
-			store.Add(ch)
-
-			processor.Process(store)
-
-			assert.Equal(t, tt.shouldRemove, ch.IsRemoved())
-			if !tt.shouldRemove && tt.expectedTrack != nil {
-				assert.Equal(t, tt.expectedTrack.Name, tt.track.Name)
-				assert.Equal(t, tt.expectedTrack.Attrs, tt.track.Attrs)
-				assert.Equal(t, tt.expectedTrack.Tags, tt.track.Tags)
-			}
-		})
-	}
-}
-
-func TestRulesProcessor_SetField(t *testing.T) {
-	channelRules := []*rules.Rule{
-		{
-			Type: rules.ChannelRule,
-			SetField: &rules.SetFieldRule{
-				AttrTemplate: &types.NameTemplate{
-					Name:     "tvg-group",
-					Template: mustCreateTemplate("music"),
-				},
-			},
-		},
-	}
-
-	processor := rulesprocessor.NewProcessor("test", channelRules)
-	sub := &mockSubscription{name: "test", rules: channelRules}
+	processor := rulesprocessor.NewProcessor("test", channelRules, nil)
+	sub := &mockSubscription{name: "test"}
 
 	track := &m3u8.Track{
 		Name: "Test Channel",

@@ -110,28 +110,31 @@ epgs:
       - "https://sports.com/guide.xml"
       - "https://sports2.com/guide.xml.gz"
 
-rules:
+# Global rules applied to all channels and playlists
+channel_rules:
+  # Set sports group for sports channels
+  - set_field:
+      set_field:
+        attr_template:
+          name: "group-title"
+          template: "Sports"
+      when:
+        and:
+          - playlists: ["sports"]
+          - name_patterns: [".*ESPN.*", ".*Fox Sports.*", ".*Sky Sports.*"]
+
+playlist_rules:
   # Remove duplicate channels, prefer highest quality for HD clients
   - remove_duplicates:
-      name: ["4K", "FHD", "HD", "SD"]
+      name_patterns: ["4K", "FHD", "HD", "SD"]
       when:
         clients: ["living-room", "bedroom"]
 
   # Remove duplicate channels, prefer SD quality for mobile/kitchen
   - remove_duplicates:
-      name: ["SD", "HD", "FHD", "4K"]
+      name_patterns: ["SD", "HD", "FHD", "4K"]
       when:
         clients: ["mobile", "kitchen"]
-
-  # Set sports group for sports channels
-  - set_field:
-      attr:
-        name: "group-title"
-        template: "Sports"
-      when:
-        and:
-          - playlist: ["sports"]
-          - name_patterns: [".*ESPN.*", ".*Fox Sports.*", ".*Sky Sports.*"]
 
 clients:
   - name: "living-room"

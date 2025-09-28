@@ -18,7 +18,8 @@ type Config struct {
 	Clients      []Client           `yaml:"clients"`
 	Playlists    []Playlist         `yaml:"playlists"`
 	EPGs         []EPG              `yaml:"epgs"`
-	Rules        []*rules.Rule      `yaml:"rules,omitempty"`
+	ChannelRules  []*rules.ChannelRule  `yaml:"channel_rules,omitempty"`
+	PlaylistRules []*rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -88,19 +89,28 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	for i, rule := range c.Rules {
+	for i, rule := range c.ChannelRules {
 		if err := rule.Validate(); err != nil {
-			return fmt.Errorf("rules[%d] validation failed: %w", i, err)
+			return fmt.Errorf("channel_rules[%d] validation failed: %w", i, err)
 		}
-		if err := c.validateRuleReferences(rule, clientNames, playlistNames); err != nil {
-			return fmt.Errorf("rules[%d] reference validation failed: %w", i, err)
+		if err := c.validateChannelRuleReferences(rule, clientNames, playlistNames); err != nil {
+			return fmt.Errorf("channel_rules[%d] reference validation failed: %w", i, err)
+		}
+	}
+
+	for i, rule := range c.PlaylistRules {
+		if err := rule.Validate(); err != nil {
+			return fmt.Errorf("playlist_rules[%d] validation failed: %w", i, err)
+		}
+		if err := c.validatePlaylistRuleReferences(rule, clientNames, playlistNames); err != nil {
+			return fmt.Errorf("playlist_rules[%d] reference validation failed: %w", i, err)
 		}
 	}
 
 	return nil
 }
 
-func (c *Config) validateRuleReferences(rule *rules.Rule, clientNames, playlistNames map[string]bool) error {
+func (c *Config) validateChannelRuleReferences(rule *rules.ChannelRule, clientNames, playlistNames map[string]bool) error {
 	if rule.SetField != nil && rule.SetField.When != nil {
 		return c.validateConditionReferences(*rule.SetField.When, clientNames, playlistNames)
 	}
@@ -113,6 +123,10 @@ func (c *Config) validateRuleReferences(rule *rules.Rule, clientNames, playlistN
 	if rule.MarkHidden != nil && rule.MarkHidden.When != nil {
 		return c.validateConditionReferences(*rule.MarkHidden.When, clientNames, playlistNames)
 	}
+	return nil
+}
+
+func (c *Config) validatePlaylistRuleReferences(rule *rules.PlaylistRule, clientNames, playlistNames map[string]bool) error {
 	return nil
 }
 

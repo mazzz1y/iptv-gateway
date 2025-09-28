@@ -32,7 +32,7 @@ type Provider interface {
 	ExpiredLinkStreamer() *shell.Streamer
 }
 
-func NewClient(clientCfg config.Client, urlGen *urlgen.Generator, globalRules []*rules.Rule, publicURL string) (*Client, error) {
+func NewClient(clientCfg config.Client, urlGen *urlgen.Generator, channelRules []*rules.ChannelRule, playlistRules []*rules.PlaylistRule, publicURL string) (*Client, error) {
 	if clientCfg.Secret == "" {
 		return nil, fmt.Errorf("client secret cannot be empty")
 	}
@@ -47,7 +47,7 @@ func NewClient(clientCfg config.Client, urlGen *urlgen.Generator, globalRules []
 		secret:         clientCfg.Secret,
 		semaphore:      sem,
 		proxy:          clientCfg.Proxy,
-		rulesProcessor: m3u8Rules.NewProcessor(clientCfg.Name, globalRules),
+		rulesProcessor: m3u8Rules.NewProcessor(clientCfg.Name, channelRules, playlistRules),
 		epgLink:        fmt.Sprintf("%s/%s/epg.xml.gz", publicURL, clientCfg.Secret),
 		urlGen:         urlGen,
 	}, nil
@@ -143,5 +143,3 @@ func (c *Client) URLGenerator() *urlgen.Generator {
 func (c *Client) RulesProcessor() *m3u8Rules.Processor {
 	return c.rulesProcessor
 }
-
-

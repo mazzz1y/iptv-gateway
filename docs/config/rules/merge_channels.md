@@ -9,7 +9,7 @@ This rule applies to the entire channel list after channel-level rules are proce
 ## YAML Structure
 
 ```yaml
-rules:
+playlist_rules:
   - merge_channels:
       name_patterns: []
       attr:
@@ -46,7 +46,7 @@ rules:
 ```yaml
 # Input: CNN HD, CNN 4K, ESPN UHD, Fox News
 # Output: CNN Multi-Quality, ESPN UHD, Fox News
-rules:
+playlist_rules:
   - merge_channels:
       name_patterns: ["4K", "UHD", "FHD", "HD"]
       set_field: "{{.BaseName}} Multi-Quality"
@@ -57,7 +57,7 @@ rules:
 ```yaml
 # Input: Discovery Channel HD, Discovery Channel 4K
 # Output: Discovery Channel
-rules:
+playlist_rules:
   - merge_channels:
       name_patterns: ["4K", "UHD", "FHD", "HD"]
       set_field: "{{.BaseName}}"
@@ -68,7 +68,7 @@ rules:
 ```yaml
 # Input: Discovery Channel HD, Discovery Channel 4K
 # Output: Discovery Channel 4K
-rules:
+playlist_rules:
   - merge_channels:
       name_patterns: ["4K", "HD"]
 ```
@@ -77,7 +77,7 @@ rules:
 
 ```yaml
 # Merge channels based on tvg-id patterns
-rules:
+playlist_rules:
   - merge_channels:
       attr:
         name: "tvg-id"

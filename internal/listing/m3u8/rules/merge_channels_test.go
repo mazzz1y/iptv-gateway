@@ -198,7 +198,7 @@ func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
 
 	channels := store.All()
 	for _, ch := range channels {
-		quality, exists := ch.Tags["quality"]
+		quality, exists := ch.Tags()["quality"]
 		if !exists {
 			t.Errorf("Expected quality tag to exist")
 			continue

@@ -9,7 +9,7 @@ This rule applies to the entire channel list after channel-level rules are proce
 ## YAML Structure
 
 ```yaml
-rules:
+playlist_rules:
   - remove_duplicates:
       name_patterns: []
       attr:
@@ -51,7 +51,7 @@ rules:
 ```yaml
 # Input: CNN, CNN HD, CNN 4K, ESPN, ESPN FHD, ESPN UHD, Fox News
 # Output: CNN 4K, ESPN UHD, Fox News
-rules:
+playlist_rules:
   - remove_duplicates:
       name_patterns: ["4K", "UHD", "FHD", "HD", ""]
 ```
@@ -61,7 +61,7 @@ rules:
 ```yaml
 # Input: Discovery Channel HD, Discovery Channel 4K, National Geographic UHD, National Geographic
 # Output: Discovery Channel HQ-Preferred, National Geographic HQ-Preferred
-rules:
+playlist_rules:
   - remove_duplicates:
       name_patterns: ["4K", "UHD", "FHD", "HD", ""]
       set_field: "{{.BaseName}} HQ-Preferred"
@@ -72,7 +72,7 @@ rules:
 ```yaml
 # Input: Discovery Channel HD, Discovery Channel 4K
 # Output: Discovery Channel (patterns removed)
-rules:
+playlist_rules:
   - remove_duplicates:
       name_patterns: ["4K", "UHD", "FHD", "HD", ""]
       set_field: "{{.BaseName}}"

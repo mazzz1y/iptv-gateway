@@ -74,7 +74,7 @@ func (m *Manager) createClient(clientConf config.Client) (*Client, error) {
 		return nil, fmt.Errorf("failed to create URL generator: %w", err)
 	}
 
-	cl, err := NewClient(clientConf, urlGen, m.config.Rules, m.publicURLBase)
+	cl, err := NewClient(clientConf, urlGen, m.config.ChannelRules, m.config.PlaylistRules, m.publicURLBase)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to initialize client %s: %w", clientConf.Name, err)

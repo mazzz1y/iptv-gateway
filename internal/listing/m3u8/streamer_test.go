@@ -22,7 +22,7 @@ import (
 )
 
 func createStreamer(subscriptions []listing.Playlist, epgLink string, httpClient listing.HTTPClient) *Streamer {
-	rulesProcessor := rules.NewProcessor("test", nil)
+	rulesProcessor := rules.NewProcessor("test", nil, nil)
 	return &Streamer{
 		subscriptions:  subscriptions,
 		httpClient:     httpClient,

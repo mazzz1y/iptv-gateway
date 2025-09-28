@@ -9,7 +9,7 @@ and custom ordering patterns.
 ## YAML Structure
 
 ```yaml
-rules:
+playlist_rules:
   - sort:
       attr: ""
       tag: ""
@@ -56,7 +56,7 @@ rules:
 
 ```yaml
 # Sort all channels alphabetically by name
-rules:
+playlist_rules:
   - sort: {}
 ```
 
@@ -64,7 +64,7 @@ rules:
 
 ```yaml
 # Move Sports and Music channels to the end of the playlist. Everything else is sorted alphabetically.
-rules:
+playlist_rules:
   - sort:
       order: ["", "Sports.*", "Music.*"]
 ```
@@ -73,7 +73,7 @@ rules:
 
 ```yaml
 # Sort channels by their tvg-name attribute
-rules:
+playlist_rules:
   - sort:
       attr: "tvg-name"
 ```
@@ -82,7 +82,7 @@ rules:
 
 ```yaml
 # Group channels by group-title, with News first, then Sports, then everything else
-rules:
+playlist_rules:
   - sort:
       group_by:
         attr: "group-title"
@@ -93,7 +93,7 @@ rules:
 
 ```yaml
 # Group by EXTGRP tag, prioritize HD channels within each group
-rules:
+playlist_rules:
   - sort:
       order: [".*HD.*", ".*FHD.*", ""]  # HD channels first in each group
       group_by:

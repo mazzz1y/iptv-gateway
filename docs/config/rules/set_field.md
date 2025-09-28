@@ -7,27 +7,28 @@ The `set_field` rule allows you to modify channel properties including the chann
 ```yaml
 channel_rules:
   - set_field:
-      # exactly one of the following:
-      name_template: "template"        # Set channel name using template
-      attr:
-        name: "<attr name>"
-        template: "template"           # Set M3U attribute using template
-      tag:
-        name: "<tag name>"
-        template: "template"           # Set M3U tag using template
+      set_field:
+        # exactly one of the following:
+        name_template: "template"        # Set channel name using template
+        attr_template:
+          name: "<attr name>"
+          template: "template"           # Set M3U attribute using template
+        tag_template:
+          name: "<tag name>"
+          template: "template"           # Set M3U tag using template
       when: {}
 ```
 
 ## Fields
 
-| Field           | Type                           | Required     | Description                         |
-|-----------------|--------------------------------|--------------|-------------------------------------|
-| `name_template` | `template`                     | Conditional* | Template for channel name           |
-| `attr`          | [`NameTemplate`](../common.md) | Conditional* | Set attribute using template        |
-| `tag`           | [`NameTemplate`](../common.md) | Conditional* | Set tag using template              |
-| `when`          | [When](when.md)                | No           | Conditions specifying when to apply |
+| Field                      | Type                           | Required     | Description                         |
+|----------------------------|--------------------------------|--------------|-------------------------------------|
+| `set_field.name_template`  | `template`                     | Conditional* | Template for channel name           |
+| `set_field.attr_template`  | [`NameTemplate`](../common.md) | Conditional* | Set attribute using template        |
+| `set_field.tag_template`   | [`NameTemplate`](../common.md) | Conditional* | Set tag using template              |
+| `when`                     | [When](when.md)                | No           | Conditions specifying when to apply |
 
-*Exactly one of `name_template`, `attr`, or `tag` is required.*
+*Exactly one of `name_template`, `attr_template`, or `tag_template` is required.*
 
 ## Template
 

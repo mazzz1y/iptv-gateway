@@ -3,16 +3,27 @@
 Rules allow you to modify, filter, and transform channels or channel lists using a flexible range of operations. Rules
 are defined globally and applied to all clients, with optional filtering by client or playlist names.
 
+## Rule Types
+
+Rules are organized into two categories:
+
+- **Channel Rules** - Operate on individual channels (set_field, remove_field, remove_channel, mark_hidden)
+- **Playlist Rules** - Operate on the entire playlist/channel list (remove_duplicates, merge_channels, sort)
+
 !!! note "Rule Processing"
 
-* All rules are defined at the global level
+* All rules are defined at the global level under `channel_rules` and `playlist_rules`
 * Rules can be filtered to specific clients or playlists using `when` conditions
-* Channel-level rules are processed first, followed by playlist-level operations
+* Channel rules are processed first, followed by playlist rules
 
 ## YAML Structure
 
 ```yaml
-rules:
-  - <rule_name>:
-    # rule configuration
+channel_rules:
+  - <channel_rule_name>:
+    # channel rule configuration
+
+playlist_rules:
+  - <playlist_rule_name>:
+    # playlist rule configuration
 ```

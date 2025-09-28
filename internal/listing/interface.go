@@ -24,7 +24,7 @@ type Playlist interface {
 	Name() string
 	Playlists() []string
 	URLGenerator() *urlgen.Generator
-	Rules() []*rules.Rule
+	Rules() []*rules.ChannelRule
 	IsProxied() bool
 }
 

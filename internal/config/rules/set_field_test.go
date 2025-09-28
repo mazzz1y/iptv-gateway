@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"iptv-gateway/internal/config/types"
 	"testing"
 
 	"gopkg.in/yaml.v3"
