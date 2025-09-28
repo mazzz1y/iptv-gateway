@@ -158,12 +158,15 @@ func (p *Processor) matchesCondition(ch *Channel, condition types.Condition) boo
 		return true
 	}
 
-	result := p.evaluateFieldCondition(ch, condition)
+	fieldResult := p.evaluateFieldCondition(ch, condition)
 
+	var result bool
 	if len(condition.And) > 0 {
-		result = p.evaluateAndConditions(ch, condition.And)
+		result = fieldResult && p.evaluateAndConditions(ch, condition.And)
 	} else if len(condition.Or) > 0 {
-		result = p.evaluateOrConditions(ch, condition.Or)
+		result = fieldResult && p.evaluateOrConditions(ch, condition.Or)
+	} else {
+		result = fieldResult
 	}
 
 	if condition.Invert {
@@ -174,26 +177,40 @@ func (p *Processor) matchesCondition(ch *Channel, condition types.Condition) boo
 }
 
 func (p *Processor) evaluateFieldCondition(ch *Channel, condition types.Condition) bool {
-	if condition.NamePatterns != nil {
-		return p.matchesRegexps(ch.Name(), condition.NamePatterns)
+	hasFieldConditions := condition.NamePatterns != nil || condition.Attr != nil || condition.Tag != nil ||
+		len(condition.Clients) > 0 || len(condition.Playlists) > 0
+
+	if !hasFieldConditions {
+		return true
 	}
+
+	if condition.NamePatterns != nil && !p.matchesRegexps(ch.Name(), condition.NamePatterns) {
+		return false
+	}
+
 	if condition.Attr != nil {
-		if actual, exists := ch.GetAttr(condition.Attr.Name); exists {
-			return p.matchesRegexps(actual, condition.Attr.Patterns)
+		actual, exists := ch.GetAttr(condition.Attr.Name)
+		if !exists || !p.matchesRegexps(actual, condition.Attr.Patterns) {
+			return false
 		}
 	}
+
 	if condition.Tag != nil {
-		if actual, exists := ch.GetTag(condition.Tag.Name); exists {
-			return p.matchesRegexps(actual, condition.Tag.Patterns)
+		actual, exists := ch.GetTag(condition.Tag.Name)
+		if !exists || !p.matchesRegexps(actual, condition.Tag.Patterns) {
+			return false
 		}
 	}
-	if len(condition.Clients) > 0 {
-		return p.matchesExactStrings(p.clientName, condition.Clients)
+
+	if len(condition.Clients) > 0 && !p.matchesExactStrings(p.clientName, condition.Clients) {
+		return false
 	}
-	if len(condition.Playlists) > 0 {
-		return p.matchesExactStrings(ch.Subscription().Name(), condition.Playlists)
+
+	if len(condition.Playlists) > 0 && !p.matchesExactStrings(ch.Subscription().Name(), condition.Playlists) {
+		return false
 	}
-	return false
+
+	return true
 }
 
 func (p *Processor) evaluateAndConditions(ch *Channel, conditions types.ConditionList) bool {
