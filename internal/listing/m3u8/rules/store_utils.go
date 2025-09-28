@@ -38,19 +38,6 @@ func getPatterns(
 	return nil
 }
 
-func setFieldValue(
-	ch *Channel, value string, namePatterns types.RegexpArr, attrPatterns *types.NamePatterns, tagPatterns *types.NamePatterns) {
-	if len(namePatterns) > 0 {
-		ch.SetName(value)
-	} else if attrPatterns != nil {
-		ch.SetAttr(attrPatterns.Name, value)
-	} else if tagPatterns != nil {
-		ch.SetTag(tagPatterns.Name, value)
-	} else {
-		ch.SetName(value)
-	}
-}
-
 func getFieldValue(
 	ch *Channel, namePatterns types.RegexpArr, attrPatterns *types.NamePatterns, tagPatterns *types.NamePatterns) string {
 	if len(namePatterns) > 0 {
@@ -117,7 +104,7 @@ func selectBestChannel(channels []*Channel, namePatterns types.RegexpArr, attrPa
 
 func processSetField(ch *Channel, setField *types.Template, baseName string) string {
 	if setField == nil {
-		return baseName
+		return ""
 	}
 
 	tmplMap := map[string]any{

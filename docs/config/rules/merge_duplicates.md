@@ -1,6 +1,7 @@
-# Merge Channels
+# Merge Duplicates
 
-The `merge_channels` rule combines multiple channel variants into a single channel. Duplicate variants act as fallbacks
+The `merge_duplicates` rule combines multiple channel variants into a single channel. Duplicate variants act as
+fallbacks
 if the primary channel becomes unavailable (for example, due to upstream issues or proxy limits).
 
 !!! note
@@ -10,7 +11,7 @@ This rule applies to the entire channel list after channel-level rules are proce
 
 ```yaml
 playlist_rules:
-  - merge_channels:
+  - merge_duplicates:
       name_patterns: []
       attr:
         name: "tvg-id"
@@ -47,9 +48,10 @@ playlist_rules:
 # Input: CNN HD, CNN 4K, ESPN UHD, Fox News
 # Output: CNN Multi-Quality, ESPN UHD, Fox News
 playlist_rules:
-  - merge_channels:
+  - merge_duplicates:
       name_patterns: ["4K", "UHD", "FHD", "HD"]
-      set_field: "{{.BaseName}} Multi-Quality"
+      set_field:
+        name_template: "{{.BaseName}} Multi-Quality"
 ```
 
 ### Trimming Patterns
@@ -58,9 +60,10 @@ playlist_rules:
 # Input: Discovery Channel HD, Discovery Channel 4K
 # Output: Discovery Channel
 playlist_rules:
-  - merge_channels:
+  - merge_duplicates:
       name_patterns: ["4K", "UHD", "FHD", "HD"]
-      set_field: "{{.BaseName}}"
+      set_field:
+        name_template: "{{.BaseName}}"
 ```
 
 ### Using Best Channel Name
@@ -69,20 +72,21 @@ playlist_rules:
 # Input: Discovery Channel HD, Discovery Channel 4K
 # Output: Discovery Channel 4K
 playlist_rules:
-  - merge_channels:
+  - merge_duplicates:
       name_patterns: ["4K", "HD"]
 ```
 
 ### Attribute-Based Merging
 
 ```yaml
-# Merge channels based on tvg-id patterns
+# Merge duplicates based on tvg-id patterns
 playlist_rules:
-  - merge_channels:
+  - merge_duplicates:
       attr:
         name: "tvg-id"
         patterns: ["HD", "4K", "UHD"]
-      set_field: "{{.BaseName}} Multi-Source"
+      set_field:
+        name_template: "{{.BaseName}} Multi-Source"
 ```
 
 ## Template

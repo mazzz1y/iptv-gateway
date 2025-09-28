@@ -5,15 +5,15 @@ import (
 	"iptv-gateway/internal/parser/m3u8"
 )
 
-type MergeChannelsProcessor struct {
-	rule *configrules.MergeChannelsRule
+type MergeDuplicatesProcessor struct {
+	rule *configrules.MergeDuplicatesRule
 }
 
-func NewMergeChannelsActionProcessor(rule *configrules.MergeChannelsRule) *MergeChannelsProcessor {
-	return &MergeChannelsProcessor{rule: rule}
+func NewMergeDuplicatesActionProcessor(rule *configrules.MergeDuplicatesRule) *MergeDuplicatesProcessor {
+	return &MergeDuplicatesProcessor{rule: rule}
 }
 
-func (p *MergeChannelsProcessor) Apply(store *Store) {
+func (p *MergeDuplicatesProcessor) Apply(store *Store) {
 	grouped := make(map[string][]*Channel)
 	for _, ch := range store.All() {
 		key := p.extractBaseName(ch)
@@ -22,13 +22,13 @@ func (p *MergeChannelsProcessor) Apply(store *Store) {
 	p.processMergeGroups(grouped)
 }
 
-func (p *MergeChannelsProcessor) extractBaseName(ch *Channel) string {
+func (p *MergeDuplicatesProcessor) extractBaseName(ch *Channel) string {
 	fv := getFieldValue(ch, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
 	patterns := getPatterns(p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
 	return extractBaseName(fv, patterns)
 }
 
-func (p *MergeChannelsProcessor) processMergeGroups(groups map[string][]*Channel) {
+func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*Channel) {
 	for baseName, group := range groups {
 		if len(group) <= 1 {
 			continue

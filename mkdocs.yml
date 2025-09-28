@@ -40,14 +40,17 @@ nav:
       - EPGs: config/epgs.md
       - Rules:
           - Overview: config/rules/index.md
-          - Set Field: config/rules/set_field.md
-          - Remove Field: config/rules/remove_field.md
-          - Remove Channel: config/rules/remove_channel.md
-          - Mark Hidden: config/rules/mark_hidden.md
-          - Remove Duplicates: config/rules/remove_duplicates.md
-          - Sort: config/rules/sort.md
+          - Channel Rules:
+              - Set Field: config/rules/set_field.md
+              - Remove Field: config/rules/remove_field.md
+              - Remove Channel: config/rules/remove_channel.md
+              - Mark Hidden: config/rules/mark_hidden.md
+          - Playlist Rules:
+              - Remove Duplicates: config/rules/remove_duplicates.md
+              - Merge Duplicates: config/rules/merge_duplicates.md
+              - Sort: config/rules/sort.md
           - When: config/rules/when.md
       - Clients: config/clients.md
       - Common Fields: config/common.md
-  - Examples: config/examples.md
+  - Examples: examples.md
   - Metrics: metrics.md

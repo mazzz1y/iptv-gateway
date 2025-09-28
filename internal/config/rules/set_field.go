@@ -7,7 +7,7 @@ import (
 
 type SetFieldRule struct {
 	When     *types.Condition        `yaml:"when,omitempty"`
-	SetField *types.SetFieldTemplate `yaml:"set_field,inline"`
+	SetField *types.SetFieldTemplate `yaml:",inline"`
 }
 
 func (s *SetFieldRule) Validate() error {

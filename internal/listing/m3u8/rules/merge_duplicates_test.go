@@ -12,14 +12,14 @@ import (
 )
 
 func TestMergeChannelsProcessor_CopyTvgId(t *testing.T) {
-	rule := &configrules.MergeChannelsRule{
+	rule := &configrules.MergeDuplicatesRule{
 		NamePatterns: types.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
 		},
 	}
 
-	processor := NewMergeChannelsActionProcessor(rule)
+	processor := NewMergeDuplicatesActionProcessor(rule)
 	store := NewStore()
 
 	uri1, _ := url.Parse("http://example.com/url1")
@@ -60,7 +60,7 @@ func TestMergeChannelsProcessor_CopyTvgId(t *testing.T) {
 }
 
 func TestMergeChannelsProcessor_SetFieldName(t *testing.T) {
-	rule := &configrules.MergeChannelsRule{
+	rule := &configrules.MergeDuplicatesRule{
 		NamePatterns: types.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
@@ -70,7 +70,7 @@ func TestMergeChannelsProcessor_SetFieldName(t *testing.T) {
 		},
 	}
 
-	processor := NewMergeChannelsActionProcessor(rule)
+	processor := NewMergeDuplicatesActionProcessor(rule)
 	store := NewStore()
 
 	uri1, _ := url.Parse("http://example.com/url1")
@@ -101,7 +101,7 @@ func TestMergeChannelsProcessor_SetFieldName(t *testing.T) {
 }
 
 func TestMergeChannelsProcessor_SetFieldAttr(t *testing.T) {
-	rule := &configrules.MergeChannelsRule{
+	rule := &configrules.MergeDuplicatesRule{
 		NamePatterns: types.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
@@ -114,7 +114,7 @@ func TestMergeChannelsProcessor_SetFieldAttr(t *testing.T) {
 		},
 	}
 
-	processor := NewMergeChannelsActionProcessor(rule)
+	processor := NewMergeDuplicatesActionProcessor(rule)
 	store := NewStore()
 
 	uri1, _ := url.Parse("http://example.com/url1")
@@ -159,7 +159,7 @@ func TestMergeChannelsProcessor_SetFieldAttr(t *testing.T) {
 }
 
 func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
-	rule := &configrules.MergeChannelsRule{
+	rule := &configrules.MergeDuplicatesRule{
 		NamePatterns: types.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
@@ -172,7 +172,7 @@ func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
 		},
 	}
 
-	processor := NewMergeChannelsActionProcessor(rule)
+	processor := NewMergeDuplicatesActionProcessor(rule)
 	store := NewStore()
 
 	uri1, _ := url.Parse("http://example.com/url1")

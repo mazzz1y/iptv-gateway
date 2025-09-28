@@ -29,7 +29,7 @@ func (p *Processor) Process(store *Store) {
 func (p *Processor) processStoreRules(store *Store) {
 	for _, rule := range p.storeRules {
 		if rule.MergeChannels != nil && evaluateStoreWhenCondition(rule.MergeChannels.When, p.clientName) {
-			processor := NewMergeChannelsActionProcessor(rule.MergeChannels)
+			processor := NewMergeDuplicatesActionProcessor(rule.MergeChannels)
 			processor.Apply(store)
 		}
 		if rule.RemoveDuplicates != nil && evaluateStoreWhenCondition(rule.RemoveDuplicates.When, p.clientName) {

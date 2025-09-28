@@ -10,7 +10,7 @@ type PlaylistRule struct {
 	Validate func() error
 
 	RemoveDuplicates *RemoveDuplicatesRule `yaml:"remove_duplicates,omitempty"`
-	MergeChannels    *MergeChannelsRule    `yaml:"merge_channels,omitempty"`
+	MergeChannels    *MergeDuplicatesRule  `yaml:"merge_channels,omitempty"`
 	SortRule         *SortRule             `yaml:"sort,omitempty"`
 }
 
