@@ -2,14 +2,14 @@ package config
 
 import (
 	"fmt"
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/types"
 )
 
 type Playlist struct {
-	Name    string            `yaml:"name"`
-	Sources types.StringOrArr `yaml:"sources"`
-	Proxy   proxy.Proxy       `yaml:"proxy,omitempty"`
+	Name    string             `yaml:"name"`
+	Sources common.StringOrArr `yaml:"sources"`
+	Proxy   proxy.Proxy        `yaml:"proxy,omitempty"`
 }
 
 func (p *Playlist) Validate() error {
@@ -24,8 +24,6 @@ func (p *Playlist) Validate() error {
 			return fmt.Errorf("playlist source[%d] cannot be empty", i)
 		}
 	}
-
-
 
 	return nil
 }

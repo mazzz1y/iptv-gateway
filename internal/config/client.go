@@ -2,16 +2,16 @@ package config
 
 import (
 	"fmt"
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/types"
 )
 
 type Client struct {
-	Name      string            `yaml:"name"`
-	Secret    string            `yaml:"secret"`
-	Playlists types.StringOrArr `yaml:"playlists"`
-	EPGs      types.StringOrArr `yaml:"epgs"`
-	Proxy     proxy.Proxy       `yaml:"proxy,omitempty"`
+	Name      string             `yaml:"name"`
+	Secret    string             `yaml:"secret"`
+	Playlists common.StringOrArr `yaml:"playlists"`
+	EPGs      common.StringOrArr `yaml:"epgs"`
+	Proxy     proxy.Proxy        `yaml:"proxy,omitempty"`
 }
 
 func (c *Client) Validate(playlistNames, epgNames map[string]bool) error {

@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"bytes"
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/rules"
 )
 
@@ -22,8 +24,8 @@ func (p *RemoveDuplicatesProcessor) Apply(global *Store) {
 }
 
 func (p *RemoveDuplicatesProcessor) extractBaseName(ch *Channel) string {
-	fv := getFieldValue(ch, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
-	patterns := getPatterns(p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
+	fv := getSelectorFieldValue(ch, p.rule.Selector)
+	patterns := p.rule.Patterns.ToArray()
 	return extractBaseName(fv, patterns)
 }
 
@@ -33,26 +35,37 @@ func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*
 			continue
 		}
 
-		if !hasPatternVariationsGroup(group, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns) {
+		if !hasPatternVariationsGroup(group, p.rule.Selector, p.rule.Patterns) {
 			continue
 		}
 
-		best := selectBestChannel(group, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
+		best := selectBestChannel(group, p.rule.Selector, p.rule.Patterns)
 		for _, ch := range group {
 			if ch == best {
-				if p.rule.SetField != nil {
-					switch {
-					case p.rule.SetField.NameTemplate != nil:
-						finalValue := processSetField(ch, p.rule.SetField.NameTemplate, baseName)
-						ch.SetName(finalValue)
+				if p.rule.FinalValue != nil {
+					tmplMap := map[string]any{
+						"Channel": map[string]any{
+							"Name":  ch.Name(),
+							"Attrs": ch.Attrs(),
+							"Tags":  ch.Tags(),
+						},
+						"BaseName": baseName,
+					}
 
-					case p.rule.SetField.AttrTemplate != nil:
-						finalValue := processSetField(ch, p.rule.SetField.AttrTemplate.Template, baseName)
-						ch.SetAttr(p.rule.SetField.AttrTemplate.Name, finalValue)
+					var buf bytes.Buffer
+					if err := p.rule.FinalValue.Template.ToTemplate().Execute(&buf, tmplMap); err == nil {
+						finalValue := buf.String()
 
-					case p.rule.SetField.TagTemplate != nil:
-						finalValue := processSetField(ch, p.rule.SetField.TagTemplate.Template, baseName)
-						ch.SetTag(p.rule.SetField.TagTemplate.Name, finalValue)
+						if p.rule.FinalValue.Selector != nil {
+							switch p.rule.FinalValue.Selector.Type {
+							case common.SelectorName:
+								ch.SetName(finalValue)
+							case common.SelectorAttr:
+								ch.SetAttr(p.rule.FinalValue.Selector.Value, finalValue)
+							case common.SelectorTag:
+								ch.SetTag(p.rule.FinalValue.Selector.Value, finalValue)
+							}
+						}
 					}
 				}
 			} else {

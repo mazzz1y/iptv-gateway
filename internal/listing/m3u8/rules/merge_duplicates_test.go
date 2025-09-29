@@ -1,8 +1,8 @@
 package rules
 
 import (
+	"iptv-gateway/internal/config/common"
 	configrules "iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/parser/m3u8"
 	"net/url"
 	"regexp"
@@ -13,7 +13,8 @@ import (
 
 func TestMergeChannelsProcessor_CopyTvgId(t *testing.T) {
 	rule := &configrules.MergeDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName},
+		Patterns: common.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
 		},
@@ -61,12 +62,14 @@ func TestMergeChannelsProcessor_CopyTvgId(t *testing.T) {
 
 func TestMergeChannelsProcessor_SetFieldName(t *testing.T) {
 	rule := &configrules.MergeDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName},
+		Patterns: common.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
 		},
-		SetField: &types.SetFieldTemplate{
-			NameTemplate: mustTemplate("{{.BaseName}} Multi-Quality"),
+		FinalValue: &configrules.MergeDuplicatesFinalValue{
+			Selector: &common.Selector{Type: common.SelectorName},
+			Template: mustTemplate("{{.BaseName}} Multi-Quality"),
 		},
 	}
 
@@ -102,15 +105,14 @@ func TestMergeChannelsProcessor_SetFieldName(t *testing.T) {
 
 func TestMergeChannelsProcessor_SetFieldAttr(t *testing.T) {
 	rule := &configrules.MergeDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName},
+		Patterns: common.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
 		},
-		SetField: &types.SetFieldTemplate{
-			AttrTemplate: &types.NameTemplate{
-				Name:     "group-title",
-				Template: mustTemplate("{{.BaseName}} Group"),
-			},
+		FinalValue: &configrules.MergeDuplicatesFinalValue{
+			Selector: &common.Selector{Type: common.SelectorAttr, Value: "group-title"},
+			Template: mustTemplate("{{.BaseName}} Group"),
 		},
 	}
 
@@ -160,15 +162,14 @@ func TestMergeChannelsProcessor_SetFieldAttr(t *testing.T) {
 
 func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
 	rule := &configrules.MergeDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName},
+		Patterns: common.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
 		},
-		SetField: &types.SetFieldTemplate{
-			TagTemplate: &types.NameTemplate{
-				Name:     "quality",
-				Template: mustTemplate("{{.BaseName}} Multi"),
-			},
+		FinalValue: &configrules.MergeDuplicatesFinalValue{
+			Selector: &common.Selector{Type: common.SelectorTag, Value: "quality"},
+			Template: mustTemplate("{{.BaseName}} Multi"),
 		},
 	}
 
@@ -218,8 +219,8 @@ func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
 	}
 }
 
-func mustTemplate(tmpl string) *types.Template {
-	var t types.Template
+func mustTemplate(tmpl string) *common.Template {
+	var t common.Template
 	node := &yaml.Node{
 		Kind:  yaml.ScalarNode,
 		Value: tmpl,

@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"testing"
 
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
 )
@@ -37,51 +37,43 @@ func TestConditionLogic(t *testing.T) {
 	processor := NewProcessor("client1", nil, nil)
 
 	tests := []struct {
-		condition   types.Condition
+		condition   common.Condition
 		expectMatch bool
 	}{
 		{
-			condition: types.Condition{
-				Clients: types.StringOrArr{"client1", "client2"},
-				Tag: &types.NamePatterns{
-					Name:     "cat",
-					Patterns: types.RegexpArr{mustCompile("restricted")},
-				},
+			condition: common.Condition{
+				Clients:  common.StringOrArr{"client1", "client2"},
+				Selector: &common.Selector{Type: common.SelectorTag, Value: "cat"},
+				Patterns: common.RegexpArr{mustCompile("restricted")},
 			},
 			expectMatch: true,
 		},
 		{
-			condition: types.Condition{
-				Clients: types.StringOrArr{"client1", "client2"},
-				Tag: &types.NamePatterns{
-					Name:     "cat",
-					Patterns: types.RegexpArr{mustCompile("safe")},
-				},
+			condition: common.Condition{
+				Clients:  common.StringOrArr{"client1", "client2"},
+				Selector: &common.Selector{Type: common.SelectorTag, Value: "cat"},
+				Patterns: common.RegexpArr{mustCompile("safe")},
 			},
 			expectMatch: false,
 		},
 		{
-			condition: types.Condition{
-				Clients: types.StringOrArr{"client3"},
-				Tag: &types.NamePatterns{
-					Name:     "cat",
-					Patterns: types.RegexpArr{mustCompile("restricted")},
-				},
+			condition: common.Condition{
+				Clients:  common.StringOrArr{"client3"},
+				Selector: &common.Selector{Type: common.SelectorTag, Value: "cat"},
+				Patterns: common.RegexpArr{mustCompile("restricted")},
 			},
 			expectMatch: false,
 		},
 		{
-			condition: types.Condition{
-				Clients: types.StringOrArr{"client1", "client2"},
+			condition: common.Condition{
+				Clients: common.StringOrArr{"client1", "client2"},
 			},
 			expectMatch: true,
 		},
 		{
-			condition: types.Condition{
-				Tag: &types.NamePatterns{
-					Name:     "cat",
-					Patterns: types.RegexpArr{mustCompile("restricted")},
-				},
+			condition: common.Condition{
+				Selector: &common.Selector{Type: common.SelectorTag, Value: "cat"},
+				Patterns: common.RegexpArr{mustCompile("restricted")},
 			},
 			expectMatch: true,
 		},
@@ -93,7 +85,7 @@ func TestConditionLogic(t *testing.T) {
 			t.Errorf("matchesCondition() = %v, want %v", result, tt.expectMatch)
 		}
 
-		rule := &rules.RemoveChannelRule{When: &tt.condition}
+		rule := &rules.RemoveChannelRule{Condition: &tt.condition}
 		shouldRemove := processor.processRemoveChannel(channel, rule)
 		if shouldRemove != tt.expectMatch {
 			t.Errorf("processRemoveChannel() = %v, want %v", shouldRemove, tt.expectMatch)
@@ -109,9 +101,9 @@ func TestPlaylistCondition(t *testing.T) {
 	channel := NewChannel(track, playlist)
 	processor := NewProcessor("client1", nil, nil)
 
-	condition := types.Condition{
-		Clients:   types.StringOrArr{"client1", "client2"},
-		Playlists: types.StringOrArr{"pl2"},
+	condition := common.Condition{
+		Clients:   common.StringOrArr{"client1", "client2"},
+		Playlists: common.StringOrArr{"pl2"},
 	}
 
 	result := processor.matchesCondition(channel, condition)
@@ -119,7 +111,7 @@ func TestPlaylistCondition(t *testing.T) {
 		t.Error("Expected match when both client and playlist match")
 	}
 
-	condition.Playlists = types.StringOrArr{"pl3"}
+	condition.Playlists = common.StringOrArr{"pl3"}
 	result = processor.matchesCondition(channel, condition)
 	if result {
 		t.Error("Expected no match when playlist doesn't match")
@@ -140,17 +132,16 @@ func TestAdultChannelFilteringWithClientAndOrConditions(t *testing.T) {
 	channel := NewChannel(track, playlist)
 
 	restrictedProcessor := NewProcessor("tv-bedroom", nil, nil)
-	condition := types.Condition{
-		Clients: types.StringOrArr{"tv-bedroom", "tv2-bedroom"},
-		Or: []types.Condition{
+	condition := common.Condition{
+		Clients: common.StringOrArr{"tv-bedroom", "tv2-bedroom"},
+		Or: []common.Condition{
 			{
-				NamePatterns: types.RegexpArr{mustCompile(".*NSFW.*")},
+				Selector: &common.Selector{Type: common.SelectorName},
+				Patterns: common.RegexpArr{mustCompile(".*NSFW.*")},
 			},
 			{
-				Tag: &types.NamePatterns{
-					Name:     "EXTGRP",
-					Patterns: types.RegexpArr{mustCompile("(?i)adult")},
-				},
+				Selector: &common.Selector{Type: common.SelectorTag, Value: "EXTGRP"},
+				Patterns: common.RegexpArr{mustCompile("(?i)adult")},
 			},
 		},
 	}
@@ -180,40 +171,39 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	channel := NewChannel(track, playlist)
 	processor := NewProcessor("client1", nil, nil)
 
-	emptyCondition := types.Condition{}
-	result := processor.evaluateFieldCondition(channel, emptyCondition)
+	emptyCondition := common.Condition{}
+	result := processor.evaluateConditionFieldCondition(channel, emptyCondition)
 	if !result {
 		t.Error("Expected true for empty field condition")
 	}
 
-	conditionWithOnlyOr := types.Condition{
-		Or: []types.Condition{
-			{NamePatterns: types.RegexpArr{mustCompile("Test.*")}},
+	conditionWithOnlyOr := common.Condition{
+		Or: []common.Condition{
+			{
+				Selector: &common.Selector{Type: common.SelectorName},
+				Patterns: common.RegexpArr{mustCompile("Test.*")},
+			},
 		},
 	}
-	result = processor.evaluateFieldCondition(channel, conditionWithOnlyOr)
+	result = processor.evaluateConditionFieldCondition(channel, conditionWithOnlyOr)
 	if !result {
 		t.Error("Expected true when no field conditions are specified")
 	}
 
-	conditionMissingAttr := types.Condition{
-		Attr: &types.NamePatterns{
-			Name:     "non-existent-attr",
-			Patterns: types.RegexpArr{mustCompile(".*")},
-		},
+	conditionMissingAttr := common.Condition{
+		Selector: &common.Selector{Value: "attr/non-existent-attr"},
+		Patterns: common.RegexpArr{mustCompile(".*")},
 	}
-	result = processor.evaluateFieldCondition(channel, conditionMissingAttr)
+	result = processor.evaluateConditionFieldCondition(channel, conditionMissingAttr)
 	if result {
 		t.Error("Expected false for non-existent attribute")
 	}
 
-	conditionMissingTag := types.Condition{
-		Tag: &types.NamePatterns{
-			Name:     "non-existent-tag",
-			Patterns: types.RegexpArr{mustCompile(".*")},
-		},
+	conditionMissingTag := common.Condition{
+		Selector: &common.Selector{Value: "tag/non-existent-tag"},
+		Patterns: common.RegexpArr{mustCompile(".*")},
 	}
-	result = processor.evaluateFieldCondition(channel, conditionMissingTag)
+	result = processor.evaluateConditionFieldCondition(channel, conditionMissingTag)
 	if result {
 		t.Error("Expected false for non-existent tag")
 	}

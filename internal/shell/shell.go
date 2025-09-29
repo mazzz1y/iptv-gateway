@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/logging"
 	"os"
 	"os/exec"
@@ -26,7 +26,7 @@ type Streamer struct {
 	tmplVars map[string]any
 }
 
-func NewShellStreamer(command []string, envVars []types.NameValue, tmplVars []types.NameValue) (*Streamer, error) {
+func NewShellStreamer(command []string, envVars []common.NameValue, tmplVars []common.NameValue) (*Streamer, error) {
 	cmdTmpl := make([]*template.Template, 0, len(command))
 
 	for _, cmdPart := range command {

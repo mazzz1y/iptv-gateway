@@ -2,18 +2,18 @@ package rules
 
 import (
 	"errors"
-	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/config/common"
 )
 
 type MarkHiddenRule struct {
-	When *types.Condition `yaml:"when,omitempty"`
+	Condition *common.Condition `yaml:"condition,omitempty"`
 }
 
 func (m *MarkHiddenRule) Validate() error {
-	if m.When == nil {
-		return errors.New("when is required")
+	if m.Condition == nil {
+		return errors.New("condition is required")
 	}
-	return m.When.Validate()
+	return m.Condition.Validate()
 }
 
 func (m *MarkHiddenRule) String() string {

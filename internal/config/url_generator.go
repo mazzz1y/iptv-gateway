@@ -2,13 +2,13 @@ package config
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/config/common"
 )
 
 type URLGeneratorConfig struct {
-	Secret    string         `yaml:"secret"`
-	StreamTTL types.Duration `yaml:"stream_ttl"`
-	FileTTL   types.Duration `yaml:"file_ttl"`
+	Secret    string          `yaml:"secret"`
+	StreamTTL common.Duration `yaml:"stream_ttl"`
+	FileTTL   common.Duration `yaml:"file_ttl"`
 }
 
 func (u *URLGeneratorConfig) Validate() error {

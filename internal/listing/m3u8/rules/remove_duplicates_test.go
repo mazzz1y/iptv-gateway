@@ -1,8 +1,8 @@
 package rules
 
 import (
+	"iptv-gateway/internal/config/common"
 	configrules "iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/parser/m3u8"
 	"net/url"
 	"regexp"
@@ -15,13 +15,11 @@ func stringPtr(s string) *string {
 
 func TestRemoveDuplicatesProcessor_extractKey(t *testing.T) {
 	rule := &configrules.RemoveDuplicatesRule{
-		AttrPatterns: &types.NamePatterns{
-			Name: "x-tvg-name",
-			Patterns: types.RegexpArr{
-				regexp.MustCompile(`\[HD\]`),
-				regexp.MustCompile(`\(FHD\)`),
-				regexp.MustCompile(`HD`),
-			},
+		Selector: &common.Selector{Type: common.SelectorAttr, Value: "x-tvg-name"},
+		Patterns: common.RegexpArr{
+			regexp.MustCompile(`\[HD\]`),
+			regexp.MustCompile(`\(FHD\)`),
+			regexp.MustCompile(`HD`),
 		},
 	}
 
@@ -91,13 +89,14 @@ func TestRemoveDuplicatesProcessor_extractKey(t *testing.T) {
 
 func TestRemoveDuplicatesProcessor_extractKey_attr(t *testing.T) {
 	rule := &configrules.RemoveDuplicatesRule{
-		AttrPatterns: &types.NamePatterns{
-			Name: "x-tvg-name",
-			Patterns: types.RegexpArr{
-				regexp.MustCompile(`\+3 \(Омск\)`),
-				regexp.MustCompile(`\+3`),
-				regexp.MustCompile(`\+7 \(Москва\)`),
-			},
+		Selector: &common.Selector{
+			Type:  common.SelectorAttr,
+			Value: "x-tvg-name",
+		},
+		Patterns: common.RegexpArr{
+			regexp.MustCompile(`\+3 \(Омск\)`),
+			regexp.MustCompile(`\+3`),
+			regexp.MustCompile(`\+7 \(Москва\)`),
 		},
 	}
 
@@ -153,7 +152,7 @@ func TestRemoveDuplicatesProcessor_extractKey_attr(t *testing.T) {
 
 func TestRemoveDuplicatesProcessor_shouldNotRemoveIdenticalChannels(t *testing.T) {
 	rule := &configrules.RemoveDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName}, Patterns: common.RegexpArr{
 			regexp.MustCompile(`\[HD\]`),
 			regexp.MustCompile(`\(FHD\)`),
 		},
@@ -211,15 +210,16 @@ func TestRemoveDuplicatesProcessor_shouldNotRemoveIdenticalChannels(t *testing.T
 
 func TestRemoveDuplicatesProcessor_setPattern(t *testing.T) {
 	rule := &configrules.RemoveDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName}, Patterns: common.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`UHD`),
 			regexp.MustCompile(`FHD`),
 			regexp.MustCompile(`HD`),
 			regexp.MustCompile(``),
 		},
-		SetField: &types.SetFieldTemplate{
-			NameTemplate: mustTemplate("{{.BaseName}} HQ-Preferred"),
+		FinalValue: &configrules.RemoveDuplicatesFinalValue{
+			Selector: &common.Selector{Type: common.SelectorName},
+			Template: mustTemplate("{{.BaseName}} HQ-Preferred"),
 		},
 	}
 
@@ -281,15 +281,16 @@ func TestRemoveDuplicatesProcessor_setPattern(t *testing.T) {
 
 func TestRemoveDuplicatesProcessor_setFieldAttr(t *testing.T) {
 	rule := &configrules.RemoveDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName}, Patterns: common.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
 		},
-		SetField: &types.SetFieldTemplate{
-			AttrTemplate: &types.NameTemplate{
-				Name:     "group-title",
-				Template: mustTemplate("{{.BaseName}} Group"),
+		FinalValue: &configrules.RemoveDuplicatesFinalValue{
+			Selector: &common.Selector{
+				Type:  common.SelectorAttr,
+				Value: "group-title",
 			},
+			Template: mustTemplate("{{.BaseName}} Group"),
 		},
 	}
 
@@ -344,15 +345,16 @@ func TestRemoveDuplicatesProcessor_setFieldAttr(t *testing.T) {
 
 func TestRemoveDuplicatesProcessor_setFieldTag(t *testing.T) {
 	rule := &configrules.RemoveDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName}, Patterns: common.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`HD`),
 		},
-		SetField: &types.SetFieldTemplate{
-			TagTemplate: &types.NameTemplate{
-				Name:     "quality",
-				Template: mustTemplate("{{.BaseName}} Multi"),
+		FinalValue: &configrules.RemoveDuplicatesFinalValue{
+			Selector: &common.Selector{
+				Type:  common.SelectorTag,
+				Value: "quality",
 			},
+			Template: mustTemplate("{{.BaseName}} Multi"),
 		},
 	}
 
@@ -409,7 +411,7 @@ func TestRemoveDuplicatesProcessor_setFieldTag(t *testing.T) {
 
 func TestRemoveDuplicatesProcessor_onlyPatternChannels(t *testing.T) {
 	rule := &configrules.RemoveDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName}, Patterns: common.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`UHD`),
 			regexp.MustCompile(`HD 50`),
@@ -508,7 +510,7 @@ func TestRemoveDuplicatesProcessor_onlyPatternChannels(t *testing.T) {
 
 func TestRemoveDuplicatesProcessor_emptyPatternPriority(t *testing.T) {
 	rule := &configrules.RemoveDuplicatesRule{
-		NamePatterns: types.RegexpArr{
+		Selector: &common.Selector{Type: common.SelectorName}, Patterns: common.RegexpArr{
 			regexp.MustCompile(`4K`),
 			regexp.MustCompile(`UHD`),
 			regexp.MustCompile(`HD 50`),

@@ -1,8 +1,8 @@
 package rules
 
 import (
+	"iptv-gateway/internal/config/common"
 	configrules "iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/parser/m3u8"
 	"testing"
 )
@@ -48,7 +48,7 @@ func TestSortProcessor_Apply_WithOrder(t *testing.T) {
 		store.Add(ch)
 	}
 
-	order := types.StringOrArr{"Sports.*", "Music.*", ""}
+	order := common.StringOrArr{"Sports.*", "Music.*", ""}
 	rule := &configrules.SortRule{
 		Order: &order,
 	}
@@ -91,11 +91,11 @@ func TestSortProcessor_Apply_WithGroupBy(t *testing.T) {
 		store.Add(ch)
 	}
 
-	groupOrder := types.StringOrArr{"News", "Sports", "Music"}
+	groupOrder := common.StringOrArr{"News", "Sports", "Music"}
 	rule := &configrules.SortRule{
 		GroupBy: &configrules.GroupByRule{
-			Attr:  "group-title",
-			Order: &groupOrder,
+			Selector: &common.Selector{Type: common.SelectorAttr, Value: "group-title"},
+			Order:    &groupOrder,
 		},
 	}
 	processor := NewSortProcessor(rule)
@@ -138,7 +138,7 @@ func TestSortProcessor_getChannelSortValue(t *testing.T) {
 		{
 			name: "with attr specified",
 			rule: &configrules.SortRule{
-				Attr: "tvg-name",
+				Selector: &common.Selector{Type: common.SelectorAttr, Value: "tvg-name"},
 			},
 			channel: &Channel{
 				track: &m3u8.Track{

@@ -2,14 +2,14 @@ package config
 
 import (
 	"fmt"
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/types"
 )
 
 type EPG struct {
-	Name    string            `yaml:"name"`
-	Sources types.StringOrArr `yaml:"sources"`
-	Proxy   proxy.Proxy       `yaml:"proxy,omitempty"`
+	Name    string             `yaml:"name"`
+	Sources common.StringOrArr `yaml:"sources"`
+	Proxy   proxy.Proxy        `yaml:"proxy,omitempty"`
 }
 
 func (e *EPG) Validate() error {

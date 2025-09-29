@@ -2,16 +2,16 @@ package rules
 
 import (
 	"errors"
-	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/config/common"
 )
 
 type RemoveChannelRule struct {
-	When *types.Condition `yaml:"when,omitempty"`
+	Condition *common.Condition `yaml:"condition,omitempty"`
 }
 
 func (r *RemoveChannelRule) Validate() error {
-	if r.When == nil {
-		return errors.New("remove_channel: when is required")
+	if r.Condition == nil {
+		return errors.New("remove_channel: condition is required")
 	}
-	return r.When.Validate()
+	return r.Condition.Validate()
 }

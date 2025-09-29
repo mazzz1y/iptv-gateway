@@ -2,22 +2,22 @@ package config
 
 import (
 	"fmt"
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/proxy"
 	"iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/config/types"
 	"strings"
 )
 
 type Config struct {
-	YamlSnippets map[string]any     `yaml:",inline"`
-	Server       ServerConfig       `yaml:"server"`
-	Logs         Logs               `yaml:"logs"`
-	URLGenerator URLGeneratorConfig `yaml:"url_generator"`
-	Cache        CacheConfig        `yaml:"cache"`
-	Proxy        proxy.Proxy        `yaml:"proxy"`
-	Clients      []Client           `yaml:"clients"`
-	Playlists    []Playlist         `yaml:"playlists"`
-	EPGs         []EPG              `yaml:"epgs"`
+	YamlSnippets  map[string]any        `yaml:",inline"`
+	Server        ServerConfig          `yaml:"server"`
+	Logs          Logs                  `yaml:"logs"`
+	URLGenerator  URLGeneratorConfig    `yaml:"url_generator"`
+	Cache         CacheConfig           `yaml:"cache"`
+	Proxy         proxy.Proxy           `yaml:"proxy"`
+	Clients       []Client              `yaml:"clients"`
+	Playlists     []Playlist            `yaml:"playlists"`
+	EPGs          []EPG                 `yaml:"epgs"`
 	ChannelRules  []*rules.ChannelRule  `yaml:"channel_rules,omitempty"`
 	PlaylistRules []*rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
 }
@@ -111,17 +111,17 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) validateChannelRuleReferences(rule *rules.ChannelRule, clientNames, playlistNames map[string]bool) error {
-	if rule.SetField != nil && rule.SetField.When != nil {
-		return c.validateConditionReferences(*rule.SetField.When, clientNames, playlistNames)
+	if rule.SetField != nil && rule.SetField.Condition != nil {
+		return c.validateConditionReferences(*rule.SetField.Condition, clientNames, playlistNames)
 	}
-	if rule.RemoveField != nil && rule.RemoveField.When != nil {
-		return c.validateConditionReferences(*rule.RemoveField.When, clientNames, playlistNames)
+	if rule.RemoveField != nil && rule.RemoveField.Condition != nil {
+		return c.validateConditionReferences(*rule.RemoveField.Condition, clientNames, playlistNames)
 	}
-	if rule.RemoveChannel != nil && rule.RemoveChannel.When != nil {
-		return c.validateConditionReferences(*rule.RemoveChannel.When, clientNames, playlistNames)
+	if rule.RemoveChannel != nil && rule.RemoveChannel.Condition != nil {
+		return c.validateConditionReferences(*rule.RemoveChannel.Condition, clientNames, playlistNames)
 	}
-	if rule.MarkHidden != nil && rule.MarkHidden.When != nil {
-		return c.validateConditionReferences(*rule.MarkHidden.When, clientNames, playlistNames)
+	if rule.MarkHidden != nil && rule.MarkHidden.Condition != nil {
+		return c.validateConditionReferences(*rule.MarkHidden.Condition, clientNames, playlistNames)
 	}
 	return nil
 }
@@ -130,7 +130,7 @@ func (c *Config) validatePlaylistRuleReferences(rule *rules.PlaylistRule, client
 	return nil
 }
 
-func (c *Config) validateConditionReferences(condition types.Condition, clientNames, playlistNames map[string]bool) error {
+func (c *Config) validateConditionReferences(condition common.Condition, clientNames, playlistNames map[string]bool) error {
 	for _, clientName := range condition.Clients {
 		if !clientNames[clientName] {
 			return fmt.Errorf("rule references unknown client: %s", clientName)

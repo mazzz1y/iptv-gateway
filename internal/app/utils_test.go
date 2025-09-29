@@ -1,8 +1,8 @@
 package app
 
 import (
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/types"
 	"reflect"
 	"testing"
 )
@@ -107,14 +107,14 @@ func TestMergeHandlers(t *testing.T) {
 			handlers: []proxy.Handler{
 				{
 					Command: []string{"cmd1", "arg1"},
-					TemplateVars: []types.NameValue{
+					TemplateVars: []common.NameValue{
 						{Name: "var1", Value: "value1"},
 					},
 				},
 			},
 			expected: proxy.Handler{
 				Command: []string{"cmd1", "arg1"},
-				TemplateVars: []types.NameValue{
+				TemplateVars: []common.NameValue{
 					{Name: "var1", Value: "value1"},
 				},
 			},
@@ -151,18 +151,18 @@ func TestMergeHandlers(t *testing.T) {
 			name: "template vars merged",
 			handlers: []proxy.Handler{
 				{
-					TemplateVars: []types.NameValue{
+					TemplateVars: []common.NameValue{
 						{Name: "var1", Value: "value1"},
 					},
 				},
 				{
-					TemplateVars: []types.NameValue{
+					TemplateVars: []common.NameValue{
 						{Name: "var2", Value: "value2"},
 					},
 				},
 			},
 			expected: proxy.Handler{
-				TemplateVars: []types.NameValue{
+				TemplateVars: []common.NameValue{
 					{Name: "var1", Value: "value1"},
 					{Name: "var2", Value: "value2"},
 				},
@@ -172,18 +172,18 @@ func TestMergeHandlers(t *testing.T) {
 			name: "env vars merged",
 			handlers: []proxy.Handler{
 				{
-					EnvVars: []types.NameValue{
+					EnvVars: []common.NameValue{
 						{Name: "ENV1", Value: "val1"},
 					},
 				},
 				{
-					EnvVars: []types.NameValue{
+					EnvVars: []common.NameValue{
 						{Name: "ENV2", Value: "val2"},
 					},
 				},
 			},
 			expected: proxy.Handler{
-				EnvVars: []types.NameValue{
+				EnvVars: []common.NameValue{
 					{Name: "ENV1", Value: "val1"},
 					{Name: "ENV2", Value: "val2"},
 				},
@@ -210,62 +210,62 @@ func TestMergeHandlers(t *testing.T) {
 func TestMergePairs(t *testing.T) {
 	tests := []struct {
 		name     string
-		result   []types.NameValue
-		handler  []types.NameValue
-		expected []types.NameValue
+		result   []common.NameValue
+		handler  []common.NameValue
+		expected []common.NameValue
 	}{
 		{
 			name:     "empty handler",
-			result:   []types.NameValue{{Name: "var1", Value: "value1"}},
-			handler:  []types.NameValue{},
-			expected: []types.NameValue{{Name: "var1", Value: "value1"}},
+			result:   []common.NameValue{{Name: "var1", Value: "value1"}},
+			handler:  []common.NameValue{},
+			expected: []common.NameValue{{Name: "var1", Value: "value1"}},
 		},
 		{
 			name:   "empty result",
-			result: []types.NameValue{},
-			handler: []types.NameValue{
+			result: []common.NameValue{},
+			handler: []common.NameValue{
 				{Name: "var1", Value: "value1"},
 			},
-			expected: []types.NameValue{
+			expected: []common.NameValue{
 				{Name: "var1", Value: "value1"},
 			},
 		},
 		{
 			name: "merge different variables",
-			result: []types.NameValue{
+			result: []common.NameValue{
 				{Name: "var1", Value: "value1"},
 			},
-			handler: []types.NameValue{
+			handler: []common.NameValue{
 				{Name: "var2", Value: "value2"},
 			},
-			expected: []types.NameValue{
+			expected: []common.NameValue{
 				{Name: "var1", Value: "value1"},
 				{Name: "var2", Value: "value2"},
 			},
 		},
 		{
 			name: "override same variable",
-			result: []types.NameValue{
+			result: []common.NameValue{
 				{Name: "var1", Value: "old_value"},
 			},
-			handler: []types.NameValue{
+			handler: []common.NameValue{
 				{Name: "var1", Value: "new_value"},
 			},
-			expected: []types.NameValue{
+			expected: []common.NameValue{
 				{Name: "var1", Value: "new_value"},
 			},
 		},
 		{
 			name: "complex merge with override",
-			result: []types.NameValue{
+			result: []common.NameValue{
 				{Name: "var1", Value: "value1"},
 				{Name: "var2", Value: "old_value2"},
 			},
-			handler: []types.NameValue{
+			handler: []common.NameValue{
 				{Name: "var2", Value: "new_value2"},
 				{Name: "var3", Value: "value3"},
 			},
-			expected: []types.NameValue{
+			expected: []common.NameValue{
 				{Name: "var1", Value: "value1"},
 				{Name: "var2", Value: "new_value2"},
 				{Name: "var3", Value: "value3"},
@@ -273,15 +273,15 @@ func TestMergePairs(t *testing.T) {
 		},
 		{
 			name:     "both empty",
-			result:   []types.NameValue{},
-			handler:  []types.NameValue{},
-			expected: []types.NameValue{},
+			result:   []common.NameValue{},
+			handler:  []common.NameValue{},
+			expected: []common.NameValue{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := make([]types.NameValue, len(tt.result))
+			result := make([]common.NameValue, len(tt.result))
 			copy(result, tt.result)
 
 			mergePairs(&result, tt.handler)
@@ -350,7 +350,7 @@ func TestUniqueNames(t *testing.T) {
 	}
 }
 
-func nameValueSlicesEqual(a, b []types.NameValue) bool {
+func nameValueSlicesEqual(a, b []common.NameValue) bool {
 	if len(a) != len(b) {
 		return false
 	}

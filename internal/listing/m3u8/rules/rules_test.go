@@ -2,8 +2,8 @@ package rules_test
 
 import (
 	"bytes"
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/config/types"
 	rulesprocessor "iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/shell"
@@ -18,7 +18,7 @@ import (
 )
 
 type mockSubscription struct {
-	name  string
+	name string
 }
 
 func (m mockSubscription) IsProxied() bool {
@@ -49,18 +49,12 @@ func (m mockSubscription) ExpiredCommandStreamer() *shell.Streamer {
 	return nil
 }
 
-
-
 func TestRulesProcessor_SetField(t *testing.T) {
 	channelRules := []*rules.ChannelRule{
 		{
 			SetField: &rules.SetFieldRule{
-				SetField: &types.SetFieldTemplate{
-					AttrTemplate: &types.NameTemplate{
-						Name:     "tvg-group",
-						Template: mustCreateTemplate("music"),
-					},
-				},
+				Selector: &common.Selector{Type: common.SelectorAttr, Value: "tvg-group"},
+				Template: mustCreateTemplate("music"),
 			},
 		},
 	}
@@ -143,17 +137,17 @@ func TestTemplate(t *testing.T) {
 	}
 }
 
-func mustCreateTemplate(text string) *types.Template {
+func mustCreateTemplate(text string) *common.Template {
 	tmpl, err := template.New("test").Funcs(sprig.FuncMap()).Parse(text)
 	if err != nil {
 		panic(err)
 	}
-	result := types.Template(*tmpl)
+	result := common.Template(*tmpl)
 	return &result
 }
 
 func mustCompileRegexp(pattern string) *regexp.Regexp {
-	result := &types.RegexpArr{}
+	result := &common.RegexpArr{}
 	node := &yaml.Node{
 		Kind:  yaml.ScalarNode,
 		Value: pattern,

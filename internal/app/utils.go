@@ -1,8 +1,8 @@
 package app
 
 import (
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/types"
 )
 
 func uniqueNames(names []string) []string {
@@ -58,7 +58,7 @@ func mergeHandlers(handlers ...proxy.Handler) proxy.Handler {
 	return result
 }
 
-func mergePairs[T ~[]types.NameValue](result *T, handler T) {
+func mergePairs[T ~[]common.NameValue](result *T, handler T) {
 	if len(handler) == 0 {
 		return
 	}
@@ -69,9 +69,9 @@ func mergePairs[T ~[]types.NameValue](result *T, handler T) {
 	for _, v := range handler {
 		varMap[v.Name] = v.Value
 	}
-	merged := make([]types.NameValue, 0, len(varMap))
+	merged := make([]common.NameValue, 0, len(varMap))
 	for name, value := range varMap {
-		merged = append(merged, types.NameValue{Name: name, Value: value})
+		merged = append(merged, common.NameValue{Name: name, Value: value})
 	}
 	*result = merged
 }

@@ -1,6 +1,9 @@
 package rules
 
 import (
+	"bytes"
+
+	"iptv-gateway/internal/config/common"
 	configrules "iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/parser/m3u8"
 )
@@ -23,8 +26,8 @@ func (p *MergeDuplicatesProcessor) Apply(store *Store) {
 }
 
 func (p *MergeDuplicatesProcessor) extractBaseName(ch *Channel) string {
-	fv := getFieldValue(ch, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
-	patterns := getPatterns(p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
+	fv := getSelectorFieldValue(ch, p.rule.Selector)
+	patterns := p.rule.Patterns.ToArray()
 	return extractBaseName(fv, patterns)
 }
 
@@ -34,11 +37,11 @@ func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*Chann
 			continue
 		}
 
-		if !hasPatternVariationsGroup(group, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns) {
+		if !hasPatternVariationsGroup(group, p.rule.Selector, p.rule.Patterns) {
 			continue
 		}
 
-		best := selectBestChannel(group, p.rule.NamePatterns, p.rule.AttrPatterns, p.rule.TagPatterns)
+		best := selectBestChannel(group, p.rule.Selector, p.rule.Patterns)
 
 		if bestTvgId, exists := best.GetAttr(m3u8.AttrTvgID); exists {
 			for _, ch := range group {
@@ -53,28 +56,29 @@ func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*Chann
 			}
 		}
 
-		if p.rule.SetField != nil {
-			var finalValue string
+		if p.rule.FinalValue != nil {
+			tmplMap := map[string]any{
+				"Channel": map[string]any{
+					"Name":  best.Name(),
+					"Attrs": best.Attrs(),
+					"Tags":  best.Tags(),
+				},
+				"BaseName": baseName,
+			}
 
-			switch {
-			case p.rule.SetField.NameTemplate != nil:
-				finalValue = processSetField(best, p.rule.SetField.NameTemplate, baseName)
-				for _, ch := range group {
-					ch.SetName(finalValue)
-				}
+			var buf bytes.Buffer
+			if err := p.rule.FinalValue.Template.ToTemplate().Execute(&buf, tmplMap); err == nil {
+				finalValue := buf.String()
 
-			case p.rule.SetField.AttrTemplate != nil:
-				finalValue = processSetField(best, p.rule.SetField.AttrTemplate.Template, baseName)
-				attrName := p.rule.SetField.AttrTemplate.Name
 				for _, ch := range group {
-					ch.SetAttr(attrName, finalValue)
-				}
-
-			case p.rule.SetField.TagTemplate != nil:
-				finalValue = processSetField(best, p.rule.SetField.TagTemplate.Template, baseName)
-				tagName := p.rule.SetField.TagTemplate.Name
-				for _, ch := range group {
-					ch.SetTag(tagName, finalValue)
+					switch p.rule.FinalValue.Selector.Type {
+					case common.SelectorName:
+						ch.SetName(finalValue)
+					case common.SelectorAttr:
+						ch.SetAttr(p.rule.FinalValue.Selector.Value, finalValue)
+					case common.SelectorTag:
+						ch.SetTag(p.rule.FinalValue.Selector.Value, finalValue)
+					}
 				}
 			}
 		}

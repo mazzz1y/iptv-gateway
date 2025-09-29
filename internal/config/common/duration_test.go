@@ -1,4 +1,4 @@
-package types
+package common
 
 import (
 	"testing"
@@ -77,7 +77,7 @@ func TestDuration_UnmarshalYAML(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var d Duration
 			err := yaml.Unmarshal([]byte(tt.yamlData), &d)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("expected error, got nil")

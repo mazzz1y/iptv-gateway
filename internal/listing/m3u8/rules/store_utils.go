@@ -1,11 +1,10 @@
 package rules
 
 import (
-	"bytes"
 	"regexp"
 	"strings"
 
-	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/config/common"
 )
 
 func extractBaseName(fv string, patterns []*regexp.Regexp) string {
@@ -24,50 +23,40 @@ func extractBaseName(fv string, patterns []*regexp.Regexp) string {
 	return strings.Join(strings.Fields(result), " ")
 }
 
-func getPatterns(
-	namePatterns types.RegexpArr, attrPatterns *types.NamePatterns, tagPatterns *types.NamePatterns) []*regexp.Regexp {
-	if len(namePatterns) > 0 {
-		return namePatterns.ToArray()
+func getSelectorFieldValue(ch *Channel, selector *common.Selector) string {
+	if selector == nil {
+		return ""
 	}
-	if attrPatterns != nil {
-		return attrPatterns.Patterns.ToArray()
-	}
-	if tagPatterns != nil {
-		return tagPatterns.Patterns.ToArray()
-	}
-	return nil
-}
 
-func getFieldValue(
-	ch *Channel, namePatterns types.RegexpArr, attrPatterns *types.NamePatterns, tagPatterns *types.NamePatterns) string {
-	if len(namePatterns) > 0 {
+	switch selector.Type {
+	case common.SelectorName:
 		return ch.Name()
-	}
-	if attrPatterns != nil {
-		if val, ok := ch.GetAttr(attrPatterns.Name); ok {
+	case common.SelectorAttr:
+		if val, ok := ch.GetAttr(selector.Value); ok {
 			return val
 		}
-	}
-	if tagPatterns != nil {
-		if val, ok := ch.GetTag(tagPatterns.Name); ok {
+	case common.SelectorTag:
+		if val, ok := ch.GetTag(selector.Value); ok {
 			return val
 		}
 	}
 	return ch.Name()
 }
 
-func hasPatternVariationsGroup(
-	group []*Channel, namePatterns types.RegexpArr, attrPatterns *types.NamePatterns, tagPatterns *types.NamePatterns) bool {
-	patterns := getPatterns(namePatterns, attrPatterns, tagPatterns)
-	if len(patterns) == 0 {
+func hasPatternVariationsGroup(group []*Channel, selector *common.Selector, patterns common.RegexpArr) bool {
+	patternArray := patterns.ToArray()
+	if len(patternArray) == 0 {
 		return false
 	}
 
 	hasMultiplePatterns := false
 
 	for _, ch := range group {
-		fv := getFieldValue(ch, namePatterns, attrPatterns, tagPatterns)
-		for _, pattern := range patterns {
+		fv := getSelectorFieldValue(ch, selector)
+		if fv == "" {
+			continue
+		}
+		for _, pattern := range patternArray {
 			patternStr := pattern.String()
 			if patternStr == "" {
 				continue
@@ -85,15 +74,15 @@ func hasPatternVariationsGroup(
 	return hasMultiplePatterns
 }
 
-func selectBestChannel(channels []*Channel, namePatterns types.RegexpArr, attrPatterns *types.NamePatterns, tagPatterns *types.NamePatterns) *Channel {
-	patterns := getPatterns(namePatterns, attrPatterns, tagPatterns)
-	if len(patterns) == 0 {
+func selectBestChannel(channels []*Channel, selector *common.Selector, patterns common.RegexpArr) *Channel {
+	patternArray := patterns.ToArray()
+	if len(patternArray) == 0 {
 		return channels[0]
 	}
 
-	for _, pattern := range patterns {
+	for _, pattern := range patternArray {
 		for _, ch := range channels {
-			fv := getFieldValue(ch, namePatterns, attrPatterns, tagPatterns)
+			fv := getSelectorFieldValue(ch, selector)
 			if pattern.MatchString(fv) {
 				return ch
 			}
@@ -102,40 +91,18 @@ func selectBestChannel(channels []*Channel, namePatterns types.RegexpArr, attrPa
 	return channels[0]
 }
 
-func processSetField(ch *Channel, setField *types.Template, baseName string) string {
-	if setField == nil {
-		return ""
-	}
-
-	tmplMap := map[string]any{
-		"Channel": map[string]any{
-			"Name":  ch.Name(),
-			"Attrs": ch.Attrs(),
-			"Tags":  ch.Tags(),
-		},
-		"BaseName": baseName,
-	}
-
-	var buf bytes.Buffer
-	if err := setField.ToTemplate().Execute(&buf, tmplMap); err != nil {
-		return baseName
-	}
-
-	return buf.String()
-}
-
-func evaluateStoreWhenCondition(when *types.Condition, clientName string) bool {
-	if when == nil {
+func evaluateStoreCondition(condition *common.Condition, clientName string) bool {
+	if condition == nil {
 		return true
 	}
 
-	if len(when.Clients) > 0 {
-		for _, client := range when.Clients {
+	if len(condition.Clients) > 0 {
+		for _, client := range condition.Clients {
 			if clientName == client {
-				return !when.Invert
+				return !condition.Invert
 			}
 		}
-		return when.Invert
+		return condition.Invert
 	}
 
 	return true

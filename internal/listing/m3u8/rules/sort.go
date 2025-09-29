@@ -74,15 +74,8 @@ func (sp *SortProcessor) getGroupKey(ch *Channel) string {
 	if sp.rule.GroupBy == nil {
 		return ""
 	}
-	if sp.rule.GroupBy.Attr != "" {
-		if value, ok := ch.GetAttr(sp.rule.GroupBy.Attr); ok {
-			return value
-		}
-	}
-	if sp.rule.GroupBy.Tag != "" {
-		if value, ok := ch.GetTag(sp.rule.GroupBy.Tag); ok {
-			return value
-		}
+	if sp.rule.GroupBy.Selector != nil {
+		return getSelectorFieldValue(ch, sp.rule.GroupBy.Selector)
 	}
 	return ""
 }
@@ -130,18 +123,9 @@ func (sp *SortProcessor) getChannelPriority(ch *Channel) int {
 }
 
 func (sp *SortProcessor) getChannelSortValue(ch *Channel) string {
-	if sp.rule.Attr != "" {
-		if value, ok := ch.GetAttr(sp.rule.Attr); ok {
-			return value
-		}
+	if sp.rule.Selector != nil {
+		return getSelectorFieldValue(ch, sp.rule.Selector)
 	}
-
-	if sp.rule.Tag != "" {
-		if value, ok := ch.GetAttr(sp.rule.Tag); ok {
-			return value
-		}
-	}
-
 	return ch.Name()
 }
 

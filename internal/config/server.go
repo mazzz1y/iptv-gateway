@@ -2,13 +2,13 @@ package config
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/config/common"
 )
 
 type ServerConfig struct {
-	ListenAddr  string    `yaml:"listen_addr"`
-	MetricsAddr string    `yaml:"metrics_addr"`
-	PublicURL   types.URL `yaml:"public_url"`
+	ListenAddr  string     `yaml:"listen_addr"`
+	MetricsAddr string     `yaml:"metrics_addr"`
+	PublicURL   common.URL `yaml:"public_url"`
 }
 
 func (s *ServerConfig) Validate() error {

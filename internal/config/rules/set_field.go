@@ -2,28 +2,35 @@ package rules
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/config/common"
 )
 
 type SetFieldRule struct {
-	When     *types.Condition        `yaml:"when,omitempty"`
-	SetField *types.SetFieldTemplate `yaml:",inline"`
+	Selector  *common.Selector  `yaml:"selector"`
+	Template  *common.Template  `yaml:"template"`
+	Condition *common.Condition `yaml:"condition,omitempty"`
 }
 
 func (s *SetFieldRule) Validate() error {
-	if s.SetField == nil {
-		return fmt.Errorf("set_field: template is required")
+	if s.Selector == nil {
+		return fmt.Errorf("set_field: selector is required")
 	}
 
-	if err := s.SetField.Validate(); err != nil {
+	if err := s.Selector.Validate(); err != nil {
 		return err
 	}
 
-	if s.When == nil {
-		return nil
+	if s.Template == nil {
+		return fmt.Errorf("set_field: template is required")
 	}
 
-	return s.When.Validate()
+	if s.Condition != nil {
+		if err := s.Condition.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *SetFieldRule) String() string {

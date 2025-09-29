@@ -2,14 +2,14 @@ package config
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/config/common"
 )
 
 type CacheConfig struct {
-	Path        string         `yaml:"path"`
-	TTL         types.Duration `yaml:"ttl"`
-	Retention   types.Duration `yaml:"retention"`
-	Compression bool           `yaml:"compression"`
+	Path        string          `yaml:"path"`
+	TTL         common.Duration `yaml:"ttl"`
+	Retention   common.Duration `yaml:"retention"`
+	Compression bool            `yaml:"compression"`
 }
 
 func (c *CacheConfig) Validate() error {

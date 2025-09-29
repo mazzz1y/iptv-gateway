@@ -2,13 +2,13 @@ package proxy
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/types"
+	"iptv-gateway/internal/config/common"
 )
 
 type Handler struct {
-	Command      types.StringOrArr `yaml:"command,omitempty"`
-	TemplateVars []types.NameValue `yaml:"template_vars,omitempty"`
-	EnvVars      []types.NameValue `yaml:"env_vars,omitempty"`
+	Command      common.StringOrArr `yaml:"command,omitempty"`
+	TemplateVars []common.NameValue `yaml:"template_vars,omitempty"`
+	EnvVars      []common.NameValue `yaml:"env_vars,omitempty"`
 }
 
 func (h *Handler) Validate() error {

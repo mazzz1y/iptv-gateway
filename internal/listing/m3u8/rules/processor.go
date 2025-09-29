@@ -2,9 +2,10 @@ package rules
 
 import (
 	"bytes"
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/rules"
-	"iptv-gateway/internal/config/types"
 	"iptv-gateway/internal/listing"
+	"strings"
 )
 
 type Processor struct {
@@ -28,11 +29,11 @@ func (p *Processor) Process(store *Store) {
 
 func (p *Processor) processStoreRules(store *Store) {
 	for _, rule := range p.storeRules {
-		if rule.MergeChannels != nil && evaluateStoreWhenCondition(rule.MergeChannels.When, p.clientName) {
+		if rule.MergeChannels != nil && evaluateStoreCondition(rule.MergeChannels.Condition, p.clientName) {
 			processor := NewMergeDuplicatesActionProcessor(rule.MergeChannels)
 			processor.Apply(store)
 		}
-		if rule.RemoveDuplicates != nil && evaluateStoreWhenCondition(rule.RemoveDuplicates.When, p.clientName) {
+		if rule.RemoveDuplicates != nil && evaluateStoreCondition(rule.RemoveDuplicates.Condition, p.clientName) {
 			processor := NewRemoveDuplicatesActionProcessor(rule.RemoveDuplicates)
 			processor.Apply(store)
 		}
@@ -80,7 +81,7 @@ func (p *Processor) processChannelRule(ch *Channel, rule *rules.ChannelRule) (st
 }
 
 func (p *Processor) processSetField(ch *Channel, rule *rules.SetFieldRule) {
-	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
+	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
 
@@ -93,43 +94,39 @@ func (p *Processor) processSetField(ch *Channel, rule *rules.SetFieldRule) {
 	}
 	var buf bytes.Buffer
 
-	switch {
-	case rule.SetField.NameTemplate != nil:
-		if err := rule.SetField.NameTemplate.ToTemplate().Execute(&buf, tmplMap); err != nil {
-			return
-		}
-		ch.SetName(buf.String())
-	case rule.SetField.AttrTemplate != nil:
-		if err := rule.SetField.AttrTemplate.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
-			return
-		}
-		ch.SetAttr(rule.SetField.AttrTemplate.Name, buf.String())
-	case rule.SetField.TagTemplate != nil:
-		if err := rule.SetField.TagTemplate.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
-			return
-		}
-		ch.SetTag(rule.SetField.TagTemplate.Name, buf.String())
+	if err := rule.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
+		return
+	}
+
+	value := buf.String()
+	switch rule.Selector.Type {
+	case common.SelectorName:
+		ch.SetName(value)
+	case common.SelectorAttr:
+		ch.SetAttr(rule.Selector.Value, value)
+	case common.SelectorTag:
+		ch.SetTag(rule.Selector.Value, value)
 	}
 }
 
 func (p *Processor) processRemoveField(ch *Channel, rule *rules.RemoveFieldRule) {
-	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
+	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
 
-	switch {
-	case rule.AttrPatterns != nil:
+	switch rule.Selector.Type {
+	case common.SelectorAttr:
 		for attrKey := range ch.Attrs() {
-			for _, pattern := range rule.AttrPatterns {
+			for _, pattern := range rule.Patterns {
 				if pattern.MatchString(attrKey) {
 					ch.DeleteAttr(attrKey)
 					break
 				}
 			}
 		}
-	case rule.TagPatterns != nil:
+	case common.SelectorTag:
 		for tagKey := range ch.Tags() {
-			for _, pattern := range rule.TagPatterns {
+			for _, pattern := range rule.Patterns {
 				if pattern.MatchString(tagKey) {
 					ch.DeleteTag(tagKey)
 					break
@@ -140,7 +137,7 @@ func (p *Processor) processRemoveField(ch *Channel, rule *rules.RemoveFieldRule)
 }
 
 func (p *Processor) processRemoveChannel(ch *Channel, rule *rules.RemoveChannelRule) bool {
-	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
+	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return false
 	}
 	ch.MarkRemoved()
@@ -148,24 +145,24 @@ func (p *Processor) processRemoveChannel(ch *Channel, rule *rules.RemoveChannelR
 }
 
 func (p *Processor) processMarkHidden(ch *Channel, rule *rules.MarkHiddenRule) {
-	if rule.When != nil && !p.matchesCondition(ch, *rule.When) {
+	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
 	ch.MarkHidden()
 }
 
-func (p *Processor) matchesCondition(ch *Channel, condition types.Condition) bool {
+func (p *Processor) matchesCondition(ch *Channel, condition common.Condition) bool {
 	if condition.IsEmpty() {
 		return true
 	}
 
-	fieldResult := p.evaluateFieldCondition(ch, condition)
+	fieldResult := p.evaluateConditionFieldCondition(ch, condition)
 
 	var result bool
 	if len(condition.And) > 0 {
-		result = fieldResult && p.evaluateAndConditions(ch, condition.And)
+		result = fieldResult && p.evaluateConditionAndConditions(ch, condition.And)
 	} else if len(condition.Or) > 0 {
-		result = fieldResult && p.evaluateOrConditions(ch, condition.Or)
+		result = fieldResult && p.evaluateConditionOrConditions(ch, condition.Or)
 	} else {
 		result = fieldResult
 	}
@@ -177,28 +174,31 @@ func (p *Processor) matchesCondition(ch *Channel, condition types.Condition) boo
 	return result
 }
 
-func (p *Processor) evaluateFieldCondition(ch *Channel, condition types.Condition) bool {
-	hasFieldConditions := condition.NamePatterns != nil || condition.Attr != nil || condition.Tag != nil ||
+func (p *Processor) evaluateConditionFieldCondition(ch *Channel, condition common.Condition) bool {
+	hasFieldConditions := condition.Selector != nil || len(condition.Patterns) > 0 ||
 		len(condition.Clients) > 0 || len(condition.Playlists) > 0
 
 	if !hasFieldConditions {
 		return true
 	}
 
-	if condition.NamePatterns != nil && !p.matchesRegexps(ch.Name(), condition.NamePatterns) {
-		return false
-	}
-
-	if condition.Attr != nil {
-		actual, exists := ch.GetAttr(condition.Attr.Name)
-		if !exists || !p.matchesRegexps(actual, condition.Attr.Patterns) {
-			return false
+	if condition.Selector != nil && len(condition.Patterns) > 0 {
+		fieldValue := getSelectorFieldValue(ch, condition.Selector)
+		// If selector doesn't match any field (returns default channel name), check if it would be empty
+		if condition.Selector.Value != "" && condition.Selector.Value != "name" {
+			if strings.HasPrefix(condition.Selector.Value, "attr/") {
+				attrName := strings.TrimPrefix(condition.Selector.Value, "attr/")
+				if _, ok := ch.GetAttr(attrName); !ok {
+					return false
+				}
+			} else if strings.HasPrefix(condition.Selector.Value, "tag/") {
+				tagName := strings.TrimPrefix(condition.Selector.Value, "tag/")
+				if _, ok := ch.GetTag(tagName); !ok {
+					return false
+				}
+			}
 		}
-	}
-
-	if condition.Tag != nil {
-		actual, exists := ch.GetTag(condition.Tag.Name)
-		if !exists || !p.matchesRegexps(actual, condition.Tag.Patterns) {
+		if !p.matchesRegexps(fieldValue, condition.Patterns) {
 			return false
 		}
 	}
@@ -214,7 +214,7 @@ func (p *Processor) evaluateFieldCondition(ch *Channel, condition types.Conditio
 	return true
 }
 
-func (p *Processor) evaluateAndConditions(ch *Channel, conditions types.ConditionList) bool {
+func (p *Processor) evaluateConditionAndConditions(ch *Channel, conditions []common.Condition) bool {
 	for _, sub := range conditions {
 		if !p.matchesCondition(ch, sub) {
 			return false
@@ -223,7 +223,7 @@ func (p *Processor) evaluateAndConditions(ch *Channel, conditions types.Conditio
 	return true
 }
 
-func (p *Processor) evaluateOrConditions(ch *Channel, conditions types.ConditionList) bool {
+func (p *Processor) evaluateConditionOrConditions(ch *Channel, conditions []common.Condition) bool {
 	for _, sub := range conditions {
 		if p.matchesCondition(ch, sub) {
 			return true
@@ -232,7 +232,7 @@ func (p *Processor) evaluateOrConditions(ch *Channel, conditions types.Condition
 	return false
 }
 
-func (p *Processor) matchesRegexps(value string, regexps types.RegexpArr) bool {
+func (p *Processor) matchesRegexps(value string, regexps common.RegexpArr) bool {
 	for _, re := range regexps {
 		if re.MatchString(value) {
 			return true
@@ -241,7 +241,7 @@ func (p *Processor) matchesRegexps(value string, regexps types.RegexpArr) bool {
 	return false
 }
 
-func (p *Processor) matchesExactStrings(value string, strings types.StringOrArr) bool {
+func (p *Processor) matchesExactStrings(value string, strings common.StringOrArr) bool {
 	for _, str := range strings {
 		if value == str {
 			return true

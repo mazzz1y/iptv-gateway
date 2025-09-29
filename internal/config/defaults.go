@@ -1,8 +1,8 @@
 package config
 
 import (
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/types"
 	"net/url"
 	"time"
 )
@@ -16,7 +16,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
 			ListenAddr: ":8080",
-			PublicURL:  types.URL(*publicUrl),
+			PublicURL:  common.URL(*publicUrl),
 		},
 		Logs: Logs{
 			"info",
@@ -24,18 +24,18 @@ func DefaultConfig() *Config {
 		},
 		URLGenerator: URLGeneratorConfig{
 			Secret:    "xxx",
-			StreamTTL: types.Duration(30 * 24 * time.Hour),
-			FileTTL:   types.Duration(0),
+			StreamTTL: common.Duration(30 * 24 * time.Hour),
+			FileTTL:   common.Duration(0),
 		},
 		Cache: CacheConfig{
 			Path:        "cache",
-			TTL:         types.Duration(24 * time.Hour),
-			Retention:   types.Duration(24 * time.Hour * 30),
+			TTL:         common.Duration(24 * time.Hour),
+			Retention:   common.Duration(24 * time.Hour * 30),
 			Compression: false,
 		},
 		Proxy: proxy.Proxy{
 			Stream: proxy.Handler{
-				Command: types.StringOrArr{
+				Command: common.StringOrArr{
 					"ffmpeg",
 					"-v", "{{ default \"fatal\" .ffmpeg_log_level }}",
 					"-i", "{{.url}}",
@@ -43,13 +43,13 @@ func DefaultConfig() *Config {
 					"-f", "mpegts",
 					"pipe:1",
 				},
-				TemplateVars: []types.NameValue{
+				TemplateVars: []common.NameValue{
 					{Name: "ffmpeg_log_level", Value: "fatal"},
 				},
 			},
 			Error: proxy.Error{
 				Handler: proxy.Handler{
-					Command: types.StringOrArr{
+					Command: common.StringOrArr{
 						"ffmpeg",
 						"-v", "{{ default \"fatal\" .ffmpeg_log_level }}",
 						"-f", "lavfi",
@@ -65,22 +65,22 @@ func DefaultConfig() *Config {
 						"-f", "mpegts",
 						"pipe:1",
 					},
-					TemplateVars: []types.NameValue{
+					TemplateVars: []common.NameValue{
 						{Name: "ffmpeg_log_level", Value: "fatal"},
 					},
 				},
 				RateLimitExceeded: proxy.Handler{
-					TemplateVars: []types.NameValue{
+					TemplateVars: []common.NameValue{
 						{Name: "message", Value: "Rate limit exceeded\n\nPlease try again later"},
 					},
 				},
 				LinkExpired: proxy.Handler{
-					TemplateVars: []types.NameValue{
+					TemplateVars: []common.NameValue{
 						{Name: "message", Value: "Link has expired\n\nPlease refresh your playlist"},
 					},
 				},
 				UpstreamError: proxy.Handler{
-					TemplateVars: []types.NameValue{
+					TemplateVars: []common.NameValue{
 						{Name: "message", Value: "Unable to play stream\n\nPlease try again later or contact administrator"},
 					},
 				},
