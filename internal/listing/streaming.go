@@ -20,7 +20,6 @@ type BaseDecoder struct {
 	reader       io.ReadCloser
 	err          error
 	itemBuffer   []any
-	bufferMu     sync.Mutex
 	bufferCtx    context.Context
 	cancelBuffer context.CancelFunc
 	url          string
@@ -41,14 +40,11 @@ func (d *BaseDecoder) NextItem() (any, error) {
 		return nil, d.err
 	}
 
-	d.bufferMu.Lock()
 	if len(d.itemBuffer) > 0 {
 		item := d.itemBuffer[0]
 		d.itemBuffer = d.itemBuffer[1:]
-		d.bufferMu.Unlock()
 		return item, nil
 	}
-	d.bufferMu.Unlock()
 
 	item, err := d.decoder.Decode()
 	if err == io.EOF {
@@ -68,33 +64,33 @@ func (d *BaseDecoder) StartBuffering(ctx context.Context) error {
 	d.bufferWG.Add(1)
 
 	go func() {
-		ticker := time.NewTicker(bufferTicker)
-		defer ticker.Stop()
-		defer d.bufferWG.Done()
-
 		batch := make([]any, 0, bufferBatchSize)
+		ticker := time.NewTicker(bufferTicker)
+
+		defer func() {
+			d.cancelBuffer()
+			ticker.Stop()
+			if len(batch) > 0 {
+				d.AddToBuffer(batch...)
+				batch = batch[:0]
+			}
+			d.bufferWG.Done()
+		}()
 
 		for {
 			select {
 			case <-d.bufferCtx.Done():
 				return
+
 			case <-ticker.C:
-				batch = batch[:0]
-				for i := 0; i < bufferBatchSize; i++ {
+				for len(batch) < bufferBatchSize {
 					item, err := d.decoder.Decode()
-					if err == io.EOF {
-						if len(batch) > 0 {
-							d.AddToBuffer(batch)
-						}
-						return
-					}
 					if err != nil {
 						d.err = err
 						return
 					}
 					batch = append(batch, item)
 				}
-				d.AddToBuffer(batch)
 			}
 		}
 	}()
@@ -103,9 +99,7 @@ func (d *BaseDecoder) StartBuffering(ctx context.Context) error {
 }
 
 func (d *BaseDecoder) AddToBuffer(items ...any) {
-	d.bufferMu.Lock()
 	d.itemBuffer = append(d.itemBuffer, items...)
-	d.bufferMu.Unlock()
 }
 
 func (d *BaseDecoder) StopBuffer() {

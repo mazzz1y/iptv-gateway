@@ -13,17 +13,44 @@ Rules are organized into two categories:
 !!! note "Rule Processing"
 
 * All rules are defined at the global level under `channel_rules` and `playlist_rules`
-* Rules can be filtered to specific clients or playlists using `when` conditions
+* Rules can be filtered to specific channels, clients, or playlists using `condition` blocks.
 * Channel rules are processed first, followed by playlist rules
 
 ## YAML Structure
 
 ```yaml
-channel_rules:
-  - <channel_rule_name>:
-    # channel rule configuration
+global:
+  channel_rules:
+    - set_field:
+        selector: ...
+        template: ...
+        condition: {...}
+    - remove_field:
+        selector: ...
+        patterns: [...]
+        condition: {...}
+    - remove_channel:
+        condition: {...}
+    - mark_hidden:
+        condition: {...}
 
-playlist_rules:
-  - <playlist_rule_name>:
-    # playlist rule configuration
+  playlist_rules:
+    - remove_duplicates:
+        condition: {...}
+    - ...
 ```
+
+For details on rule objects and the condition system, see below.
+
+
+## Condition Blocks
+
+Rules may include a `condition` block to restrict when the rule applies. See [Condition Blocks](condition.md).
+
+The `condition` block supports:
+- Matching by channel name, client, playlist
+- Regex pattern matching
+- Attribute/tag selectors
+- Logical AND/OR nesting and inversion (`invert`)
+
+All fields are defined as arrays unless otherwise specified. See the [Condition documentation](condition.md) for syntax and options.

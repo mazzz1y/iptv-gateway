@@ -117,20 +117,16 @@ func (p *Processor) processRemoveField(ch *Channel, rule *rules.RemoveFieldRule)
 	switch rule.Selector.Type {
 	case common.SelectorAttr:
 		for attrKey := range ch.Attrs() {
-			for _, pattern := range rule.Patterns {
-				if pattern.MatchString(attrKey) {
-					ch.DeleteAttr(attrKey)
-					break
-				}
+			if attrKey == rule.Selector.Value {
+				ch.DeleteAttr(attrKey)
+				break
 			}
 		}
 	case common.SelectorTag:
 		for tagKey := range ch.Tags() {
-			for _, pattern := range rule.Patterns {
-				if pattern.MatchString(tagKey) {
-					ch.DeleteTag(tagKey)
-					break
-				}
+			if tagKey == rule.Selector.Value {
+				ch.DeleteAttr(tagKey)
+				break
 			}
 		}
 	}

@@ -1,37 +1,38 @@
 # Remove Field
 
-The `remove_field` rule deletes specific channel metadata.
+The `remove_field` rule removes attributes/tags from channels, matching by selector and patterns.
 
 ## YAML Structure
 
 ```yaml
 channel_rules:
   - remove_field:
-      tag_patterns: ["regex1", "regex2"] # Remove tags matching patterns
-      attr_patterns: ["regex1", "regex2"]# Remove attributes matching patterns
-      when:
-        name_patterns: ["<regex>"]
-        # or attr/tag/and/or/invert conditions
+      selector: {...} # what to remove (attribute/tag)
+      patterns: [ ... ] # patterns to match (see below)
+      condition: {...} # optional, see [Condition](when.md)
 ```
 
 ## Fields
 
-| Field         | Type               | Required     | Description                            |
-|---------------|--------------------|--------------|----------------------------------------|
-| tag_patterns  | `[]regex`          | Conditional* | Regex patterns of tags to remove       |
-| attr_patterns | `[]regex`          | Conditional* | Regex patterns of attributes to remove |
-| when          | [When](when.md) | No           | Conditions specifying when to apply    |
-
-*Exactly one of `tag_patterns`, or `attr_patterns` is required.*
+| Field      | Type                       | Required | Description                   |
+|------------|----------------------------|----------|-------------------------------|
+| selector   | [`Selector`](../common.md) | Yes      | What to remove (attribute/tag)|
+| patterns   | `[]regex`                   | Yes      | Patterns (regex) to match     |
+| condition  | [`Condition`](condition.md)     | No       | Optional, restricts rule      |
 
 ## Examples
+
+Remove all "tvg-logo" or "tvg-id" attributes from international channels:
 
 ```yaml
 channel_rules:
   - remove_field:
-      attr_patterns: ["tvg-logo", "tvg-id"]
-      when:
-        attr:
-          name: "group-title"
-          patterns: ["^International$"]
+      selector:
+        attr: "*"
+      patterns: ["tvg-logo", "tvg-id"]
+      condition:
+        selector:
+          attr: "group-title"
+        patterns: ["^International$"]
 ```
+

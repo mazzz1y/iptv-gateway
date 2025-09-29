@@ -27,6 +27,7 @@ clients:
     secret: "tv-secret"
     playlists: "basic-tv"
     epgs: "tv-guide"
+
 ```
 
 ## Advanced Configuration
@@ -34,7 +35,7 @@ clients:
 A full-featured setup including proxying, global rules, and multiple sources.
 
 ```yaml
-log:
+logs:
   level: debug
   format: json
 

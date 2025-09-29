@@ -17,7 +17,7 @@ epgs:
 | Field     | Type                  | Required | Description                                                          |
 |-----------|-----------------------|----------|----------------------------------------------------------------------|
 | `name`    | `string`              | Yes      | Unique name identifier for this EPG                                  |
-| `sources` | `[]string`            | Yes      | Array of EPG sources (URLs or file paths, XML format, .gz supported) |
+| `sources` | `[]string` | Yes      | List of EPG sources (URLs or file paths, XML or .gz). |
 | `proxy`   | [`Proxy`](./proxy.md) | No       | EPG-specific proxy configuration, only enabled takes effect          |
 
 ## Examples
