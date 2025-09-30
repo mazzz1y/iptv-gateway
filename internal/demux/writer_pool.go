@@ -36,7 +36,7 @@ func (p *WriterPool) Stop() {
 	}
 }
 
-func (p *WriterPool) AddClient(streamKey string, client io.Writer) bool {
+func (p *WriterPool) AddClient(streamKey string, client io.WriteCloser) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -50,7 +50,7 @@ func (p *WriterPool) AddClient(streamKey string, client io.Writer) bool {
 	return !exists
 }
 
-func (p *WriterPool) RemoveClient(streamKey string, client io.Writer) {
+func (p *WriterPool) RemoveClient(streamKey string, client io.WriteCloser) {
 	p.mutex.Lock()
 	writer, exists := p.writers[streamKey]
 	p.mutex.Unlock()

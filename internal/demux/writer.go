@@ -11,7 +11,7 @@ const (
 )
 
 type StreamWriter struct {
-	clients     map[io.Writer]*ioutil.AsyncWriter
+	clients     map[io.WriteCloser]*ioutil.AsyncWriter
 	clientsLock sync.RWMutex
 
 	buffer     []byte
@@ -25,7 +25,7 @@ type StreamWriter struct {
 
 func NewStreamWriter() *StreamWriter {
 	return &StreamWriter{
-		clients:     make(map[io.Writer]*ioutil.AsyncWriter),
+		clients:     make(map[io.WriteCloser]*ioutil.AsyncWriter),
 		buffer:      make([]byte, bufferSize),
 		bufferPos:   0,
 		bufferFull:  false,
@@ -33,7 +33,7 @@ func NewStreamWriter() *StreamWriter {
 	}
 }
 
-func (sw *StreamWriter) AddClient(w io.Writer) {
+func (sw *StreamWriter) AddClient(w io.WriteCloser) {
 	sw.clientsLock.Lock()
 	defer sw.clientsLock.Unlock()
 
@@ -109,7 +109,7 @@ func (sw *StreamWriter) Write(p []byte) (n int, err error) {
 	return len(data), nil
 }
 
-func (sw *StreamWriter) RemoveClient(w io.Writer) {
+func (sw *StreamWriter) RemoveClient(w io.WriteCloser) {
 	sw.clientsLock.Lock()
 	defer sw.clientsLock.Unlock()
 
@@ -132,6 +132,7 @@ func (sw *StreamWriter) Close() {
 
 	for client, cw := range sw.clients {
 		cw.Close()
+		client.Close()
 		delete(sw.clients, client)
 	}
 

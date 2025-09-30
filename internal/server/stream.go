@@ -96,7 +96,7 @@ func (s *Server) tryAllStreams(
 	var firstProvider *app.Playlist
 
 	for i, stream := range data.StreamData.Streams {
-		logging.Debug(ctx, "trying stream source", "index", i, "url", stream.URL)
+		logging.Debug(ctx, "trying stream source", "index", i)
 
 		provider := client.GetProvider(stream.ProviderInfo.ProviderType, stream.ProviderInfo.ProviderName)
 		if provider == nil {
@@ -168,7 +168,7 @@ func (s *Server) tryStream(
 	}
 	defer reader.Close()
 
-	logging.Debug(ctx, "successfully started stream", "stream_index", streamIndex)
+	logging.Debug(ctx, "started stream", "stream_index", streamIndex)
 	result := s.streamToResponse(ctx, w, reader, playlist, stream)
 	return result
 }

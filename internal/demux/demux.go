@@ -135,6 +135,7 @@ func (m *Demuxer) startStream(ctx context.Context, req Request) {
 	streamID := ctxutil.StreamID(ctx)
 	streamCtx, cancel := context.WithCancel(ctxutil.WithStreamID(context.Background(), streamID))
 	defer cancel()
+	defer writer.Close()
 
 	go func() {
 		emptyCh := writer.IsEmptyChannel()
@@ -156,17 +157,13 @@ func (m *Demuxer) startStream(ctx context.Context, req Request) {
 		}
 	}()
 
-	bytesWritten, err := req.Streamer.Stream(streamCtx, writer)
-
+	_, err := req.Streamer.Stream(streamCtx, writer)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			logging.Debug(streamCtx, "stream canceled")
 		} else {
 			logging.Error(streamCtx, err, "stream failed")
 		}
-	} else if bytesWritten == 0 {
-		logging.Error(streamCtx, nil, "stream produced no output")
-	} else {
 		logging.Debug(streamCtx, "stream ended")
 	}
 }
