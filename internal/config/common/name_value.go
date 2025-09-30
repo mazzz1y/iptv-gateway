@@ -16,8 +16,3 @@ func (nv *NameValue) Validate() error {
 	}
 	return nil
 }
-
-type NamePatterns struct {
-	Name     string    `yaml:"name"`
-	Patterns RegexpArr `yaml:"patterns"`
-}

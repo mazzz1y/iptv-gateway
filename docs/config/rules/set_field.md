@@ -5,22 +5,19 @@ The `set_field` rule allows you to modify channel properties including the chann
 ## YAML Structure
 
 ```yaml
-channel_rules:
-  - set_field:
-      selector: {...} # channel property selector, see below
-      template: {...} # template definition for new value, see below
-      condition: {...} # optional, see [Condition](condition.md) section
-
+set_field:
+  selector: {}
+  template: ""
+  condition: {}
 ```
 
 ## Fields
 
-| Field         | Type                         | Required  | Description                               |
-|-------------- |-----------------------------|-----------|-------------------------------------------|
-| `selector`    | [`Selector`](../common.md)   | Yes       | What property to set (attribute/tag/name) |
-| `template`    | [`Template`](../common.md)   | Yes       | The template definition for the new value |
-| `condition`   | [`Condition`](./condition.md) | No        | Optional, restricts rule activation       |
-
+| Field       | Type                          | Required | Description                               |
+|-------------|-------------------------------|----------|-------------------------------------------|
+| `selector`  | [`Selector`](./selector.md)   | Yes      | What property to set (attribute/tag/name) |
+| `template`  | `gotemplate`                  | Yes      | The template definition for the new value |
+| `condition` | [`Condition`](./condition.md) | No       | Optional, restricts rule activation       |
 
 ## Template
 

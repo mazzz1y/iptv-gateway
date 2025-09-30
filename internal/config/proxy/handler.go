@@ -7,20 +7,20 @@ import (
 
 type Handler struct {
 	Command      common.StringOrArr `yaml:"command,omitempty"`
-	TemplateVars []common.NameValue `yaml:"template_vars,omitempty"`
-	EnvVars      []common.NameValue `yaml:"env_vars,omitempty"`
+	TemplateVars []common.NameValue `yaml:"template_variables,omitempty"`
+	EnvVars      []common.NameValue `yaml:"env_variables,omitempty"`
 }
 
 func (h *Handler) Validate() error {
 	for i, templateVar := range h.TemplateVars {
 		if err := templateVar.Validate(); err != nil {
-			return fmt.Errorf("template_vars[%d]: %w", i, err)
+			return fmt.Errorf("template_variables[%d]: %w", i, err)
 		}
 	}
 
 	for i, envVar := range h.EnvVars {
 		if err := envVar.Validate(); err != nil {
-			return fmt.Errorf("env_vars[%d]: %w", i, err)
+			return fmt.Errorf("env_variables[%d]: %w", i, err)
 		}
 	}
 

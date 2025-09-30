@@ -29,24 +29,24 @@ proxy:
   concurrency: 0
   stream:
     command: []
-    template_vars: []
-    env_vars: []
+    template_variables: []
+    env_variables: []
   error:
     command: []
-    template_vars: []
-    env_vars: []
+    template_variables: []
+    env_variables: []
     upstream_error:
       command: []
-      template_vars: []
-      env_vars: []
+      template_variables: []
+      env_variables: []
     rate_limit_exceeded:
       command: []
-      template_vars: []
-      env_vars: []
+      template_variables: []
+      env_variables: []
     link_expired:
       command: []
-      template_vars: []
-      env_vars: []
+      template_variables: []
+      env_variables: []
 ```
 
 ## Fields
@@ -62,11 +62,11 @@ proxy:
 
 ### Command Object
 
-| Field           | Type                       | Required | Description                              |
-|-----------------|----------------------------|----------|------------------------------------------|
-| `command`       | `[]gotemplate`             | No       | Command array to execute                 |
-| `template_vars` | [][`NameValue`](common.md) | No       | Variables available in command templates |
-| `env_vars`      | [][`NameValue`](common.md) | No       | Environment variables for the command    |
+| Field                | Type                       | Required | Description                              |
+|----------------------|----------------------------|----------|------------------------------------------|
+| `command`            | `[]gotemplate`             | No       | Command array to execute                 |
+| `template_variables` | [`[]NameValue`](common.md) | No       | Variables available in command templates |
+| `env_variables`      | [`[]NameValue`](common.md) | No       | Environment variables for the command    |
 
 ### Error Handling Objects
 
@@ -112,11 +112,8 @@ proxy:
       - "-f"
       - "mpegts"
       - "pipe:1"
-    template_vars:
+    template_variables:
       - name: ffmpeg_log_level
-        value: "error"
-    env_vars:
-      - name: FFMPEG_LOG_LEVEL
         value: "error"
 ```
 
@@ -148,15 +145,15 @@ proxy:
         - "-f"
         - "mpegts"
         - "pipe:1"
-      template_vars:
+      template_variables:
         - name: ffmpeg_log_level
           value: "fatal"
     rate_limit_exceeded:
-      template_vars:
+      template_variables:
         - name: message
           value: "Rate limit exceeded. Please try again later."
     link_expired:
-      template_vars:
+      template_variables:
         - name: message
           value: "Link has expired. Please refresh your playlist."
 ```

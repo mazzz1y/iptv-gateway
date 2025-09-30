@@ -41,6 +41,7 @@ playlists:
     sources:
       - "https://sports-provider.com/premium.m3u8"
       - "https://sports-provider.com/international.m3u8"
+      - "/local/custom-playlist.m3u8"
 ```
 
 ### Playlist with Proxy Configuration
