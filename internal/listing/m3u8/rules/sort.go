@@ -27,8 +27,15 @@ func (sp *SortProcessor) Apply(store *Store) {
 			if iPriority != jPriority {
 				return iPriority < jPriority
 			}
-			return getSelectorFieldValue(channels[i], sp.rule.Selector) <
-				getSelectorFieldValue(channels[j], sp.rule.Selector)
+			iVal, iOk := getSelectorFieldValue(channels[i], sp.rule.Selector)
+			jVal, jOk := getSelectorFieldValue(channels[j], sp.rule.Selector)
+			if !iOk {
+				return false
+			}
+			if !jOk {
+				return true
+			}
+			return iVal < jVal
 		})
 		store.Replace(channels)
 		return
@@ -63,8 +70,15 @@ func (sp *SortProcessor) Apply(store *Store) {
 			if iPriority != jPriority {
 				return iPriority < jPriority
 			}
-			return getSelectorFieldValue(groupChannels[i], sp.rule.Selector) <
-				getSelectorFieldValue(groupChannels[j], sp.rule.Selector)
+			iVal, iOk := getSelectorFieldValue(groupChannels[i], sp.rule.Selector)
+			jVal, jOk := getSelectorFieldValue(groupChannels[j], sp.rule.Selector)
+			if !iOk {
+				return false
+			}
+			if !jOk {
+				return true
+			}
+			return iVal < jVal
 		})
 		sortedChannels = append(sortedChannels, groupChannels...)
 	}
@@ -77,7 +91,8 @@ func (sp *SortProcessor) getGroupKey(ch *Channel) string {
 		return ""
 	}
 	if sp.rule.GroupBy.Selector != nil {
-		return getSelectorFieldValue(ch, sp.rule.GroupBy.Selector)
+		val, _ := getSelectorFieldValue(ch, sp.rule.GroupBy.Selector)
+		return val
 	}
 	return ""
 }
@@ -107,7 +122,10 @@ func (sp *SortProcessor) getChannelPriority(ch *Channel) int {
 		return 0
 	}
 
-	field := getSelectorFieldValue(ch, sp.rule.Selector)
+	field, ok := getSelectorFieldValue(ch, sp.rule.Selector)
+	if !ok {
+		return len(*sp.rule.Order)
+	}
 
 	for i, pattern := range *sp.rule.Order {
 		if pattern != nil && pattern.String() != "" && pattern.MatchString(field) {

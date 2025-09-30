@@ -191,7 +191,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	}
 
 	conditionMissingAttr := common.Condition{
-		Selector: &common.Selector{Value: "attr/non-existent-attr"},
+		Selector: &common.Selector{Type: common.SelectorAttr, Value: "non-existent-attr"},
 		Patterns: common.RegexpArr{mustCompile(".*")},
 	}
 	result = processor.evaluateConditionFieldCondition(channel, conditionMissingAttr)
@@ -200,7 +200,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	}
 
 	conditionMissingTag := common.Condition{
-		Selector: &common.Selector{Value: "tag/non-existent-tag"},
+		Selector: &common.Selector{Type: common.SelectorTag, Value: "non-existent-tag"},
 		Patterns: common.RegexpArr{mustCompile(".*")},
 	}
 	result = processor.evaluateConditionFieldCondition(channel, conditionMissingTag)

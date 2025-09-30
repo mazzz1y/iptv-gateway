@@ -4,8 +4,21 @@ import (
 	"iptv-gateway/internal/config/common"
 	configrules "iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/parser/m3u8"
+	"regexp"
 	"testing"
 )
+
+func mustCompileRegexpArr(patterns []string) common.RegexpArr {
+	result := make([]*regexp.Regexp, len(patterns))
+	for i, pattern := range patterns {
+		if pattern == "" {
+			result[i] = nil
+		} else {
+			result[i] = regexp.MustCompile(pattern)
+		}
+	}
+	return result
+}
 
 func TestSortProcessor_Apply_SimpleSort(t *testing.T) {
 	channels := []*Channel{
@@ -48,7 +61,7 @@ func TestSortProcessor_Apply_WithOrder(t *testing.T) {
 		store.Add(ch)
 	}
 
-	order := common.StringOrArr{"Sports.*", "Music.*", ""}
+	order := mustCompileRegexpArr([]string{"Sports.*", "Music.*", ""})
 	rule := &configrules.SortRule{
 		Order: &order,
 	}
@@ -91,7 +104,7 @@ func TestSortProcessor_Apply_WithGroupBy(t *testing.T) {
 		store.Add(ch)
 	}
 
-	groupOrder := common.StringOrArr{"News", "Sports", "Music"}
+	groupOrder := mustCompileRegexpArr([]string{"News", "Sports", "Music"})
 	rule := &configrules.SortRule{
 		GroupBy: &configrules.GroupByRule{
 			Selector: &common.Selector{Type: common.SelectorAttr, Value: "group-title"},
@@ -117,47 +130,6 @@ func TestSortProcessor_Apply_WithGroupBy(t *testing.T) {
 		if ch.Name() != expectedNames[i] {
 			t.Errorf("Expected channel %d to be %q, got %q", i, expectedNames[i], ch.Name())
 		}
-	}
-}
-
-func TestSortProcessor_getChannelSortValue(t *testing.T) {
-	tests := []struct {
-		name     string
-		rule     *configrules.SortRule
-		channel  *Channel
-		expected string
-	}{
-		{
-			name: "no attr or tag specified",
-			rule: &configrules.SortRule{},
-			channel: &Channel{
-				track: &m3u8.Track{Name: "Test Channel"},
-			},
-			expected: "Test Channel",
-		},
-		{
-			name: "with attr specified",
-			rule: &configrules.SortRule{
-				Selector: &common.Selector{Type: common.SelectorAttr, Value: "tvg-name"},
-			},
-			channel: &Channel{
-				track: &m3u8.Track{
-					Name:  "Test Channel",
-					Attrs: map[string]string{"tvg-name": "Custom Name"},
-				},
-			},
-			expected: "Custom Name",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			processor := NewSortProcessor(tt.rule)
-			result := processor.getChannelSortValue(tt.channel)
-			if result != tt.expected {
-				t.Errorf("getChannelSortValue() = %q, want %q", result, tt.expected)
-			}
-		})
 	}
 }
 

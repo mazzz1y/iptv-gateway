@@ -76,10 +76,17 @@ func TestRemoveDuplicatesProcessor_extractKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ch := &Channel{
 				track: &m3u8.Track{
-					Name: tt.input,
+					Name: "Channel Name",
+					Attrs: map[string]string{
+						"x-tvg-name": tt.input,
+					},
 				},
 			}
-			result := processor.extractBaseName(ch)
+			result, ok := extractBaseNameFromChannel(ch, processor.rule.Selector, processor.rule.Patterns)
+			if !ok {
+				t.Errorf("extractBaseNameFromChannel(%q) failed to extract value", tt.input)
+				return
+			}
 			if result != tt.expected {
 				t.Errorf("extractKey(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
@@ -142,7 +149,11 @@ func TestRemoveDuplicatesProcessor_extractKey_attr(t *testing.T) {
 					Attrs: map[string]string{tt.attrName: tt.attrVal},
 				},
 			}
-			result := processor.extractBaseName(ch)
+			result, ok := extractBaseNameFromChannel(ch, processor.rule.Selector, processor.rule.Patterns)
+			if !ok {
+				t.Errorf("extractBaseNameFromChannel(attr=%q) failed to extract value", tt.attrVal)
+				return
+			}
 			if result != tt.expected {
 				t.Errorf("extractKey(attr=%q) = %q, want %q", tt.attrVal, result, tt.expected)
 			}

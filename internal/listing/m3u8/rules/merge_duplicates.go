@@ -19,16 +19,13 @@ func NewMergeDuplicatesActionProcessor(rule *configrules.MergeDuplicatesRule) *M
 func (p *MergeDuplicatesProcessor) Apply(store *Store) {
 	grouped := make(map[string][]*Channel)
 	for _, ch := range store.All() {
-		key := p.extractBaseName(ch)
+		key, ok := extractBaseNameFromChannel(ch, p.rule.Selector, p.rule.Patterns)
+		if !ok {
+			continue
+		}
 		grouped[key] = append(grouped[key], ch)
 	}
 	p.processMergeGroups(grouped)
-}
-
-func (p *MergeDuplicatesProcessor) extractBaseName(ch *Channel) string {
-	fv := getSelectorFieldValue(ch, p.rule.Selector)
-	patterns := p.rule.Patterns.ToArray()
-	return extractBaseName(fv, patterns)
 }
 
 func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*Channel) {

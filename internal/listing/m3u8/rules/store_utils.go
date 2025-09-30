@@ -23,24 +23,36 @@ func extractBaseName(fv string, patterns []*regexp.Regexp) string {
 	return strings.Join(strings.Fields(result), " ")
 }
 
-func getSelectorFieldValue(ch *Channel, selector *common.Selector) string {
+func extractBaseNameFromChannel(ch *Channel, selector *common.Selector, patterns common.RegexpArr) (string, bool) {
+	fv, ok := getSelectorFieldValue(ch, selector)
+	if !ok {
+		return "", false
+	}
+	patternArray := patterns.ToArray()
+	return extractBaseName(fv, patternArray), true
+}
+
+func getSelectorFieldValue(ch *Channel, selector *common.Selector) (string, bool) {
 	if selector == nil {
-		return ch.Name()
+		return ch.Name(), true
 	}
 
 	switch selector.Type {
 	case common.SelectorName:
-		return ch.Name()
+		return ch.Name(), true
 	case common.SelectorAttr:
 		if val, ok := ch.GetAttr(selector.Value); ok {
-			return val
+			return val, true
 		}
+		return "", false
 	case common.SelectorTag:
 		if val, ok := ch.GetTag(selector.Value); ok {
-			return val
+			return val, true
 		}
+		return "", false
 	}
-	return ch.Name()
+
+	return "", false
 }
 
 func hasPatternVariationsGroup(group []*Channel, selector *common.Selector, patterns common.RegexpArr) bool {
@@ -52,8 +64,8 @@ func hasPatternVariationsGroup(group []*Channel, selector *common.Selector, patt
 	hasMultiplePatterns := false
 
 	for _, ch := range group {
-		fv := getSelectorFieldValue(ch, selector)
-		if fv == "" {
+		fv, ok := getSelectorFieldValue(ch, selector)
+		if !ok || fv == "" {
 			continue
 		}
 		for _, pattern := range patternArray {
@@ -82,8 +94,8 @@ func selectBestChannel(channels []*Channel, selector *common.Selector, patterns 
 
 	for _, pattern := range patternArray {
 		for _, ch := range channels {
-			fv := getSelectorFieldValue(ch, selector)
-			if pattern.MatchString(fv) {
+			fv, ok := getSelectorFieldValue(ch, selector)
+			if ok && pattern.MatchString(fv) {
 				return ch
 			}
 		}

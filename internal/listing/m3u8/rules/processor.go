@@ -177,7 +177,10 @@ func (p *Processor) evaluateConditionFieldCondition(ch *Channel, condition commo
 	}
 
 	if len(condition.Patterns) > 0 {
-		fieldValue := getSelectorFieldValue(ch, condition.Selector)
+		fieldValue, ok := getSelectorFieldValue(ch, condition.Selector)
+		if !ok {
+			return false
+		}
 		if !p.matchesRegexps(fieldValue, condition.Patterns) {
 			return false
 		}

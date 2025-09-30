@@ -17,16 +17,13 @@ func NewRemoveDuplicatesActionProcessor(rule *rules.RemoveDuplicatesRule) *Remov
 func (p *RemoveDuplicatesProcessor) Apply(global *Store) {
 	grouped := make(map[string][]*Channel)
 	for _, ch := range global.All() {
-		key := p.extractBaseName(ch)
+		key, ok := extractBaseNameFromChannel(ch, p.rule.Selector, p.rule.Patterns)
+		if !ok {
+			continue
+		}
 		grouped[key] = append(grouped[key], ch)
 	}
 	p.processDuplicateGroups(grouped)
-}
-
-func (p *RemoveDuplicatesProcessor) extractBaseName(ch *Channel) string {
-	fv := getSelectorFieldValue(ch, p.rule.Selector)
-	patterns := p.rule.Patterns.ToArray()
-	return extractBaseName(fv, patterns)
 }
 
 func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*Channel) {
