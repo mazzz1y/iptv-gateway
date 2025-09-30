@@ -37,7 +37,7 @@ func (p *Processor) processStoreRules(store *Store) {
 			processor := NewRemoveDuplicatesActionProcessor(rule.RemoveDuplicates)
 			processor.Apply(store)
 		}
-		if rule.SortRule != nil {
+		if rule.SortRule != nil && evaluateStoreCondition(rule.SortRule.Condition, p.clientName) {
 			processor := NewSortProcessor(rule.SortRule)
 			processor.Apply(store)
 		}

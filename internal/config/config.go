@@ -127,6 +127,15 @@ func (c *Config) validateChannelRuleReferences(rule *rules.ChannelRule, clientNa
 }
 
 func (c *Config) validatePlaylistRuleReferences(rule *rules.PlaylistRule, clientNames, playlistNames map[string]bool) error {
+	if rule.MergeChannels != nil && rule.MergeChannels.Condition != nil {
+		return c.validateConditionReferences(*rule.MergeChannels.Condition, clientNames, playlistNames)
+	}
+	if rule.RemoveDuplicates != nil && rule.RemoveDuplicates.Condition != nil {
+		return c.validateConditionReferences(*rule.RemoveDuplicates.Condition, clientNames, playlistNames)
+	}
+	if rule.SortRule != nil && rule.SortRule.Condition != nil {
+		return c.validateConditionReferences(*rule.SortRule.Condition, clientNames, playlistNames)
+	}
 	return nil
 }
 
