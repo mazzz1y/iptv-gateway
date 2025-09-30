@@ -89,32 +89,46 @@ func (m *Manager) createClient(clientConf config.Client) (*Client, error) {
 }
 
 func (m *Manager) initClientProviders(cl *Client, playlistNames, epgNames []string) error {
-	if len(playlistNames) == 0 && len(epgNames) == 0 {
-		return fmt.Errorf("no playlists or EPGs specified for %s", cl.name)
-	}
-
-	for _, playlistName := range playlistNames {
-		if err := m.addPlaylistProvider(cl, playlistName); err != nil {
-			return err
+	if len(playlistNames) == 0 {
+		for _, playlist := range m.config.Playlists {
+			if err := m.addPlaylistProvider(cl, playlist); err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, playlistName := range playlistNames {
+			playlistConf, err := m.findPlaylist(playlistName)
+			if err != nil {
+				return fmt.Errorf("playlist '%s' for client '%s' is not defined in config", playlistName, cl.name)
+			}
+			if err := m.addPlaylistProvider(cl, playlistConf); err != nil {
+				return err
+			}
 		}
 	}
 
-	for _, epgName := range epgNames {
-		if err := m.addEPGProvider(cl, epgName); err != nil {
-			return err
+	if len(epgNames) == 0 {
+		for _, epg := range m.config.EPGs {
+			if err := m.addEPGProvider(cl, epg); err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, epgName := range epgNames {
+			epgConf, err := m.findEPG(epgName)
+			if err != nil {
+				return fmt.Errorf("EPG '%s' for client '%s' is not defined in config", epgName, cl.name)
+			}
+			if err := m.addEPGProvider(cl, epgConf); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (m *Manager) addPlaylistProvider(cl *Client, playlistName string) error {
-	playlistConf, err := m.findPlaylist(playlistName)
-	if err != nil {
-		return fmt.Errorf(
-			"playlist '%s' for client '%s' is not defined in config", playlistName, cl.name)
-	}
-
+func (m *Manager) addPlaylistProvider(cl *Client, playlistConf config.Playlist) error {
 	var sem *semaphore.Weighted
 	if playlistConf.Proxy.ConcurrentStreams > 0 {
 		sem = semaphore.NewWeighted(playlistConf.Proxy.ConcurrentStreams)
@@ -126,23 +140,18 @@ func (m *Manager) addPlaylistProvider(cl *Client, playlistName string) error {
 		playlistConf, m.config.Proxy, sem); err != nil {
 		return fmt.Errorf(
 			"failed to build playlist subscription '%s' for client '%s': %w",
-			playlistName, cl.name, err)
+			playlistConf.Name, cl.name, err)
 	}
 
 	return nil
 }
 
-func (m *Manager) addEPGProvider(cl *Client, epgName string) error {
-	epgConf, err := m.findEPG(epgName)
-	if err != nil {
-		return fmt.Errorf("EPG '%s' for client '%s' is not defined in config", epgName, cl.name)
-	}
-
+func (m *Manager) addEPGProvider(cl *Client, epgConf config.EPG) error {
 	if err := cl.BuildEPGProvider(epgConf, m.config.Proxy); err != nil {
-		return fmt.Errorf("failed to build EPG subscription '%s' for client '%s': %w",
-			epgName, cl.name, err)
+		return fmt.Errorf(
+			"failed to build EPG subscription '%s' for client '%s': %w",
+			epgConf.Name, cl.name, err)
 	}
-
 	return nil
 }
 
@@ -173,5 +182,3 @@ func (m *Manager) createURLGenerator(clientSecret string) (*urlgen.Generator, er
 		time.Duration(m.config.URLGenerator.FileTTL),
 	)
 }
-
-

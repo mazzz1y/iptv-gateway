@@ -77,15 +77,26 @@ func (c *Config) Validate() error {
 	}
 
 	clientNames := make(map[string]bool)
+	clientSecrets := make(map[string][]string)
+
 	for i, client := range c.Clients {
 		if err := client.Validate(playlistNames, epgNames); err != nil {
 			return fmt.Errorf("client[%d] validation failed: %w", i, err)
 		}
-		if client.Name != "" {
-			if clientNames[client.Name] {
-				return fmt.Errorf("duplicate client name: %s", client.Name)
+
+		if clientNames[client.Name] {
+			return fmt.Errorf("duplicate client name: %s", client.Name)
+		}
+		clientNames[client.Name] = true
+
+		if client.Secret != "" {
+			if existingClients, exists := clientSecrets[client.Secret]; exists {
+				allClients := append(existingClients, client.Name)
+				clientSecrets[client.Secret] = allClients
+				return fmt.Errorf("duplicate secret: %v", allClients)
+			} else {
+				clientSecrets[client.Secret] = []string{client.Name}
 			}
-			clientNames[client.Name] = true
 		}
 	}
 
