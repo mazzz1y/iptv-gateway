@@ -163,7 +163,7 @@ func (sw *StreamWriter) IsEmptyChannel() <-chan struct{} {
 }
 
 func (sw *StreamWriter) notifyEmpty() {
-	sw.notifyListeners.Range(func(key, value interface{}) bool {
+	sw.notifyListeners.Range(func(key, value any) bool {
 		ch, ok := key.(chan struct{})
 		if ok {
 			close(ch)

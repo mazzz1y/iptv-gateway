@@ -165,7 +165,7 @@ type yamlNode struct {
 	Value string
 }
 
-func (n *yamlNode) Decode(v interface{}) error {
+func (n *yamlNode) Decode(v any) error {
 	if s, ok := v.(*string); ok {
 		*s = n.Value
 		return nil

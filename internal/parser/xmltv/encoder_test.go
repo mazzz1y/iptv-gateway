@@ -20,13 +20,13 @@ func TestNewEncoder(t *testing.T) {
 func TestXMLEncoder_Encode(t *testing.T) {
 	tests := []struct {
 		name     string
-		items    []interface{}
+		items    []any
 		expected string
 		err      bool
 	}{
 		{
 			name: "Channel element",
-			items: []interface{}{
+			items: []any{
 				Channel{
 					ID: "channel1",
 					DisplayNames: []CommonElement{
@@ -48,7 +48,7 @@ func TestXMLEncoder_Encode(t *testing.T) {
 		},
 		{
 			name: "Programme element",
-			items: []interface{}{
+			items: []any{
 				Programme{
 					Channel: "channel1",
 					Start:   &Time{Time: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)},
@@ -77,7 +77,7 @@ func TestXMLEncoder_Encode(t *testing.T) {
 		},
 		{
 			name: "Multiple items",
-			items: []interface{}{
+			items: []any{
 				Channel{
 					ID: "channel1",
 					DisplayNames: []CommonElement{
@@ -96,7 +96,7 @@ func TestXMLEncoder_Encode(t *testing.T) {
 		},
 		{
 			name:  "Invalid item type",
-			items: []interface{}{"invalid"},
+			items: []any{"invalid"},
 			expected: `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE tv SYSTEM "xmltv.dtd">
 <tv></tv>`,
 			err: true,

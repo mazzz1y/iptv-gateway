@@ -19,7 +19,7 @@ type Selector struct {
 	Raw   string       `yaml:",inline"`
 }
 
-func (s *Selector) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *Selector) UnmarshalYAML(unmarshal func(any) error) error {
 	var raw string
 	if err := unmarshal(&raw); err != nil {
 		return err

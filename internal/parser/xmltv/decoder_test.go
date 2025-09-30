@@ -26,14 +26,14 @@ func TestXMLDecoder_Decode(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected []interface{}
+		expected []any
 		err      bool
 	}{
 		{
 			name: "Empty TV",
 			input: `<?xml version="1.0" encoding="UTF-8"?>
 <tv></tv>`,
-			expected: []interface{}{
+			expected: []any{
 				TV{},
 			},
 			err: false,
@@ -44,7 +44,7 @@ func TestXMLDecoder_Decode(t *testing.T) {
 <tv date="20230101" source-info-url="http://example.com" 
     source-info-name="Example" source-data-url="http://data.example.com" 
     generator-info-name="Generator" generator-info-url="http://generator.example.com"></tv>`,
-			expected: []interface{}{
+			expected: []any{
 				TV{
 					Date:              "20230101",
 					SourceInfoURL:     "http://example.com",
@@ -66,7 +66,7 @@ func TestXMLDecoder_Decode(t *testing.T) {
     <url>http://example.com/channel1</url>
   </channel>
 </tv>`,
-			expected: []interface{}{
+			expected: []any{
 				TV{},
 				Channel{
 					ID: "channel1",
@@ -96,7 +96,7 @@ func TestXMLDecoder_Decode(t *testing.T) {
     <icon src="http://example.com/prog.png" width="100" height="100"/>
   </programme>
 </tv>`,
-			expected: []interface{}{
+			expected: []any{
 				TV{},
 				Programme{
 					Channel: "channel1",
@@ -128,7 +128,7 @@ func TestXMLDecoder_Decode(t *testing.T) {
 <tv>
   <invalid>
 </tv>`,
-			expected: []interface{}{
+			expected: []any{
 				TV{},
 			},
 			err: true,
