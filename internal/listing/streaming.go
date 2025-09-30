@@ -36,22 +36,17 @@ func NewLazyBaseDecoder(url string, init initFunc) *BaseDecoder {
 }
 
 func (d *BaseDecoder) NextItem() (any, error) {
-	if d.err != nil {
-		return nil, d.err
-	}
-
 	if len(d.itemBuffer) > 0 {
 		item := d.itemBuffer[0]
 		d.itemBuffer = d.itemBuffer[1:]
 		return item, nil
 	}
 
-	item, err := d.decoder.Decode()
-	if err == io.EOF {
-		d.drainReader()
+	if d.err != nil {
+		return nil, d.err
 	}
 
-	return item, err
+	return d.decoder.Decode()
 }
 
 func (d *BaseDecoder) StartBuffering(ctx context.Context) error {
@@ -133,21 +128,4 @@ func (d *BaseDecoder) init(ctx context.Context) error {
 	d.reader = reader
 
 	return nil
-}
-
-func (d *BaseDecoder) drainReader() {
-	if d.reader == nil {
-		return
-	}
-
-	buf := make([]byte, 1024)
-	for {
-		_, err := d.reader.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			break
-		}
-	}
 }

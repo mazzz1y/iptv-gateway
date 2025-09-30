@@ -71,6 +71,7 @@ func (d *M3UDecoder) Decode() (any, error) {
 	if err != nil {
 		if err == io.EOF {
 			d.done = true
+			d.drainReader()
 		}
 		return nil, err
 	}
@@ -198,4 +199,21 @@ func parseTags(line string) map[string]string {
 	}
 
 	return t
+}
+
+func (d *M3UDecoder) drainReader() {
+	if d.reader == nil {
+		return
+	}
+
+	buf := make([]byte, 64)
+	for {
+		_, err := d.reader.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			break
+		}
+	}
 }
