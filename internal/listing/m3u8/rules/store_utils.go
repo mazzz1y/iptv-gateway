@@ -25,7 +25,7 @@ func extractBaseName(fv string, patterns []*regexp.Regexp) string {
 
 func getSelectorFieldValue(ch *Channel, selector *common.Selector) string {
 	if selector == nil {
-		return ""
+		return ch.Name()
 	}
 
 	switch selector.Type {

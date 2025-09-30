@@ -5,7 +5,6 @@ import (
 	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/listing"
-	"strings"
 )
 
 type Processor struct {
@@ -171,29 +170,14 @@ func (p *Processor) matchesCondition(ch *Channel, condition common.Condition) bo
 }
 
 func (p *Processor) evaluateConditionFieldCondition(ch *Channel, condition common.Condition) bool {
-	hasFieldConditions := condition.Selector != nil || len(condition.Patterns) > 0 ||
-		len(condition.Clients) > 0 || len(condition.Playlists) > 0
+	hasFieldConditions := condition.Selector != nil || len(condition.Patterns) > 0 || len(condition.Clients) > 0 || len(condition.Playlists) > 0
 
 	if !hasFieldConditions {
 		return true
 	}
 
-	if condition.Selector != nil && len(condition.Patterns) > 0 {
+	if len(condition.Patterns) > 0 {
 		fieldValue := getSelectorFieldValue(ch, condition.Selector)
-		// If selector doesn't match any field (returns default channel name), check if it would be empty
-		if condition.Selector.Value != "" && condition.Selector.Value != "name" {
-			if strings.HasPrefix(condition.Selector.Value, "attr/") {
-				attrName := strings.TrimPrefix(condition.Selector.Value, "attr/")
-				if _, ok := ch.GetAttr(attrName); !ok {
-					return false
-				}
-			} else if strings.HasPrefix(condition.Selector.Value, "tag/") {
-				tagName := strings.TrimPrefix(condition.Selector.Value, "tag/")
-				if _, ok := ch.GetTag(tagName); !ok {
-					return false
-				}
-			}
-		}
 		if !p.matchesRegexps(fieldValue, condition.Patterns) {
 			return false
 		}

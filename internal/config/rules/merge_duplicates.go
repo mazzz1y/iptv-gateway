@@ -18,16 +18,10 @@ type MergeDuplicatesRule struct {
 }
 
 func (r *MergeDuplicatesRule) Validate() error {
-	if r.Selector == nil {
-		return fmt.Errorf("merge_duplicates: selector is required")
-	}
-
-	if err := r.Selector.Validate(); err != nil {
-		return err
-	}
-
-	if r.Selector.Type == common.SelectorTag {
-		return fmt.Errorf("merge_duplicates: tag selectors are not allowed for merging")
+	if r.Selector != nil {
+		if err := r.Selector.Validate(); err != nil {
+			return fmt.Errorf("merge_duplicates: %s", err)
+		}
 	}
 
 	if len(r.Patterns) < 1 {
@@ -51,7 +45,11 @@ func (r *MergeDuplicatesRule) Validate() error {
 			return err
 		}
 
-		if r.Condition.Selector != nil || len(r.Condition.Patterns) > 0 || len(r.Condition.Playlists) > 0 || len(r.Condition.And) > 0 || len(r.Condition.Or) > 0 {
+		if r.Condition.Selector != nil ||
+			len(r.Condition.Patterns) > 0 ||
+			len(r.Condition.Playlists) > 0 ||
+			len(r.Condition.And) > 0 ||
+			len(r.Condition.Or) > 0 {
 			return fmt.Errorf("merge_duplicates: only clients field is allowed in condition")
 		}
 	}

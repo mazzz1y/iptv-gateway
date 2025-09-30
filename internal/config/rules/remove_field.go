@@ -18,7 +18,7 @@ func (r *RemoveFieldRule) Validate() error {
 	if err := r.Selector.Validate(); err != nil {
 		return err
 	}
-	
+
 	if r.Condition != nil {
 		if err := r.Condition.Validate(); err != nil {
 			return err

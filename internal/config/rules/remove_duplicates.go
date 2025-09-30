@@ -18,12 +18,10 @@ type RemoveDuplicatesRule struct {
 }
 
 func (r *RemoveDuplicatesRule) Validate() error {
-	if r.Selector == nil {
-		return fmt.Errorf("remove_duplicates: selector is required")
-	}
-
-	if err := r.Selector.Validate(); err != nil {
-		return err
+	if r.Selector != nil {
+		if err := r.Selector.Validate(); err != nil {
+			return fmt.Errorf("remove_duplicates: %s", err)
+		}
 	}
 
 	if len(r.Patterns) < 2 {

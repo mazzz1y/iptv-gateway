@@ -27,7 +27,7 @@ func (s *Selector) UnmarshalYAML(unmarshal func(any) error) error {
 
 	s.Raw = raw
 
-	if raw == "" || raw == "name" {
+	if raw == "name" {
 		s.Type = SelectorName
 		s.Value = ""
 		return nil

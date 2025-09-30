@@ -12,8 +12,10 @@ type SetFieldRule struct {
 }
 
 func (s *SetFieldRule) Validate() error {
-	if s.Selector == nil {
-		return fmt.Errorf("set_field: selector is required")
+	if s.Selector != nil {
+		if err := s.Selector.Validate(); err != nil {
+			return fmt.Errorf("set_field: %s", err)
+		}
 	}
 
 	if err := s.Selector.Validate(); err != nil {

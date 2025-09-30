@@ -7,22 +7,22 @@ import (
 )
 
 type SortRule struct {
-	Selector  *common.Selector    `yaml:"selector,omitempty"`
-	Order     *common.StringOrArr `yaml:"order,omitempty"`
-	GroupBy   *GroupByRule        `yaml:"group_by,omitempty"`
-	Condition *common.Condition   `yaml:"condition,omitempty"`
+	Selector  *common.Selector  `yaml:"selector,omitempty"`
+	Order     *common.RegexpArr `yaml:"order,omitempty"`
+	GroupBy   *GroupByRule      `yaml:"group_by,omitempty"`
+	Condition *common.Condition `yaml:"condition,omitempty"`
 }
 
 func (s *SortRule) Validate() error {
 	if s.Selector != nil {
 		if err := s.Selector.Validate(); err != nil {
-			return err
+			return fmt.Errorf("sort: %s", err)
 		}
 	}
 
 	if s.Condition != nil {
 		if err := s.Condition.Validate(); err != nil {
-			return err
+			return fmt.Errorf("sort: %s", err)
 		}
 
 		if s.Condition.Selector != nil || len(s.Condition.Patterns) > 0 || len(s.Condition.Playlists) > 0 || len(s.Condition.And) > 0 || len(s.Condition.Or) > 0 {
@@ -38,8 +38,8 @@ func (s *SortRule) String() string {
 }
 
 type GroupByRule struct {
-	Selector *common.Selector    `yaml:"selector"`
-	Order    *common.StringOrArr `yaml:"group_order,omitempty"`
+	Selector *common.Selector  `yaml:"selector"`
+	Order    *common.RegexpArr `yaml:"group_order,omitempty"`
 }
 
 func (g *GroupByRule) Validate() error {

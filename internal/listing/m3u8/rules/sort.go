@@ -27,7 +27,8 @@ func (sp *SortProcessor) Apply(store *Store) {
 			if iPriority != jPriority {
 				return iPriority < jPriority
 			}
-			return sp.getChannelSortValue(channels[i]) < sp.getChannelSortValue(channels[j])
+			return getSelectorFieldValue(channels[i], sp.rule.Selector) <
+				getSelectorFieldValue(channels[j], sp.rule.Selector)
 		})
 		store.Replace(channels)
 		return
@@ -62,7 +63,8 @@ func (sp *SortProcessor) Apply(store *Store) {
 			if iPriority != jPriority {
 				return iPriority < jPriority
 			}
-			return sp.getChannelSortValue(groupChannels[i]) < sp.getChannelSortValue(groupChannels[j])
+			return getSelectorFieldValue(groupChannels[i], sp.rule.Selector) <
+				getSelectorFieldValue(groupChannels[j], sp.rule.Selector)
 		})
 		sortedChannels = append(sortedChannels, groupChannels...)
 	}
@@ -86,13 +88,13 @@ func (sp *SortProcessor) getGroupPriority(groupValue string) int {
 	}
 
 	for i, pattern := range *sp.rule.GroupBy.Order {
-		if pattern != "" && sp.matchesPattern(groupValue, pattern) {
+		if pattern != nil && pattern.String() != "" && pattern.MatchString(groupValue) {
 			return i
 		}
 	}
 
 	for i, pattern := range *sp.rule.GroupBy.Order {
-		if pattern == "" {
+		if pattern != nil && pattern.String() == "" {
 			return i
 		}
 	}
@@ -105,28 +107,21 @@ func (sp *SortProcessor) getChannelPriority(ch *Channel) int {
 		return 0
 	}
 
-	channelValue := sp.getChannelSortValue(ch)
+	field := getSelectorFieldValue(ch, sp.rule.Selector)
 
 	for i, pattern := range *sp.rule.Order {
-		if pattern != "" && sp.matchesPattern(channelValue, pattern) {
+		if pattern != nil && pattern.String() != "" && pattern.MatchString(field) {
 			return i
 		}
 	}
 
 	for i, pattern := range *sp.rule.Order {
-		if pattern == "" {
+		if pattern != nil && pattern.String() == "" {
 			return i
 		}
 	}
 
 	return len(*sp.rule.Order)
-}
-
-func (sp *SortProcessor) getChannelSortValue(ch *Channel) string {
-	if sp.rule.Selector != nil {
-		return getSelectorFieldValue(ch, sp.rule.Selector)
-	}
-	return ch.Name()
 }
 
 func (sp *SortProcessor) matchesPattern(value, pattern string) bool {
