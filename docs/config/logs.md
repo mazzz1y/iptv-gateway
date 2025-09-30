@@ -4,13 +4,12 @@ Log configuration controls the application's logging behavior.
 
 ## YAML Structure
 
-```yaml title="Default"
-logs:
-  level: "info"
-  format: "text"
+```yaml
+level: ""
+format: ""
 ```
 
-## Configuration Fields
+## Fields
 
 | Field    | Type     | Required | Description                              |
 |----------|----------|----------|------------------------------------------|

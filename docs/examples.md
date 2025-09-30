@@ -25,8 +25,6 @@ epgs:
 clients:
   - name: "tv"
     secret: "tv-secret"
-    playlists: "basic-tv"
-    epgs: "tv-guide"
 
 ```
 
@@ -60,7 +58,7 @@ proxy:
   concurrency: 10 # Set global concurrency
   error: # Override stream error templates
     upstream_error:
-      template_vars:
+      template_variables:
         - name: message
           value: |
             Canal temporalmente no disponible
@@ -69,14 +67,14 @@ proxy:
 
             Por favor, inténtelo más tarde
     rate_limit_exceeded:
-      template_vars:
+      template_variables:
         - name: message
           value: |
             Se ha excedido el número de transmisiones simultáneas
 
             Por favor, inténtelo más tarde
     link_expired:
-      template_vars:
+      template_variables:
         - name: message
           value: |
             El enlace del canal ha expirado
@@ -115,46 +113,40 @@ epgs:
 channel_rules:
   # Set sports group for sports channels
   - set_field:
-      set_field:
-        attr_template:
-          name: "group-title"
-          template: "Sports"
-      when:
-        and:
+      selector: attr/group-title
+      template: "Sports"
+      condition:
+        or:
           - playlists: ["sports"]
-          - name_patterns: [".*ESPN.*", ".*Fox Sports.*", ".*Sky Sports.*"]
+          - patterns: [".*ESPN.*", ".*Fox Sports.*", ".*Sky Sports.*"]
 
 playlist_rules:
   # Remove duplicate channels, prefer highest quality for HD clients
   - remove_duplicates:
-      name_patterns: ["4K", "FHD", "HD", "SD"]
-      when:
+      patterns: ["4K", "FHD", "HD", "SD"]
+      condition:
         clients: ["living-room", "bedroom"]
 
   # Remove duplicate channels, prefer SD quality for mobile/kitchen
   - remove_duplicates:
-      name_patterns: ["SD", "HD", "FHD", "4K"]
-      when:
+      patterns: ["SD", "HD", "FHD", "4K"]
+      condition:
         clients: ["mobile", "kitchen"]
 
 clients:
   - name: "living-room"
     secret: "lr-secret"
     playlists: ["tv", "movies"]
-    epgs: ["tv", "movies"]
 
   - name: "bedroom"
     secret: "br-secret"
     playlists: ["sports", "tv"]
-    epgs: ["sports", "tv"]
 
   - name: "mobile"
     secret: "mb-secret"
     playlists: ["tv", "movies"]
-    epgs: ["tv", "movies"]
 
   - name: "kitchen"
     secret: "kt-secret"
     playlists: ["tv", "movies"]
-    epgs: ["tv", "movies"]
 ```

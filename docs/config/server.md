@@ -4,17 +4,17 @@ The server block is responsible for configuring HTTP servers.
 
 ## YAML Structure
 
-```yaml title="Default"
+```yaml
 server:
-  listen_addr: ":6078"
+  listen_addr: ""
   metrics_addr: ""
-  public_url: "http://127.0.0.1:6078"
+  public_url: ""
 ```
 
 ## Configuration Fields
 
-| Field          | Type     | Required | Description                                           |
-|----------------|----------|----------|-------------------------------------------------------|
-| `listen_addr`  | `string` | Yes      | Address the gateway listens on                        |
-| `public_url`   | `string` | Yes      | Public URL of the gateway, used to generate links     |
-| `metrics_addr` | `string` | No       | Address for the metrics server, disabled if empty     |
+| Field          | Type     | Required | Default                   | Description                                       |
+|:---------------|:---------|:---------|:--------------------------|:--------------------------------------------------|
+| `listen_addr`  | `string` | Yes      | `":6078"`                 | Address the gateway listens on                    |
+| `public_url`   | `string` | Yes      | `"http://127.0.0.1:6078"` | Public URL of the gateway, used to generate links |
+| `metrics_addr` | `string` | No       | `""`                      | Address for the metrics server, disabled if empty |

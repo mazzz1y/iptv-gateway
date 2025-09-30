@@ -6,9 +6,9 @@ The URL generator configuration manages the creation and encryption of streaming
 
 ```yaml
 url_generator:
-  secret: "secret"
-  stream_ttl: 1h
-  file_ttl: 24h
+  secret: ""
+  stream_ttl: ""
+  file_ttl: ""
 ```
 
 ## Fields

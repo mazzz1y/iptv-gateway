@@ -6,14 +6,14 @@ client activity.
 ## YAML Configuration
 
 ```yaml
-metrics_addr: ":9090"
+metrics_addr: ""
 ```
 
 ## Configuration Fields
 
-| Field          | Type     | Required | Description                         |
-|----------------|----------|----------|-------------------------------------|
-| `metrics_addr` | `string` | No       | Address and port for metrics server |
+| Field          | Type     | Required | Default | Description                         |
+|:---------------|:---------|:---------|:--------|:------------------------------------|
+| `metrics_addr` | `string` | No       | `""`    | Address and port for metrics server |
 
 ## Available Metrics
 

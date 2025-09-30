@@ -27,7 +27,7 @@ func (s *Selector) UnmarshalYAML(unmarshal func(any) error) error {
 
 	s.Raw = raw
 
-	if raw == "name" {
+	if raw == "" || raw == "name" {
 		s.Type = SelectorName
 		s.Value = ""
 		return nil
@@ -56,7 +56,8 @@ func (s *Selector) UnmarshalYAML(unmarshal func(any) error) error {
 
 func (s *Selector) Validate() error {
 	if s.Type == "" {
-		return fmt.Errorf("selector: type is required")
+		s.Type = SelectorName
+		s.Value = ""
 	}
 
 	switch s.Type {

@@ -52,15 +52,6 @@ connection, reducing bandwidth and server load.
 **Need to transcode?** Configure any FFmpeg command or external tool for stream processing. The gateway handles the
 pipeline, you define the transformation.
 
-### :material-tune: Flexible Configuration
-
-Build rules that cascade from global defaults down to individual client overrides. Apply configurations at any level:
-
-- **Global** — Default behavior for your entire gateway
-- **Playlist** — Specific settings per IPTV source
-- **Preset** — Reusable client templates for common scenarios
-- **Client** — Individual customization when needed
-
 Mix and match rules to create exactly the experience each client requires.
 
 <div class="grid cards" markdown>

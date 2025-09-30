@@ -13,19 +13,18 @@ The cache block configures the caching system for IPTV streams and metadata.
 
 ## YAML Structure
 
-```yaml title="Default"
-cache:
-  path: "/cache"
-  ttl: "24h"
-  retention: "30d"
-  compression: false
+```yaml
+path: ""
+ttl: ""
+retention: ""
+compression: false
 ```
 
 ## Fields
 
-| Field         | Type      | Required | Description                                                 |
-|---------------|-----------|----------|-------------------------------------------------------------|
-| `path`        | `string`  | No       | Directory path where cache files will be stored             |
-| `ttl`         | `string`  | No       | Cache expiration time (e.g., "1h", "30m")                   |
-| `retention`   | `string`  | No       | How long to keep unaccessed files on disk (e.g., "7d")      |
-| `compression` | `boolean` | No       | Enable gzip compression for cached files (default: `false`) |
+| Field         | Type      | Required | Default    | Description                                            |
+|:--------------|:----------|:---------|:-----------|:-------------------------------------------------------|
+| `path`        | `string`  | No       | `"/cache"` | Directory path where cache files will be stored        |
+| `ttl`         | `string`  | No       | `"24h"`    | Cache expiration time (e.g., "1h", "30m")              |
+| `retention`   | `string`  | No       | `"30d"`    | How long to keep unaccessed files on disk (e.g., "7d") |
+| `compression` | `boolean` | No       | `false`    | Enable gzip compression for cached files               |

@@ -9,6 +9,7 @@ When proxying is enabled, the links in the playlist will be encrypted and will p
 The default configuration uses FFmpeg for remuxing and is ready to use out of the box. Most users can enable proxy
 functionality by simply setting `enabled` to `true`. Advanced users can customize commands to add transcoding,
 filtering, or other stream processing features.
+
 !!! note "Rule Merging Order"
 
     Proxy can be defined at multiple levels in the configuration. It will be merged in the following order, with each level overriding the previous one:
@@ -62,11 +63,11 @@ proxy:
 
 ### Command Object
 
-| Field                | Type                       | Required | Description                              |
-|----------------------|----------------------------|----------|------------------------------------------|
-| `command`            | `[]gotemplate`             | No       | Command array to execute                 |
-| `template_variables` | [`[]NameValue`](common.md) | No       | Variables available in command templates |
-| `env_variables`      | [`[]NameValue`](common.md) | No       | Environment variables for the command    |
+| Field                | Type                               | Required | Description                              |
+|----------------------|------------------------------------|----------|------------------------------------------|
+| `command`            | `[]gotemplate`                     | No       | Command array to execute                 |
+| `template_variables` | [`[]NameValue`](#namevalue-object) | No       | Variables available in command templates |
+| `env_variables`      | [`[]NameValue`](#namevalue-object) | No       | Environment variables for the command    |
 
 ### Error Handling Objects
 
@@ -75,6 +76,13 @@ proxy:
 | `upstream_error`      | `command` | No       | Command to run when upstream source fails |
 | `rate_limit_exceeded` | `command` | No       | Command to run when rate limits are hit   |
 | `link_expired`        | `command` | No       | Command to run when stream links expire   |
+
+### Name/Value Object
+
+| Field   | Type     | Required | Description                          |
+|---------|----------|----------|--------------------------------------|
+| `name`  | `string` | Yes      | Name identifier for the object       |
+| `value` | `string` | Yes      | Value associated with the given name |
 
 ### Available Template Variables
 
