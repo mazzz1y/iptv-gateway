@@ -1,4 +1,4 @@
-package rules
+package playlist
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ type RemoveDuplicatesRule struct {
 func (r *RemoveDuplicatesRule) Validate() error {
 	if r.Selector != nil {
 		if err := r.Selector.Validate(); err != nil {
-			return fmt.Errorf("remove_duplicates: %s", err)
+			return fmt.Errorf("remove_duplicates: %w", err)
 		}
 	}
 
@@ -33,7 +33,7 @@ func (r *RemoveDuplicatesRule) Validate() error {
 			return fmt.Errorf("remove_duplicates: final_value selector is required")
 		}
 		if err := r.FinalValue.Selector.Validate(); err != nil {
-			return fmt.Errorf("remove_duplicates: final_value selector validation failed: %w", err)
+			return fmt.Errorf("remove_duplicates: final_value %w", err)
 		}
 		if r.FinalValue.Template == nil {
 			return fmt.Errorf("remove_duplicates: final_value template is required")
@@ -42,7 +42,7 @@ func (r *RemoveDuplicatesRule) Validate() error {
 
 	if r.Condition != nil {
 		if err := r.Condition.Validate(); err != nil {
-			return err
+			return fmt.Errorf("remove_duplicates: %w", err)
 		}
 
 		if r.Condition.Selector != nil || len(r.Condition.Patterns) > 0 || len(r.Condition.Playlists) > 0 || len(r.Condition.And) > 0 || len(r.Condition.Or) > 0 {
@@ -51,8 +51,4 @@ func (r *RemoveDuplicatesRule) Validate() error {
 	}
 
 	return nil
-}
-
-func (r *RemoveDuplicatesRule) String() string {
-	return "remove_duplicates"
 }

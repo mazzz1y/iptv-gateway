@@ -2,7 +2,7 @@ package rules
 
 import (
 	"iptv-gateway/internal/config/common"
-	configrules "iptv-gateway/internal/config/rules"
+	configrules "iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/parser/m3u8"
 	"net/url"
 	"regexp"

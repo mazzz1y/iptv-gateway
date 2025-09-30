@@ -3,7 +3,7 @@ package rules_test
 import (
 	"bytes"
 	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/rules/channel"
 	rulesprocessor "iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/shell"
@@ -33,11 +33,11 @@ func (m mockSubscription) URLGenerator() *urlgen.Generator {
 	return nil
 }
 
-func (m mockSubscription) Rules() []*rules.ChannelRule {
+func (m mockSubscription) Rules() []*channel.Rule {
 	return nil
 }
 
-func (m mockSubscription) NamedConditions() []rules.ChannelRule {
+func (m mockSubscription) NamedConditions() []channel.Rule {
 	return nil
 }
 
@@ -50,9 +50,9 @@ func (m mockSubscription) ExpiredCommandStreamer() *shell.Streamer {
 }
 
 func TestRulesProcessor_SetField(t *testing.T) {
-	channelRules := []*rules.ChannelRule{
+	channelRules := []*channel.Rule{
 		{
-			SetField: &rules.SetFieldRule{
+			SetField: &channel.SetFieldRule{
 				Selector: &common.Selector{Type: common.SelectorAttr, Value: "tvg-group"},
 				Template: mustCreateTemplate("music"),
 			},

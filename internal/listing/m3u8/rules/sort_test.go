@@ -2,7 +2,7 @@ package rules
 
 import (
 	"iptv-gateway/internal/config/common"
-	configrules "iptv-gateway/internal/config/rules"
+	configrules "iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/parser/m3u8"
 	"regexp"
 	"testing"
@@ -33,7 +33,7 @@ func TestSortProcessor_Apply_SimpleSort(t *testing.T) {
 		store.Add(ch)
 	}
 
-	rule := &configrules.SortRule{}
+	rule := &configrules.Sort{}
 	processor := NewSortProcessor(rule)
 
 	processor.Apply(store)
@@ -62,7 +62,7 @@ func TestSortProcessor_Apply_WithOrder(t *testing.T) {
 	}
 
 	order := mustCompileRegexpArr([]string{"Sports.*", "Music.*", ""})
-	rule := &configrules.SortRule{
+	rule := &configrules.Sort{
 		Order: &order,
 	}
 	processor := NewSortProcessor(rule)
@@ -105,7 +105,7 @@ func TestSortProcessor_Apply_WithGroupBy(t *testing.T) {
 	}
 
 	groupOrder := mustCompileRegexpArr([]string{"News", "Sports", "Music"})
-	rule := &configrules.SortRule{
+	rule := &configrules.Sort{
 		GroupBy: &configrules.GroupByRule{
 			Selector: &common.Selector{Type: common.SelectorAttr, Value: "group-title"},
 			Order:    &groupOrder,
@@ -130,56 +130,5 @@ func TestSortProcessor_Apply_WithGroupBy(t *testing.T) {
 		if ch.Name() != expectedNames[i] {
 			t.Errorf("Expected channel %d to be %q, got %q", i, expectedNames[i], ch.Name())
 		}
-	}
-}
-
-func TestSortProcessor_matchesPattern(t *testing.T) {
-	processor := NewSortProcessor(&configrules.SortRule{})
-
-	tests := []struct {
-		name     string
-		value    string
-		pattern  string
-		expected bool
-	}{
-		{
-			name:     "empty pattern matches anything",
-			value:    "any value",
-			pattern:  "",
-			expected: true,
-		},
-		{
-			name:     "exact match",
-			value:    "Sports Channel",
-			pattern:  "Sports Channel",
-			expected: true,
-		},
-		{
-			name:     "regex match",
-			value:    "Sports Channel",
-			pattern:  "Sports.*",
-			expected: true,
-		},
-		{
-			name:     "no match",
-			value:    "News Channel",
-			pattern:  "Sports.*",
-			expected: false,
-		},
-		{
-			name:     "invalid regex falls back to exact match",
-			value:    "test[",
-			pattern:  "test[",
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := processor.matchesPattern(tt.value, tt.pattern)
-			if result != tt.expected {
-				t.Errorf("matchesPattern(%q, %q) = %v, want %v", tt.value, tt.pattern, result, tt.expected)
-			}
-		})
 	}
 }

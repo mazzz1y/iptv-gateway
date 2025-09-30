@@ -3,14 +3,14 @@ package rules
 import (
 	"bytes"
 	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/rules/playlist"
 )
 
 type RemoveDuplicatesProcessor struct {
-	rule *rules.RemoveDuplicatesRule
+	rule *playlist.RemoveDuplicatesRule
 }
 
-func NewRemoveDuplicatesActionProcessor(rule *rules.RemoveDuplicatesRule) *RemoveDuplicatesProcessor {
+func NewRemoveDuplicatesActionProcessor(rule *playlist.RemoveDuplicatesRule) *RemoveDuplicatesProcessor {
 	return &RemoveDuplicatesProcessor{rule: rule}
 }
 

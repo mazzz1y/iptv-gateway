@@ -3,17 +3,18 @@ package rules
 import (
 	"bytes"
 	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/rules/channel"
+	"iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/listing"
 )
 
 type Processor struct {
 	clientName   string
-	channelRules []*rules.ChannelRule
-	storeRules   []*rules.PlaylistRule
+	channelRules []*channel.Rule
+	storeRules   []*playlist.Rule
 }
 
-func NewProcessor(clientName string, channelRules []*rules.ChannelRule, playlistRules []*rules.PlaylistRule) *Processor {
+func NewProcessor(clientName string, channelRules []*channel.Rule, playlistRules []*playlist.Rule) *Processor {
 	return &Processor{
 		clientName:   clientName,
 		channelRules: channelRules,
@@ -63,7 +64,7 @@ func (p *Processor) ensureTvgID(ch *Channel) {
 	}
 }
 
-func (p *Processor) processChannelRule(ch *Channel, rule *rules.ChannelRule) (stop bool) {
+func (p *Processor) processChannelRule(ch *Channel, rule *channel.Rule) (stop bool) {
 	if rule.SetField != nil {
 		p.processSetField(ch, rule.SetField)
 		stop = false
@@ -79,7 +80,7 @@ func (p *Processor) processChannelRule(ch *Channel, rule *rules.ChannelRule) (st
 	return
 }
 
-func (p *Processor) processSetField(ch *Channel, rule *rules.SetFieldRule) {
+func (p *Processor) processSetField(ch *Channel, rule *channel.SetFieldRule) {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
@@ -108,7 +109,7 @@ func (p *Processor) processSetField(ch *Channel, rule *rules.SetFieldRule) {
 	}
 }
 
-func (p *Processor) processRemoveField(ch *Channel, rule *rules.RemoveFieldRule) {
+func (p *Processor) processRemoveField(ch *Channel, rule *channel.RemoveFieldRule) {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
@@ -131,7 +132,7 @@ func (p *Processor) processRemoveField(ch *Channel, rule *rules.RemoveFieldRule)
 	}
 }
 
-func (p *Processor) processRemoveChannel(ch *Channel, rule *rules.RemoveChannelRule) bool {
+func (p *Processor) processRemoveChannel(ch *Channel, rule *channel.RemoveChannelRule) bool {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return false
 	}
@@ -139,7 +140,7 @@ func (p *Processor) processRemoveChannel(ch *Channel, rule *rules.RemoveChannelR
 	return true
 }
 
-func (p *Processor) processMarkHidden(ch *Channel, rule *rules.MarkHiddenRule) {
+func (p *Processor) processMarkHidden(ch *Channel, rule *channel.MarkHiddenRule) {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
@@ -233,7 +234,7 @@ func (p *Processor) matchesExactStrings(value string, strings common.StringOrArr
 	return false
 }
 
-func (p *Processor) containsStoreRule(rule *rules.PlaylistRule) bool {
+func (p *Processor) containsStoreRule(rule *playlist.Rule) bool {
 	for _, existing := range p.storeRules {
 		if existing == rule {
 			return true

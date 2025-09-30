@@ -4,22 +4,23 @@ import (
 	"fmt"
 	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/rules/channel"
+	"iptv-gateway/internal/config/rules/playlist"
 	"strings"
 )
 
 type Config struct {
-	YamlSnippets  map[string]any        `yaml:",inline"`
-	Server        ServerConfig          `yaml:"server"`
-	Logs          Logs                  `yaml:"logs"`
-	URLGenerator  URLGeneratorConfig    `yaml:"url_generator"`
-	Cache         CacheConfig           `yaml:"cache"`
-	Proxy         proxy.Proxy           `yaml:"proxy"`
-	Clients       []Client              `yaml:"clients"`
-	Playlists     []Playlist            `yaml:"playlists"`
-	EPGs          []EPG                 `yaml:"epgs"`
-	ChannelRules  []*rules.ChannelRule  `yaml:"channel_rules,omitempty"`
-	PlaylistRules []*rules.PlaylistRule `yaml:"playlist_rules,omitempty"`
+	YamlSnippets  map[string]any     `yaml:",inline"`
+	Server        ServerConfig       `yaml:"server"`
+	Logs          Logs               `yaml:"logs"`
+	URLGenerator  URLGeneratorConfig `yaml:"url_generator"`
+	Cache         CacheConfig        `yaml:"cache"`
+	Proxy         proxy.Proxy        `yaml:"proxy"`
+	Clients       []Client           `yaml:"clients"`
+	Playlists     []Playlist         `yaml:"playlists"`
+	EPGs          []EPG              `yaml:"epgs"`
+	ChannelRules  channel.Rules      `yaml:"channel_rules,omitempty"`
+	PlaylistRules playlist.Rules     `yaml:"playlist_rules,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -121,7 +122,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func (c *Config) validateChannelRuleReferences(rule *rules.ChannelRule, clientNames, playlistNames map[string]bool) error {
+func (c *Config) validateChannelRuleReferences(rule *channel.Rule, clientNames, playlistNames map[string]bool) error {
 	if rule.SetField != nil && rule.SetField.Condition != nil {
 		return c.validateConditionReferences(*rule.SetField.Condition, clientNames, playlistNames)
 	}
@@ -137,7 +138,7 @@ func (c *Config) validateChannelRuleReferences(rule *rules.ChannelRule, clientNa
 	return nil
 }
 
-func (c *Config) validatePlaylistRuleReferences(rule *rules.PlaylistRule, clientNames, playlistNames map[string]bool) error {
+func (c *Config) validatePlaylistRuleReferences(rule *playlist.Rule, clientNames, playlistNames map[string]bool) error {
 	if rule.MergeChannels != nil && rule.MergeChannels.Condition != nil {
 		return c.validateConditionReferences(*rule.MergeChannels.Condition, clientNames, playlistNames)
 	}

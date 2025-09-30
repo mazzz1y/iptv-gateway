@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/rules/channel"
+	"iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/listing"
 	m3u8Rules "iptv-gateway/internal/listing/m3u8/rules"
 	"iptv-gateway/internal/shell"
@@ -32,7 +33,7 @@ type Provider interface {
 	ExpiredLinkStreamer() *shell.Streamer
 }
 
-func NewClient(clientCfg config.Client, urlGen *urlgen.Generator, channelRules []*rules.ChannelRule, playlistRules []*rules.PlaylistRule, publicURL string) (*Client, error) {
+func NewClient(clientCfg config.Client, urlGen *urlgen.Generator, channelRules []*channel.Rule, playlistRules []*playlist.Rule, publicURL string) (*Client, error) {
 	if clientCfg.Secret == "" {
 		return nil, fmt.Errorf("client secret cannot be empty")
 	}

@@ -1,16 +1,15 @@
 package rules
 
 import (
-	"iptv-gateway/internal/config/rules"
-	"regexp"
+	"iptv-gateway/internal/config/rules/playlist"
 	"sort"
 )
 
 type SortProcessor struct {
-	rule *rules.SortRule
+	rule *playlist.Sort
 }
 
-func NewSortProcessor(rule *rules.SortRule) *SortProcessor {
+func NewSortProcessor(rule *playlist.Sort) *SortProcessor {
 	return &SortProcessor{rule: rule}
 }
 
@@ -140,16 +139,4 @@ func (sp *SortProcessor) getChannelPriority(ch *Channel) int {
 	}
 
 	return len(*sp.rule.Order)
-}
-
-func (sp *SortProcessor) matchesPattern(value, pattern string) bool {
-	if pattern == "" {
-		return true
-	}
-
-	if re, err := regexp.Compile(pattern); err == nil {
-		return re.MatchString(value)
-	}
-
-	return value == pattern
 }

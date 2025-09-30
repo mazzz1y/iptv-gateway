@@ -1,4 +1,4 @@
-package rules
+package channel
 
 import (
 	"fmt"
@@ -16,12 +16,12 @@ func (r *RemoveFieldRule) Validate() error {
 	}
 
 	if err := r.Selector.Validate(); err != nil {
-		return err
+		return fmt.Errorf("remove_field: %w", err)
 	}
 
 	if r.Condition != nil {
 		if err := r.Condition.Validate(); err != nil {
-			return err
+			return fmt.Errorf("remove_field: %w", err)
 		}
 	}
 

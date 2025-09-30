@@ -1,4 +1,4 @@
-package rules
+package channel
 
 import (
 	"fmt"
@@ -6,7 +6,25 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type ChannelRule struct {
+type Rules []*Rule
+
+func (c *Rules) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind != yaml.SequenceNode {
+		return fmt.Errorf("expected a sequence for channel_rules, got %s", value.Tag)
+	}
+	rules := make(Rules, len(value.Content))
+	for i, node := range value.Content {
+		rule := &Rule{}
+		if err := node.Decode(rule); err != nil {
+			return fmt.Errorf("channel_rules[%d]: %w", i, err)
+		}
+		rules[i] = rule
+	}
+	*c = rules
+	return nil
+}
+
+type Rule struct {
 	Validate func() error
 
 	SetField      *SetFieldRule      `yaml:"set_field,omitempty"`
@@ -15,15 +33,15 @@ type ChannelRule struct {
 	MarkHidden    *MarkHiddenRule    `yaml:"mark_hidden,omitempty"`
 }
 
-func (r *ChannelRule) UnmarshalYAML(value *yaml.Node) error {
-	type rawRule ChannelRule
+func (r *Rule) UnmarshalYAML(value *yaml.Node) error {
+	type rawRule Rule
 	var rr rawRule
 
 	if err := value.Decode(&rr); err != nil {
 		return err
 	}
 
-	rule := ChannelRule(rr)
+	rule := Rule(rr)
 
 	switch {
 	case rule.SetField != nil:
@@ -35,7 +53,7 @@ func (r *ChannelRule) UnmarshalYAML(value *yaml.Node) error {
 	case rule.MarkHidden != nil:
 		rule.Validate = rule.MarkHidden.Validate
 	default:
-		return fmt.Errorf("exactly one channel rule type must be specified")
+		return fmt.Errorf("unrecognized rule type")
 	}
 
 	*r = rule

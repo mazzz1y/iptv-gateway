@@ -1,12 +1,12 @@
 package rules
 
 import (
+	"iptv-gateway/internal/config/rules/channel"
 	"net/url"
 	"regexp"
 	"testing"
 
 	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
 )
@@ -22,7 +22,7 @@ type mockPlaylist struct {
 func (m mockPlaylist) Name() string                    { return m.name }
 func (m mockPlaylist) Playlists() []string             { return nil }
 func (m mockPlaylist) URLGenerator() *urlgen.Generator { return nil }
-func (m mockPlaylist) Rules() []*rules.ChannelRule     { return nil }
+func (m mockPlaylist) Rules() []*channel.Rule          { return nil }
 func (m mockPlaylist) IsProxied() bool                 { return false }
 
 func TestConditionLogic(t *testing.T) {
@@ -33,7 +33,7 @@ func TestConditionLogic(t *testing.T) {
 		URI:  uri,
 		Tags: map[string]string{"cat": "restricted"},
 	}
-	channel := NewChannel(track, playlist)
+	ch := NewChannel(track, playlist)
 	processor := NewProcessor("client1", nil, nil)
 
 	tests := []struct {
@@ -80,17 +80,17 @@ func TestConditionLogic(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := processor.matchesCondition(channel, tt.condition)
+		result := processor.matchesCondition(ch, tt.condition)
 		if result != tt.expectMatch {
 			t.Errorf("matchesCondition() = %v, want %v", result, tt.expectMatch)
 		}
 
-		rule := &rules.RemoveChannelRule{Condition: &tt.condition}
-		shouldRemove := processor.processRemoveChannel(channel, rule)
+		rule := &channel.RemoveChannelRule{Condition: &tt.condition}
+		shouldRemove := processor.processRemoveChannel(ch, rule)
 		if shouldRemove != tt.expectMatch {
 			t.Errorf("processRemoveChannel() = %v, want %v", shouldRemove, tt.expectMatch)
 		}
-		channel.removed = false
+		ch.removed = false
 	}
 }
 
@@ -98,7 +98,7 @@ func TestPlaylistCondition(t *testing.T) {
 	playlist := mockPlaylist{name: "pl2"}
 	uri, _ := url.Parse("http://example.com/stream")
 	track := &m3u8.Track{Name: "Channel B", URI: uri}
-	channel := NewChannel(track, playlist)
+	ch := NewChannel(track, playlist)
 	processor := NewProcessor("client1", nil, nil)
 
 	condition := common.Condition{
@@ -106,13 +106,13 @@ func TestPlaylistCondition(t *testing.T) {
 		Playlists: common.StringOrArr{"pl2"},
 	}
 
-	result := processor.matchesCondition(channel, condition)
+	result := processor.matchesCondition(ch, condition)
 	if !result {
 		t.Error("Expected match when both client and playlist match")
 	}
 
 	condition.Playlists = common.StringOrArr{"pl3"}
-	result = processor.matchesCondition(channel, condition)
+	result = processor.matchesCondition(ch, condition)
 	if result {
 		t.Error("Expected no match when playlist doesn't match")
 	}
@@ -129,7 +129,7 @@ func TestAdultChannelFilteringWithClientAndOrConditions(t *testing.T) {
 		},
 		URI: uri,
 	}
-	channel := NewChannel(track, playlist)
+	ch := NewChannel(track, playlist)
 
 	restrictedProcessor := NewProcessor("tv-bedroom", nil, nil)
 	condition := common.Condition{
@@ -146,19 +146,19 @@ func TestAdultChannelFilteringWithClientAndOrConditions(t *testing.T) {
 		},
 	}
 
-	result := restrictedProcessor.matchesCondition(channel, condition)
+	result := restrictedProcessor.matchesCondition(ch, condition)
 	if !result {
 		t.Error("Expected match for restricted client with adult content")
 	}
 
 	allowedProcessor := NewProcessor("living-room", nil, nil)
-	result = allowedProcessor.matchesCondition(channel, condition)
+	result = allowedProcessor.matchesCondition(ch, condition)
 	if result {
 		t.Error("Expected no match for non-restricted client - adult content should be available")
 	}
 
 	restrictedProcessor2 := NewProcessor("tv2-bedroom", nil, nil)
-	result = restrictedProcessor2.matchesCondition(channel, condition)
+	result = restrictedProcessor2.matchesCondition(ch, condition)
 	if !result {
 		t.Error("Expected match for tv2-bedroom restricted client with adult content")
 	}
@@ -168,11 +168,11 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	playlist := mockPlaylist{name: "test-playlist"}
 	uri, _ := url.Parse("http://example.com/stream")
 	track := &m3u8.Track{Name: "Test Channel", URI: uri}
-	channel := NewChannel(track, playlist)
+	ch := NewChannel(track, playlist)
 	processor := NewProcessor("client1", nil, nil)
 
 	emptyCondition := common.Condition{}
-	result := processor.evaluateConditionFieldCondition(channel, emptyCondition)
+	result := processor.evaluateConditionFieldCondition(ch, emptyCondition)
 	if !result {
 		t.Error("Expected true for empty field condition")
 	}
@@ -185,7 +185,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 			},
 		},
 	}
-	result = processor.evaluateConditionFieldCondition(channel, conditionWithOnlyOr)
+	result = processor.evaluateConditionFieldCondition(ch, conditionWithOnlyOr)
 	if !result {
 		t.Error("Expected true when no field conditions are specified")
 	}
@@ -194,7 +194,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 		Selector: &common.Selector{Type: common.SelectorAttr, Value: "non-existent-attr"},
 		Patterns: common.RegexpArr{mustCompile(".*")},
 	}
-	result = processor.evaluateConditionFieldCondition(channel, conditionMissingAttr)
+	result = processor.evaluateConditionFieldCondition(ch, conditionMissingAttr)
 	if result {
 		t.Error("Expected false for non-existent attribute")
 	}
@@ -203,7 +203,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 		Selector: &common.Selector{Type: common.SelectorTag, Value: "non-existent-tag"},
 		Patterns: common.RegexpArr{mustCompile(".*")},
 	}
-	result = processor.evaluateConditionFieldCondition(channel, conditionMissingTag)
+	result = processor.evaluateConditionFieldCondition(ch, conditionMissingTag)
 	if result {
 		t.Error("Expected false for non-existent tag")
 	}

@@ -1,7 +1,7 @@
-package rules
+package channel
 
 import (
-	"errors"
+	"fmt"
 	"iptv-gateway/internal/config/common"
 )
 
@@ -11,7 +11,10 @@ type RemoveChannelRule struct {
 
 func (r *RemoveChannelRule) Validate() error {
 	if r.Condition == nil {
-		return errors.New("remove_channel: condition is required")
+		return fmt.Errorf("remove_channel: condition is required")
 	}
-	return r.Condition.Validate()
+	if err := r.Condition.Validate(); err != nil {
+		return fmt.Errorf("remove_channel: %w", err)
+	}
+	return nil
 }

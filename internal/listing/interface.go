@@ -1,7 +1,7 @@
 package listing
 
 import (
-	"iptv-gateway/internal/config/rules"
+	"iptv-gateway/internal/config/rules/channel"
 	"iptv-gateway/internal/urlgen"
 	"net/http"
 	"net/url"
@@ -24,7 +24,7 @@ type Playlist interface {
 	Name() string
 	Playlists() []string
 	URLGenerator() *urlgen.Generator
-	Rules() []*rules.ChannelRule
+	Rules() []*channel.Rule
 	IsProxied() bool
 }
 

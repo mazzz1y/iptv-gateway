@@ -1,4 +1,4 @@
-package rules
+package playlist
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ type MergeDuplicatesRule struct {
 func (r *MergeDuplicatesRule) Validate() error {
 	if r.Selector != nil {
 		if err := r.Selector.Validate(); err != nil {
-			return fmt.Errorf("merge_duplicates: %s", err)
+			return fmt.Errorf("merge_duplicates: %w", err)
 		}
 	}
 
@@ -33,7 +33,7 @@ func (r *MergeDuplicatesRule) Validate() error {
 			return fmt.Errorf("merge_duplicates: final_value selector is required")
 		}
 		if err := r.FinalValue.Selector.Validate(); err != nil {
-			return fmt.Errorf("merge_duplicates: final_value selector validation failed: %w", err)
+			return fmt.Errorf("merge_duplicates: final_value %w", err)
 		}
 		if r.FinalValue.Template == nil {
 			return fmt.Errorf("merge_duplicates: final_value template is required")
@@ -42,7 +42,7 @@ func (r *MergeDuplicatesRule) Validate() error {
 
 	if r.Condition != nil {
 		if err := r.Condition.Validate(); err != nil {
-			return err
+			return fmt.Errorf("merge_duplicates: %w", err)
 		}
 
 		if r.Condition.Selector != nil ||
@@ -55,8 +55,4 @@ func (r *MergeDuplicatesRule) Validate() error {
 	}
 
 	return nil
-}
-
-func (r *MergeDuplicatesRule) String() string {
-	return "merge_duplicates"
 }

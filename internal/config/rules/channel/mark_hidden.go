@@ -1,7 +1,7 @@
-package rules
+package channel
 
 import (
-	"errors"
+	"fmt"
 	"iptv-gateway/internal/config/common"
 )
 
@@ -11,11 +11,10 @@ type MarkHiddenRule struct {
 
 func (m *MarkHiddenRule) Validate() error {
 	if m.Condition == nil {
-		return errors.New("condition is required")
+		return fmt.Errorf("mark_hidden: condition is required")
 	}
-	return m.Condition.Validate()
-}
-
-func (m *MarkHiddenRule) String() string {
-	return "mark_hidden"
+	if err := m.Condition.Validate(); err != nil {
+		return fmt.Errorf("mark_hidden: %w", err)
+	}
+	return nil
 }

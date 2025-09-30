@@ -2,9 +2,9 @@ package rules
 
 import (
 	"bytes"
+	configrules "iptv-gateway/internal/config/rules/playlist"
 
 	"iptv-gateway/internal/config/common"
-	configrules "iptv-gateway/internal/config/rules"
 	"iptv-gateway/internal/parser/m3u8"
 )
 

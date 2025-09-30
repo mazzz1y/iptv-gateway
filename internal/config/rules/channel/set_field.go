@@ -1,4 +1,4 @@
-package rules
+package channel
 
 import (
 	"fmt"
@@ -12,14 +12,12 @@ type SetFieldRule struct {
 }
 
 func (s *SetFieldRule) Validate() error {
-	if s.Selector != nil {
-		if err := s.Selector.Validate(); err != nil {
-			return fmt.Errorf("set_field: %s", err)
-		}
+	if s.Selector == nil {
+		return fmt.Errorf("set_field: selector is required")
 	}
 
 	if err := s.Selector.Validate(); err != nil {
-		return err
+		return fmt.Errorf("set_field: %w", err)
 	}
 
 	if s.Template == nil {
@@ -28,13 +26,9 @@ func (s *SetFieldRule) Validate() error {
 
 	if s.Condition != nil {
 		if err := s.Condition.Validate(); err != nil {
-			return err
+			return fmt.Errorf("set_field: %w", err)
 		}
 	}
 
 	return nil
-}
-
-func (s *SetFieldRule) String() string {
-	return "set_field"
 }
