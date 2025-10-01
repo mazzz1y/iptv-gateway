@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"syscall"
@@ -200,7 +199,6 @@ func (s *Server) streamToResponse(
 
 	if err != nil && !isClientDisconnect(err) {
 		logging.Error(ctx, err, "error copying stream to response")
-		fmt.Printf("err type = %T\n", err)
 	}
 
 	return streamResult{true, false, false}

@@ -1,8 +1,9 @@
-package rules
+package playlist
 
 import (
 	"iptv-gateway/internal/config/common"
 	configrules "iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/listing/m3u8/store"
 	"iptv-gateway/internal/parser/m3u8"
 	"regexp"
 	"testing"
@@ -21,24 +22,24 @@ func mustCompileRegexpArr(patterns []string) common.RegexpArr {
 }
 
 func TestSortProcessor_Apply_SimpleSort(t *testing.T) {
-	channels := []*Channel{
-		{track: &m3u8.Track{Name: "ZZZ Channel"}},
-		{track: &m3u8.Track{Name: "AAA Channel"}},
-		{track: &m3u8.Track{Name: "MMM Channel"}},
-		{track: &m3u8.Track{Name: "BBB Channel"}},
+	channels := []*store.Channel{
+		store.NewChannel(&m3u8.Track{Name: "ZZZ Channel"}, nil),
+		store.NewChannel(&m3u8.Track{Name: "AAA Channel"}, nil),
+		store.NewChannel(&m3u8.Track{Name: "MMM Channel"}, nil),
+		store.NewChannel(&m3u8.Track{Name: "BBB Channel"}, nil),
 	}
 
-	store := NewStore()
+	s := store.NewStore()
 	for _, ch := range channels {
-		store.Add(ch)
+		s.Add(ch)
 	}
 
 	rule := &configrules.Sort{}
 	processor := NewSortProcessor(rule)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	sorted := store.All()
+	sorted := s.All()
 
 	expected := []string{"AAA Channel", "BBB Channel", "MMM Channel", "ZZZ Channel"}
 	for i, ch := range sorted {
@@ -49,16 +50,16 @@ func TestSortProcessor_Apply_SimpleSort(t *testing.T) {
 }
 
 func TestSortProcessor_Apply_WithOrder(t *testing.T) {
-	channels := []*Channel{
-		{track: &m3u8.Track{Name: "News Channel"}},
-		{track: &m3u8.Track{Name: "Sports Channel"}},
-		{track: &m3u8.Track{Name: "Music Channel"}},
-		{track: &m3u8.Track{Name: "Movie Channel"}},
+	channels := []*store.Channel{
+		store.NewChannel(&m3u8.Track{Name: "News Channel"}, nil),
+		store.NewChannel(&m3u8.Track{Name: "Sports Channel"}, nil),
+		store.NewChannel(&m3u8.Track{Name: "Music Channel"}, nil),
+		store.NewChannel(&m3u8.Track{Name: "Movie Channel"}, nil),
 	}
 
-	store := NewStore()
+	s := store.NewStore()
 	for _, ch := range channels {
-		store.Add(ch)
+		s.Add(ch)
 	}
 
 	order := mustCompileRegexpArr([]string{"Sports.*", "Music.*", ""})
@@ -67,9 +68,9 @@ func TestSortProcessor_Apply_WithOrder(t *testing.T) {
 	}
 	processor := NewSortProcessor(rule)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	sorted := store.All()
+	sorted := s.All()
 
 	expected := []string{"Sports Channel", "Music Channel", "Movie Channel", "News Channel"}
 	for i, ch := range sorted {
@@ -80,28 +81,28 @@ func TestSortProcessor_Apply_WithOrder(t *testing.T) {
 }
 
 func TestSortProcessor_Apply_WithGroupBy(t *testing.T) {
-	channels := []*Channel{
-		{track: &m3u8.Track{
+	channels := []*store.Channel{
+		store.NewChannel(&m3u8.Track{
 			Name:  "Sports 1",
 			Attrs: map[string]string{"group-title": "Sports"},
-		}},
-		{track: &m3u8.Track{
+		}, nil),
+		store.NewChannel(&m3u8.Track{
 			Name:  "News 1",
 			Attrs: map[string]string{"group-title": "News"},
-		}},
-		{track: &m3u8.Track{
+		}, nil),
+		store.NewChannel(&m3u8.Track{
 			Name:  "Sports 2",
 			Attrs: map[string]string{"group-title": "Sports"},
-		}},
-		{track: &m3u8.Track{
+		}, nil),
+		store.NewChannel(&m3u8.Track{
 			Name:  "Music 1",
 			Attrs: map[string]string{"group-title": "Music"},
-		}},
+		}, nil),
 	}
 
-	store := NewStore()
+	s := store.NewStore()
 	for _, ch := range channels {
-		store.Add(ch)
+		s.Add(ch)
 	}
 
 	groupOrder := mustCompileRegexpArr([]string{"News", "Sports", "Music"})
@@ -113,9 +114,9 @@ func TestSortProcessor_Apply_WithGroupBy(t *testing.T) {
 	}
 	processor := NewSortProcessor(rule)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	sorted := store.All()
+	sorted := s.All()
 
 	expectedGroups := []string{"News", "Sports", "Sports", "Music"}
 	for i, ch := range sorted {

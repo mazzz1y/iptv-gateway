@@ -1,70 +1,33 @@
-package rules
+package channel
 
 import (
 	"bytes"
 	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/config/rules/playlist"
-	"iptv-gateway/internal/listing"
+	"iptv-gateway/internal/listing/m3u8/store"
 )
 
 type Processor struct {
-	clientName   string
-	channelRules []*channel.Rule
-	storeRules   []*playlist.Rule
+	clientName string
+	rules      []*channel.Rule
 }
 
-func NewProcessor(clientName string, channelRules []*channel.Rule, playlistRules []*playlist.Rule) *Processor {
+func NewRulesProcessor(clientName string, rules []*channel.Rule) *Processor {
 	return &Processor{
-		clientName:   clientName,
-		channelRules: channelRules,
-		storeRules:   playlistRules,
+		clientName: clientName,
+		rules:      rules,
 	}
 }
 
-func (p *Processor) Process(store *Store) {
-	p.processTrackRules(store)
-	p.processStoreRules(store)
-}
-
-func (p *Processor) processStoreRules(store *Store) {
-	for _, rule := range p.storeRules {
-		if rule.MergeChannels != nil && evaluateStoreCondition(rule.MergeChannels.Condition, p.clientName) {
-			processor := NewMergeDuplicatesActionProcessor(rule.MergeChannels)
-			processor.Apply(store)
-		}
-		if rule.RemoveDuplicates != nil && evaluateStoreCondition(rule.RemoveDuplicates.Condition, p.clientName) {
-			processor := NewRemoveDuplicatesActionProcessor(rule.RemoveDuplicates)
-			processor.Apply(store)
-		}
-		if rule.SortRule != nil && evaluateStoreCondition(rule.SortRule.Condition, p.clientName) {
-			processor := NewSortProcessor(rule.SortRule)
-			processor.Apply(store)
-		}
-	}
-}
-
-func (p *Processor) processTrackRules(store *Store) {
+func (p *Processor) Apply(store *store.Store) {
 	for _, ch := range store.All() {
-		for _, rule := range p.channelRules {
+		for _, rule := range p.rules {
 			p.processChannelRule(ch, rule)
 		}
-		p.ensureTvgID(ch)
 	}
 }
 
-func (p *Processor) ensureTvgID(ch *Channel) {
-	if tvgID, exists := ch.GetAttr("tvg-id"); exists && tvgID != "" {
-		return
-	}
-	if tvgName, exists := ch.GetAttr("tvg-name"); exists && tvgName != "" {
-		ch.SetAttr("tvg-id", listing.GenerateHashID(tvgName))
-	} else {
-		ch.SetAttr("tvg-id", listing.GenerateHashID(ch.Name()))
-	}
-}
-
-func (p *Processor) processChannelRule(ch *Channel, rule *channel.Rule) (stop bool) {
+func (p *Processor) processChannelRule(ch *store.Channel, rule *channel.Rule) (stop bool) {
 	if rule.SetField != nil {
 		p.processSetField(ch, rule.SetField)
 		stop = false
@@ -80,7 +43,7 @@ func (p *Processor) processChannelRule(ch *Channel, rule *channel.Rule) (stop bo
 	return
 }
 
-func (p *Processor) processSetField(ch *Channel, rule *channel.SetFieldRule) {
+func (p *Processor) processSetField(ch *store.Channel, rule *channel.SetFieldRule) {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
@@ -114,7 +77,7 @@ func (p *Processor) processSetField(ch *Channel, rule *channel.SetFieldRule) {
 	}
 }
 
-func (p *Processor) processRemoveField(ch *Channel, rule *channel.RemoveFieldRule) {
+func (p *Processor) processRemoveField(ch *store.Channel, rule *channel.RemoveFieldRule) {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
@@ -137,7 +100,7 @@ func (p *Processor) processRemoveField(ch *Channel, rule *channel.RemoveFieldRul
 	}
 }
 
-func (p *Processor) processRemoveChannel(ch *Channel, rule *channel.RemoveChannelRule) bool {
+func (p *Processor) processRemoveChannel(ch *store.Channel, rule *channel.RemoveChannelRule) bool {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return false
 	}
@@ -145,25 +108,25 @@ func (p *Processor) processRemoveChannel(ch *Channel, rule *channel.RemoveChanne
 	return true
 }
 
-func (p *Processor) processMarkHidden(ch *Channel, rule *channel.MarkHiddenRule) {
+func (p *Processor) processMarkHidden(ch *store.Channel, rule *channel.MarkHiddenRule) {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
 	ch.MarkHidden()
 }
 
-func (p *Processor) matchesCondition(ch *Channel, condition common.Condition) bool {
+func (p *Processor) matchesCondition(ch *store.Channel, condition common.Condition) bool {
 	if condition.IsEmpty() {
 		return true
 	}
 
-	fieldResult := p.evaluateConditionFieldCondition(ch, condition)
+	fieldResult := p.evaluateField(ch, condition)
 
 	var result bool
 	if len(condition.And) > 0 {
-		result = fieldResult && p.evaluateConditionAndConditions(ch, condition.And)
+		result = fieldResult && p.evaluateAnd(ch, condition.And)
 	} else if len(condition.Or) > 0 {
-		result = fieldResult && p.evaluateConditionOrConditions(ch, condition.Or)
+		result = fieldResult && p.evaluateOr(ch, condition.Or)
 	} else {
 		result = fieldResult
 	}
@@ -175,15 +138,16 @@ func (p *Processor) matchesCondition(ch *Channel, condition common.Condition) bo
 	return result
 }
 
-func (p *Processor) evaluateConditionFieldCondition(ch *Channel, condition common.Condition) bool {
-	hasFieldConditions := condition.Selector != nil || len(condition.Patterns) > 0 || len(condition.Clients) > 0 || len(condition.Playlists) > 0
+func (p *Processor) evaluateField(ch *store.Channel, condition common.Condition) bool {
+	hasFieldConditions := condition.Selector != nil || len(condition.Patterns) > 0 ||
+		len(condition.Clients) > 0 || len(condition.Playlists) > 0
 
 	if !hasFieldConditions {
 		return true
 	}
 
 	if len(condition.Patterns) > 0 {
-		fieldValue, ok := getSelectorFieldValue(ch, condition.Selector)
+		fieldValue, ok := ch.GetFieldValue(condition.Selector)
 		if !ok {
 			return false
 		}
@@ -203,7 +167,7 @@ func (p *Processor) evaluateConditionFieldCondition(ch *Channel, condition commo
 	return true
 }
 
-func (p *Processor) evaluateConditionAndConditions(ch *Channel, conditions []common.Condition) bool {
+func (p *Processor) evaluateAnd(ch *store.Channel, conditions []common.Condition) bool {
 	for _, sub := range conditions {
 		if !p.matchesCondition(ch, sub) {
 			return false
@@ -212,7 +176,7 @@ func (p *Processor) evaluateConditionAndConditions(ch *Channel, conditions []com
 	return true
 }
 
-func (p *Processor) evaluateConditionOrConditions(ch *Channel, conditions []common.Condition) bool {
+func (p *Processor) evaluateOr(ch *store.Channel, conditions []common.Condition) bool {
 	for _, sub := range conditions {
 		if p.matchesCondition(ch, sub) {
 			return true
@@ -233,15 +197,6 @@ func (p *Processor) matchesRegexps(value string, regexps common.RegexpArr) bool 
 func (p *Processor) matchesExactStrings(value string, strings common.StringOrArr) bool {
 	for _, str := range strings {
 		if value == str {
-			return true
-		}
-	}
-	return false
-}
-
-func (p *Processor) containsStoreRule(rule *playlist.Rule) bool {
-	for _, existing := range p.storeRules {
-		if existing == rule {
 			return true
 		}
 	}

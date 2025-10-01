@@ -1,6 +1,7 @@
-package rules
+package store
 
 import (
+	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/listing"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
@@ -17,6 +18,7 @@ type Channel struct {
 	playlist listing.Playlist
 	hidden   bool
 	removed  bool
+	priority int
 }
 
 func NewChannel(track *m3u8.Track, playlist listing.Playlist) *Channel {
@@ -73,6 +75,14 @@ func (c *Channel) MarkRemoved() {
 	c.removed = true
 }
 
+func (c *Channel) Priority() int {
+	return c.priority
+}
+
+func (c *Channel) SetPriority(priority int) {
+	c.priority = priority
+}
+
 func (c *Channel) Attrs() map[string]string {
 	return c.track.Attrs
 }
@@ -121,4 +131,27 @@ func (c *Channel) DeleteTag(key string) {
 	if c.track.Tags != nil {
 		delete(c.track.Tags, key)
 	}
+}
+
+func (c *Channel) GetFieldValue(selector *common.Selector) (string, bool) {
+	if selector == nil {
+		return c.Name(), true
+	}
+
+	switch selector.Type {
+	case common.SelectorName:
+		return c.Name(), true
+	case common.SelectorAttr:
+		if val, ok := c.GetAttr(selector.Value); ok {
+			return val, true
+		}
+		return "", false
+	case common.SelectorTag:
+		if val, ok := c.GetTag(selector.Value); ok {
+			return val, true
+		}
+		return "", false
+	}
+
+	return "", false
 }

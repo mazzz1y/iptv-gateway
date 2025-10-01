@@ -1,42 +1,40 @@
-package rules
+package playlist
 
 import (
 	"bytes"
 	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/listing/m3u8/rules/playlist/pattern_matcher"
+	"iptv-gateway/internal/listing/m3u8/store"
 )
 
 type RemoveDuplicatesProcessor struct {
-	rule *playlist.RemoveDuplicatesRule
+	rule    *playlist.RemoveDuplicatesRule
+	matcher interface {
+		GroupChannels() map[string][]*store.Channel
+	}
 }
 
 func NewRemoveDuplicatesActionProcessor(rule *playlist.RemoveDuplicatesRule) *RemoveDuplicatesProcessor {
 	return &RemoveDuplicatesProcessor{rule: rule}
 }
 
-func (p *RemoveDuplicatesProcessor) Apply(global *Store) {
-	grouped := make(map[string][]*Channel)
-	for _, ch := range global.All() {
-		key, ok := extractBaseNameFromChannel(ch, p.rule.Selector, p.rule.Patterns)
-		if !ok {
-			continue
-		}
-		grouped[key] = append(grouped[key], ch)
+func (p *RemoveDuplicatesProcessor) Apply(store *store.Store) {
+	if p.matcher == nil {
+		p.matcher = pattern_matcher.NewPatternMatcher(store.All(), p.rule.Selector, p.rule.Patterns)
 	}
+	grouped := p.matcher.GroupChannels()
 	p.processDuplicateGroups(grouped)
 }
 
-func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*Channel) {
+func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*store.Channel) {
 	for baseName, group := range groups {
 		if len(group) <= 1 {
 			continue
 		}
 
-		if !hasPatternVariationsGroup(group, p.rule.Selector, p.rule.Patterns) {
-			continue
-		}
+		best := group[0]
 
-		best := selectBestChannel(group, p.rule.Selector, p.rule.Patterns)
 		for _, ch := range group {
 			if ch == best {
 				if p.rule.FinalValue != nil {

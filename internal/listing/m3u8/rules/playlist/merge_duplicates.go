@@ -1,55 +1,45 @@
-package rules
+package playlist
 
 import (
 	"bytes"
 	configrules "iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/listing/m3u8/rules/playlist/pattern_matcher"
+	"iptv-gateway/internal/listing/m3u8/store"
 
 	"iptv-gateway/internal/config/common"
 	"iptv-gateway/internal/parser/m3u8"
 )
 
 type MergeDuplicatesProcessor struct {
-	rule *configrules.MergeDuplicatesRule
+	rule    *configrules.MergeDuplicatesRule
+	matcher interface {
+		GroupChannels() map[string][]*store.Channel
+	}
 }
 
 func NewMergeDuplicatesActionProcessor(rule *configrules.MergeDuplicatesRule) *MergeDuplicatesProcessor {
 	return &MergeDuplicatesProcessor{rule: rule}
 }
 
-func (p *MergeDuplicatesProcessor) Apply(store *Store) {
-	grouped := make(map[string][]*Channel)
-	for _, ch := range store.All() {
-		key, ok := extractBaseNameFromChannel(ch, p.rule.Selector, p.rule.Patterns)
-		if !ok {
-			continue
-		}
-		grouped[key] = append(grouped[key], ch)
+func (p *MergeDuplicatesProcessor) Apply(store *store.Store) {
+	if p.matcher == nil {
+		p.matcher = pattern_matcher.NewPatternMatcher(store.All(), p.rule.Selector, p.rule.Patterns)
 	}
+	grouped := p.matcher.GroupChannels()
 	p.processMergeGroups(grouped)
 }
 
-func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*Channel) {
+func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*store.Channel) {
 	for baseName, group := range groups {
 		if len(group) <= 1 {
 			continue
 		}
 
-		if !hasPatternVariationsGroup(group, p.rule.Selector, p.rule.Patterns) {
-			continue
-		}
-
-		best := selectBestChannel(group, p.rule.Selector, p.rule.Patterns)
+		best := group[0]
 
 		if bestTvgId, exists := best.GetAttr(m3u8.AttrTvgID); exists {
-			for _, ch := range group {
-				ch.SetAttr(m3u8.AttrTvgID, bestTvgId)
-			}
-		}
-
-		for i, ch := range group {
-			if ch == best { // Move the best channel to the front of the group
-				group[0], group[i] = group[i], group[0]
-				break
+			for i := 1; i < len(group); i++ {
+				group[i].SetAttr(m3u8.AttrTvgID, bestTvgId)
 			}
 		}
 

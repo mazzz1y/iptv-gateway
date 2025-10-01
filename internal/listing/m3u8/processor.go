@@ -2,7 +2,9 @@ package m3u8
 
 import (
 	"fmt"
-	"iptv-gateway/internal/listing/m3u8/rules"
+	"iptv-gateway/internal/listing/m3u8/rules/channel"
+	"iptv-gateway/internal/listing/m3u8/rules/playlist"
+	"iptv-gateway/internal/listing/m3u8/store"
 	"iptv-gateway/internal/parser/m3u8"
 	"iptv-gateway/internal/urlgen"
 	"net/url"
@@ -10,31 +12,31 @@ import (
 )
 
 type Processor struct {
-	addedTrackIDs   map[string]*rules.Channel
-	addedTrackNames map[string]*rules.Channel
-	channelStreams  map[*rules.Channel][]urlgen.Stream
+	channelsByID   map[string]*store.Channel
+	channelsByName map[string]*store.Channel
+	channelStreams map[*store.Channel][]urlgen.Stream
 }
 
 func NewProcessor() *Processor {
 	return &Processor{
-		addedTrackIDs:   make(map[string]*rules.Channel),
-		addedTrackNames: make(map[string]*rules.Channel),
-		channelStreams:  make(map[*rules.Channel][]urlgen.Stream),
+		channelsByID:   make(map[string]*store.Channel),
+		channelsByName: make(map[string]*store.Channel),
+		channelStreams: make(map[*store.Channel][]urlgen.Stream),
 	}
 }
 
-func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor) ([]*rules.Channel, error) {
-	rulesProcessor.Process(store)
+func (p *Processor) Process(
+	st *store.Store, channelProcessor *channel.Processor, playlistProcessor *playlist.Processor) ([]*store.Channel, error) {
+	channelProcessor.Apply(st)
+	playlistProcessor.Apply(st)
 
-	filteredChannels := make([]*rules.Channel, 0, store.Len())
-
-	for _, ch := range store.All() {
+	for _, ch := range st.All() {
 		if ch.IsRemoved() {
 			continue
 		}
 
 		if existingChannel := p.isDuplicate(ch); existingChannel != nil {
-			p.addURLChannel(existingChannel, ch)
+			p.mergeStream(existingChannel, ch)
 			continue
 		}
 
@@ -45,22 +47,29 @@ func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor)
 		}
 
 		p.trackChannel(ch)
-		filteredChannels = append(filteredChannels, ch)
+		p.channelStreams[ch] = nil
 	}
 
-	return filteredChannels, nil
+	result := make([]*store.Channel, 0, len(p.channelStreams))
+	for _, ch := range st.All() {
+		if _, exists := p.channelStreams[ch]; exists {
+			result = append(result, ch)
+		}
+	}
+
+	return result, nil
 }
 
-func (p *Processor) isDuplicate(ch *rules.Channel) *rules.Channel {
+func (p *Processor) isDuplicate(ch *store.Channel) *store.Channel {
 	id, hasID := ch.GetAttr(m3u8.AttrTvgID)
 	trackName := strings.ToLower(ch.Name())
 
 	if hasID && id != "" {
-		if existingChannel, exists := p.addedTrackIDs[id]; exists {
+		if existingChannel, exists := p.channelsByID[id]; exists {
 			return existingChannel
 		}
 	} else {
-		if existingChannel, exists := p.addedTrackNames[trackName]; exists {
+		if existingChannel, exists := p.channelsByName[trackName]; exists {
 			return existingChannel
 		}
 	}
@@ -68,41 +77,49 @@ func (p *Processor) isDuplicate(ch *rules.Channel) *rules.Channel {
 	return nil
 }
 
-func (p *Processor) trackChannel(ch *rules.Channel) {
+func (p *Processor) trackChannel(ch *store.Channel) {
 	id, hasID := ch.GetAttr(m3u8.AttrTvgID)
 	trackName := strings.ToLower(ch.Name())
 
 	if hasID && id != "" {
-		p.addedTrackIDs[id] = ch
+		p.channelsByID[id] = ch
 	} else {
-		p.addedTrackNames[trackName] = ch
+		p.channelsByName[trackName] = ch
 	}
 }
 
-func (p *Processor) addURLChannel(existingChannel, newChannel *rules.Channel) {
+func (p *Processor) mergeStream(existingChannel, newChannel *store.Channel) {
 	if !newChannel.Playlist().IsProxied() || newChannel.URI() == nil {
 		return
 	}
 
-	newStream := urlgen.Stream{
+	if newChannel.Priority() > existingChannel.Priority() {
+		p.trackChannel(newChannel)
+
+		if streams, exists := p.channelStreams[existingChannel]; exists {
+			p.channelStreams[newChannel] = streams
+			delete(p.channelStreams, existingChannel)
+		}
+
+		existingChannel = newChannel
+	}
+
+	p.channelStreams[existingChannel] = append(p.channelStreams[existingChannel], urlgen.Stream{
 		ProviderInfo: urlgen.ProviderInfo{
 			ProviderType: urlgen.ProviderTypePlaylist,
 			ProviderName: newChannel.Playlist().Name(),
 		},
 		URL:    newChannel.URI().String(),
 		Hidden: newChannel.IsHidden(),
-	}
-
-	p.channelStreams[existingChannel] = append(p.channelStreams[existingChannel], newStream)
+	})
 
 	urlGen := existingChannel.Playlist().URLGenerator()
-	u, err := urlGen.CreateStreamURL(existingChannel.Name(), p.channelStreams[existingChannel])
-	if err == nil {
+	if u, err := urlGen.CreateStreamURL(existingChannel.Name(), p.channelStreams[existingChannel]); err == nil {
 		existingChannel.SetURI(u)
 	}
 }
 
-func (p *Processor) processProxyLinks(ch *rules.Channel) error {
+func (p *Processor) processProxyLinks(ch *store.Channel) error {
 	subscription := ch.Playlist()
 	urlGen := subscription.URLGenerator()
 

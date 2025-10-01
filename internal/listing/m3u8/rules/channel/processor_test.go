@@ -1,7 +1,8 @@
-package rules
+package channel
 
 import (
 	"iptv-gateway/internal/config/rules/channel"
+	"iptv-gateway/internal/listing/m3u8/store"
 	"net/url"
 	"regexp"
 	"testing"
@@ -33,8 +34,8 @@ func TestConditionLogic(t *testing.T) {
 		URI:  uri,
 		Tags: map[string]string{"cat": "restricted"},
 	}
-	ch := NewChannel(track, playlist)
-	processor := NewProcessor("client1", nil, nil)
+	ch := store.NewChannel(track, playlist)
+	processor := NewRulesProcessor("client1", nil)
 
 	tests := []struct {
 		condition   common.Condition
@@ -90,7 +91,6 @@ func TestConditionLogic(t *testing.T) {
 		if shouldRemove != tt.expectMatch {
 			t.Errorf("processRemoveChannel() = %v, want %v", shouldRemove, tt.expectMatch)
 		}
-		ch.removed = false
 	}
 }
 
@@ -98,8 +98,8 @@ func TestPlaylistCondition(t *testing.T) {
 	playlist := mockPlaylist{name: "pl2"}
 	uri, _ := url.Parse("http://example.com/stream")
 	track := &m3u8.Track{Name: "Channel B", URI: uri}
-	ch := NewChannel(track, playlist)
-	processor := NewProcessor("client1", nil, nil)
+	ch := store.NewChannel(track, playlist)
+	processor := NewRulesProcessor("client1", nil)
 
 	condition := common.Condition{
 		Clients:   common.StringOrArr{"client1", "client2"},
@@ -129,9 +129,9 @@ func TestAdultChannelFilteringWithClientAndOrConditions(t *testing.T) {
 		},
 		URI: uri,
 	}
-	ch := NewChannel(track, playlist)
+	ch := store.NewChannel(track, playlist)
 
-	restrictedProcessor := NewProcessor("tv-bedroom", nil, nil)
+	restrictedProcessor := NewRulesProcessor("tv-bedroom", nil)
 	condition := common.Condition{
 		Clients: common.StringOrArr{"tv-bedroom", "tv2-bedroom"},
 		Or: []common.Condition{
@@ -151,13 +151,13 @@ func TestAdultChannelFilteringWithClientAndOrConditions(t *testing.T) {
 		t.Error("Expected match for restricted client with adult content")
 	}
 
-	allowedProcessor := NewProcessor("living-room", nil, nil)
+	allowedProcessor := NewRulesProcessor("living-room", nil)
 	result = allowedProcessor.matchesCondition(ch, condition)
 	if result {
 		t.Error("Expected no match for non-restricted client - adult content should be available")
 	}
 
-	restrictedProcessor2 := NewProcessor("tv2-bedroom", nil, nil)
+	restrictedProcessor2 := NewRulesProcessor("tv2-bedroom", nil)
 	result = restrictedProcessor2.matchesCondition(ch, condition)
 	if !result {
 		t.Error("Expected match for tv2-bedroom restricted client with adult content")
@@ -168,11 +168,11 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	playlist := mockPlaylist{name: "test-playlist"}
 	uri, _ := url.Parse("http://example.com/stream")
 	track := &m3u8.Track{Name: "Test Channel", URI: uri}
-	ch := NewChannel(track, playlist)
-	processor := NewProcessor("client1", nil, nil)
+	ch := store.NewChannel(track, playlist)
+	processor := NewRulesProcessor("client1", nil)
 
 	emptyCondition := common.Condition{}
-	result := processor.evaluateConditionFieldCondition(ch, emptyCondition)
+	result := processor.evaluateField(ch, emptyCondition)
 	if !result {
 		t.Error("Expected true for empty field condition")
 	}
@@ -185,7 +185,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 			},
 		},
 	}
-	result = processor.evaluateConditionFieldCondition(ch, conditionWithOnlyOr)
+	result = processor.evaluateField(ch, conditionWithOnlyOr)
 	if !result {
 		t.Error("Expected true when no field conditions are specified")
 	}
@@ -194,7 +194,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 		Selector: &common.Selector{Type: common.SelectorAttr, Value: "non-existent-attr"},
 		Patterns: common.RegexpArr{mustCompile(".*")},
 	}
-	result = processor.evaluateConditionFieldCondition(ch, conditionMissingAttr)
+	result = processor.evaluateField(ch, conditionMissingAttr)
 	if result {
 		t.Error("Expected false for non-existent attribute")
 	}
@@ -203,7 +203,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 		Selector: &common.Selector{Type: common.SelectorTag, Value: "non-existent-tag"},
 		Patterns: common.RegexpArr{mustCompile(".*")},
 	}
-	result = processor.evaluateConditionFieldCondition(ch, conditionMissingTag)
+	result = processor.evaluateField(ch, conditionMissingTag)
 	if result {
 		t.Error("Expected false for non-existent tag")
 	}

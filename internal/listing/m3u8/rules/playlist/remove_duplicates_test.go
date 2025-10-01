@@ -1,164 +1,21 @@
-package rules
+package playlist
 
 import (
 	"iptv-gateway/internal/config/common"
 	configrules "iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/listing/m3u8/store"
 	"iptv-gateway/internal/parser/m3u8"
 	"net/url"
 	"regexp"
 	"testing"
 )
 
-func stringPtr(s string) *string {
-	return &s
+type mockDuplicatesMatcher struct {
+	groups map[string][]*store.Channel
 }
 
-func TestRemoveDuplicatesProcessor_extractKey(t *testing.T) {
-	rule := &configrules.RemoveDuplicatesRule{
-		Selector: &common.Selector{Type: common.SelectorAttr, Value: "x-tvg-name"},
-		Patterns: common.RegexpArr{
-			regexp.MustCompile(`\[HD\]`),
-			regexp.MustCompile(`\(FHD\)`),
-			regexp.MustCompile(`HD`),
-		},
-	}
-
-	processor := NewRemoveDuplicatesActionProcessor(rule)
-
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "pattern at start",
-			input:    "HD Channel FieldName",
-			expected: "Channel FieldName",
-		},
-		{
-			name:     "pattern at end",
-			input:    "Channel FieldName HD",
-			expected: "Channel FieldName",
-		},
-		{
-			name:     "pattern in middle",
-			input:    "Channel HD FieldName",
-			expected: "Channel FieldName",
-		},
-		{
-			name:     "multiple patterns",
-			input:    "[HD] Channel (FHD) FieldName HD",
-			expected: "Channel FieldName",
-		},
-		{
-			name:     "multiple spaces",
-			input:    "Channel    FieldName    With    Spaces",
-			expected: "Channel FieldName With Spaces",
-		},
-		{
-			name:     "leading and trailing spaces",
-			input:    "   Channel FieldName   ",
-			expected: "Channel FieldName",
-		},
-		{
-			name:     "pattern creates double spaces",
-			input:    "Channel[HD]FieldName",
-			expected: "ChannelFieldName",
-		},
-		{
-			name:     "pattern with spaces creates multiple spaces",
-			input:    "Channel [HD] FieldName",
-			expected: "Channel FieldName",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ch := &Channel{
-				track: &m3u8.Track{
-					Name: "Channel Name",
-					Attrs: map[string]string{
-						"x-tvg-name": tt.input,
-					},
-				},
-			}
-			result, ok := extractBaseNameFromChannel(ch, processor.rule.Selector, processor.rule.Patterns)
-			if !ok {
-				t.Errorf("extractBaseNameFromChannel(%q) failed to extract value", tt.input)
-				return
-			}
-			if result != tt.expected {
-				t.Errorf("extractKey(%q) = %q, want %q", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestRemoveDuplicatesProcessor_extractKey_attr(t *testing.T) {
-	rule := &configrules.RemoveDuplicatesRule{
-		Selector: &common.Selector{
-			Type:  common.SelectorAttr,
-			Value: "x-tvg-name",
-		},
-		Patterns: common.RegexpArr{
-			regexp.MustCompile(`\+3 \(Омск\)`),
-			regexp.MustCompile(`\+3`),
-			regexp.MustCompile(`\+7 \(Москва\)`),
-		},
-	}
-
-	processor := NewRemoveDuplicatesActionProcessor(rule)
-
-	tests := []struct {
-		name     string
-		attrName string
-		attrVal  string
-		expected string
-	}{
-		{
-			name:     "matches first pattern",
-			attrName: "x-tvg-name",
-			attrVal:  "+3 (Омск)",
-			expected: "",
-		},
-		{
-			name:     "matches second pattern",
-			attrName: "x-tvg-name",
-			attrVal:  "+3",
-			expected: "",
-		},
-		{
-			name:     "matches third pattern",
-			attrName: "x-tvg-name",
-			attrVal:  "+7 (Москва)",
-			expected: "",
-		},
-		{
-			name:     "no match",
-			attrName: "x-tvg-name",
-			attrVal:  "Channel FieldName",
-			expected: "Channel FieldName",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ch := &Channel{
-				track: &m3u8.Track{
-					Name:  "Test Channel",
-					Attrs: map[string]string{tt.attrName: tt.attrVal},
-				},
-			}
-			result, ok := extractBaseNameFromChannel(ch, processor.rule.Selector, processor.rule.Patterns)
-			if !ok {
-				t.Errorf("extractBaseNameFromChannel(attr=%q) failed to extract value", tt.attrVal)
-				return
-			}
-			if result != tt.expected {
-				t.Errorf("extractKey(attr=%q) = %q, want %q", tt.attrVal, result, tt.expected)
-			}
-		})
-	}
+func (m *mockDuplicatesMatcher) GroupChannels() map[string][]*store.Channel {
+	return m.groups
 }
 
 func TestRemoveDuplicatesProcessor_shouldNotRemoveIdenticalChannels(t *testing.T) {
@@ -170,28 +27,28 @@ func TestRemoveDuplicatesProcessor_shouldNotRemoveIdenticalChannels(t *testing.T
 	}
 
 	processor := NewRemoveDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
 	uri3, _ := url.Parse("http://example.com/url3")
 	uri4, _ := url.Parse("http://example.com/url4")
 
-	ch1 := &Channel{track: &m3u8.Track{Name: "Channel Name [HD]", URI: uri1}}
-	ch2 := &Channel{track: &m3u8.Track{Name: "Channel Name (FHD)", URI: uri2}}
+	ch1 := store.NewChannel(&m3u8.Track{Name: "Channel Name [HD]", URI: uri1}, nil)
+	ch2 := store.NewChannel(&m3u8.Track{Name: "Channel Name (FHD)", URI: uri2}, nil)
 
-	ch3 := &Channel{track: &m3u8.Track{Name: "Different Channel", URI: uri3}}
-	ch4 := &Channel{track: &m3u8.Track{Name: "Different Channel", URI: uri4}}
+	ch3 := store.NewChannel(&m3u8.Track{Name: "Different Channel", URI: uri3}, nil)
+	ch4 := store.NewChannel(&m3u8.Track{Name: "Different Channel", URI: uri4}, nil)
 
-	store.Add(ch1)
-	store.Add(ch2)
-	store.Add(ch3)
-	store.Add(ch4)
+	s.Add(ch1)
+	s.Add(ch2)
+	s.Add(ch3)
+	s.Add(ch4)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	activeChannels := make([]*Channel, 0)
-	for _, ch := range store.All() {
+	activeChannels := make([]*store.Channel, 0)
+	for _, ch := range s.All() {
 		if !ch.IsRemoved() {
 			activeChannels = append(activeChannels, ch)
 		}
@@ -201,7 +58,7 @@ func TestRemoveDuplicatesProcessor_shouldNotRemoveIdenticalChannels(t *testing.T
 	if len(activeChannels) != expectedActive {
 		t.Errorf("Expected %d active channels, got %d", expectedActive, len(activeChannels))
 
-		for i, ch := range store.All() {
+		for i, ch := range s.All() {
 			t.Logf("Channel %d: Name='%s', URI='%s', Removed=%v",
 				i, ch.Name(), ch.URI(), ch.IsRemoved())
 		}
@@ -234,8 +91,7 @@ func TestRemoveDuplicatesProcessor_setPattern(t *testing.T) {
 		},
 	}
 
-	processor := NewRemoveDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	playlist := mockPlaylist{name: "test-playlist"}
 
@@ -249,20 +105,30 @@ func TestRemoveDuplicatesProcessor_setPattern(t *testing.T) {
 	track3 := &m3u8.Track{Name: "National Geographic UHD", URI: uri3}
 	track4 := &m3u8.Track{Name: "National Geographic", URI: uri4}
 
-	ch1 := NewChannel(track1, playlist)
-	ch2 := NewChannel(track2, playlist)
-	ch3 := NewChannel(track3, playlist)
-	ch4 := NewChannel(track4, playlist)
+	ch1 := store.NewChannel(track1, playlist)
+	ch2 := store.NewChannel(track2, playlist)
+	ch3 := store.NewChannel(track3, playlist)
+	ch4 := store.NewChannel(track4, playlist)
 
-	store.Add(ch1)
-	store.Add(ch2)
-	store.Add(ch3)
-	store.Add(ch4)
+	s.Add(ch1)
+	s.Add(ch2)
+	s.Add(ch3)
+	s.Add(ch4)
 
-	processor.Apply(store)
+	processor := &RemoveDuplicatesProcessor{
+		rule: rule,
+		matcher: &mockDuplicatesMatcher{
+			groups: map[string][]*store.Channel{
+				"Discovery Channel":   {ch2, ch1}, // ch2 4K best
+				"National Geographic": {ch4, ch3}, // ch4 no pattern best
+			},
+		},
+	}
 
-	activeChannels := make([]*Channel, 0)
-	for _, ch := range store.All() {
+	processor.Apply(s)
+
+	activeChannels := make([]*store.Channel, 0)
+	for _, ch := range s.All() {
 		if !ch.IsRemoved() {
 			activeChannels = append(activeChannels, ch)
 		}
@@ -271,7 +137,7 @@ func TestRemoveDuplicatesProcessor_setPattern(t *testing.T) {
 	expectedActive := 2
 	if len(activeChannels) != expectedActive {
 		t.Errorf("Expected %d active channels, got %d", expectedActive, len(activeChannels))
-		for i, ch := range store.All() {
+		for i, ch := range s.All() {
 			t.Logf("Channel %d: Name='%s', URI='%s', Removed=%v",
 				i, ch.Name(), ch.URI(), ch.IsRemoved())
 		}
@@ -313,7 +179,7 @@ func TestRemoveDuplicatesProcessor_setFieldAttr(t *testing.T) {
 	}
 
 	processor := NewRemoveDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	playlist := mockPlaylist{name: "test-playlist"}
 
@@ -331,16 +197,16 @@ func TestRemoveDuplicatesProcessor_setFieldAttr(t *testing.T) {
 		Attrs: map[string]string{"group-title": "News 4K"},
 	}
 
-	ch1 := NewChannel(track1, playlist)
-	ch2 := NewChannel(track2, playlist)
+	ch1 := store.NewChannel(track1, playlist)
+	ch2 := store.NewChannel(track2, playlist)
 
-	store.Add(ch1)
-	store.Add(ch2)
+	s.Add(ch1)
+	s.Add(ch2)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	activeChannels := make([]*Channel, 0)
-	for _, ch := range store.All() {
+	activeChannels := make([]*store.Channel, 0)
+	for _, ch := range s.All() {
 		if !ch.IsRemoved() {
 			activeChannels = append(activeChannels, ch)
 		}
@@ -382,7 +248,7 @@ func TestRemoveDuplicatesProcessor_setFieldTag(t *testing.T) {
 	}
 
 	processor := NewRemoveDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	playlist := mockPlaylist{name: "test-playlist"}
 
@@ -402,16 +268,16 @@ func TestRemoveDuplicatesProcessor_setFieldTag(t *testing.T) {
 		Tags:  map[string]string{"quality": "4K"},
 	}
 
-	ch1 := NewChannel(track1, playlist)
-	ch2 := NewChannel(track2, playlist)
+	ch1 := store.NewChannel(track1, playlist)
+	ch2 := store.NewChannel(track2, playlist)
 
-	store.Add(ch1)
-	store.Add(ch2)
+	s.Add(ch1)
+	s.Add(ch2)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	activeChannels := make([]*Channel, 0)
-	for _, ch := range store.All() {
+	activeChannels := make([]*store.Channel, 0)
+	for _, ch := range s.All() {
 		if !ch.IsRemoved() {
 			activeChannels = append(activeChannels, ch)
 		}
@@ -453,7 +319,7 @@ func TestRemoveDuplicatesProcessor_onlyPatternChannels(t *testing.T) {
 	}
 
 	processor := NewRemoveDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
@@ -462,24 +328,24 @@ func TestRemoveDuplicatesProcessor_onlyPatternChannels(t *testing.T) {
 	uri5, _ := url.Parse("http://example.com/url5")
 	uri6, _ := url.Parse("http://example.com/url6")
 
-	ch1 := &Channel{track: &m3u8.Track{Name: "Channel A HD", URI: uri1}}
-	ch2 := &Channel{track: &m3u8.Track{Name: "Channel A 4K", URI: uri2}}
-	ch3 := &Channel{track: &m3u8.Track{Name: "Channel B", URI: uri3}}
-	ch4 := &Channel{track: &m3u8.Track{Name: "Channel B", URI: uri4}}
-	ch5 := &Channel{track: &m3u8.Track{Name: "Channel C orig", URI: uri5}}
-	ch6 := &Channel{track: &m3u8.Track{Name: "Channel C", URI: uri6}}
+	ch1 := store.NewChannel(&m3u8.Track{Name: "Channel A HD", URI: uri1}, nil)
+	ch2 := store.NewChannel(&m3u8.Track{Name: "Channel A 4K", URI: uri2}, nil)
+	ch3 := store.NewChannel(&m3u8.Track{Name: "Channel B", URI: uri3}, nil)
+	ch4 := store.NewChannel(&m3u8.Track{Name: "Channel B", URI: uri4}, nil)
+	ch5 := store.NewChannel(&m3u8.Track{Name: "Channel C orig", URI: uri5}, nil)
+	ch6 := store.NewChannel(&m3u8.Track{Name: "Channel C", URI: uri6}, nil)
 
-	store.Add(ch1)
-	store.Add(ch2)
-	store.Add(ch3)
-	store.Add(ch4)
-	store.Add(ch5)
-	store.Add(ch6)
+	s.Add(ch1)
+	s.Add(ch2)
+	s.Add(ch3)
+	s.Add(ch4)
+	s.Add(ch5)
+	s.Add(ch6)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	activeChannels := make([]*Channel, 0)
-	for _, ch := range store.All() {
+	activeChannels := make([]*store.Channel, 0)
+	for _, ch := range s.All() {
 		if !ch.IsRemoved() {
 			activeChannels = append(activeChannels, ch)
 		}
@@ -488,7 +354,7 @@ func TestRemoveDuplicatesProcessor_onlyPatternChannels(t *testing.T) {
 	expectedActive := 4
 	if len(activeChannels) != expectedActive {
 		t.Errorf("Expected %d active channels, got %d", expectedActive, len(activeChannels))
-		for i, ch := range store.All() {
+		for i, ch := range s.All() {
 			t.Logf("Channel %d: Name='%s', URI='%s', Removed=%v",
 				i, ch.Name(), ch.URI(), ch.IsRemoved())
 		}
@@ -552,21 +418,21 @@ func TestRemoveDuplicatesProcessor_emptyPatternPriority(t *testing.T) {
 	}
 
 	processor := NewRemoveDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
 
-	ch1 := &Channel{track: &m3u8.Track{Name: "Test Channel", URI: uri1}}
-	ch2 := &Channel{track: &m3u8.Track{Name: "Test Channel orig", URI: uri2}}
+	ch1 := store.NewChannel(&m3u8.Track{Name: "Test Channel", URI: uri1}, nil)
+	ch2 := store.NewChannel(&m3u8.Track{Name: "Test Channel orig", URI: uri2}, nil)
 
-	store.Add(ch1)
-	store.Add(ch2)
+	s.Add(ch1)
+	s.Add(ch2)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	activeChannels := make([]*Channel, 0)
-	for _, ch := range store.All() {
+	activeChannels := make([]*store.Channel, 0)
+	for _, ch := range s.All() {
 		if !ch.IsRemoved() {
 			activeChannels = append(activeChannels, ch)
 		}
@@ -575,7 +441,7 @@ func TestRemoveDuplicatesProcessor_emptyPatternPriority(t *testing.T) {
 	expectedActive := 1
 	if len(activeChannels) != expectedActive {
 		t.Errorf("Expected %d active channels, got %d", expectedActive, len(activeChannels))
-		for i, ch := range store.All() {
+		for i, ch := range s.All() {
 			t.Logf("Channel %d: Name='%s', URI='%s', Removed=%v",
 				i, ch.Name(), ch.URI(), ch.IsRemoved())
 		}

@@ -1,7 +1,8 @@
-package rules
+package playlist
 
 import (
 	"iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/listing/m3u8/store"
 	"sort"
 )
 
@@ -13,8 +14,8 @@ func NewSortProcessor(rule *playlist.Sort) *SortProcessor {
 	return &SortProcessor{rule: rule}
 }
 
-func (sp *SortProcessor) Apply(store *Store) {
-	channels := store.All()
+func (sp *SortProcessor) Apply(st *store.Store) {
+	channels := st.All()
 	if len(channels) <= 1 {
 		return
 	}
@@ -26,8 +27,8 @@ func (sp *SortProcessor) Apply(store *Store) {
 			if iPriority != jPriority {
 				return iPriority < jPriority
 			}
-			iVal, iOk := getSelectorFieldValue(channels[i], sp.rule.Selector)
-			jVal, jOk := getSelectorFieldValue(channels[j], sp.rule.Selector)
+			iVal, iOk := channels[i].GetFieldValue(sp.rule.Selector)
+			jVal, jOk := channels[j].GetFieldValue(sp.rule.Selector)
 			if !iOk {
 				return false
 			}
@@ -36,17 +37,17 @@ func (sp *SortProcessor) Apply(store *Store) {
 			}
 			return iVal < jVal
 		})
-		store.Replace(channels)
+		st.Replace(channels)
 		return
 	}
 
-	groups := make(map[string][]*Channel)
+	groups := make(map[string][]*store.Channel)
 	for _, ch := range channels {
 		groupKey := sp.getGroupKey(ch)
 		groups[groupKey] = append(groups[groupKey], ch)
 	}
 
-	var sortedChannels []*Channel
+	var sortedChannels []*store.Channel
 	groupNames := make([]string, 0, len(groups))
 	for name := range groups {
 		groupNames = append(groupNames, name)
@@ -69,8 +70,8 @@ func (sp *SortProcessor) Apply(store *Store) {
 			if iPriority != jPriority {
 				return iPriority < jPriority
 			}
-			iVal, iOk := getSelectorFieldValue(groupChannels[i], sp.rule.Selector)
-			jVal, jOk := getSelectorFieldValue(groupChannels[j], sp.rule.Selector)
+			iVal, iOk := groupChannels[i].GetFieldValue(sp.rule.Selector)
+			jVal, jOk := groupChannels[j].GetFieldValue(sp.rule.Selector)
 			if !iOk {
 				return false
 			}
@@ -82,15 +83,15 @@ func (sp *SortProcessor) Apply(store *Store) {
 		sortedChannels = append(sortedChannels, groupChannels...)
 	}
 
-	store.Replace(sortedChannels)
+	st.Replace(sortedChannels)
 }
 
-func (sp *SortProcessor) getGroupKey(ch *Channel) string {
+func (sp *SortProcessor) getGroupKey(ch *store.Channel) string {
 	if sp.rule.GroupBy == nil {
 		return ""
 	}
 	if sp.rule.GroupBy.Selector != nil {
-		val, _ := getSelectorFieldValue(ch, sp.rule.GroupBy.Selector)
+		val, _ := ch.GetFieldValue(sp.rule.GroupBy.Selector)
 		return val
 	}
 	return ""
@@ -116,12 +117,12 @@ func (sp *SortProcessor) getGroupPriority(groupValue string) int {
 	return len(*sp.rule.GroupBy.Order)
 }
 
-func (sp *SortProcessor) getChannelPriority(ch *Channel) int {
+func (sp *SortProcessor) getChannelPriority(ch *store.Channel) int {
 	if sp.rule.Order == nil || len(*sp.rule.Order) == 0 {
 		return 0
 	}
 
-	field, ok := getSelectorFieldValue(ch, sp.rule.Selector)
+	field, ok := ch.GetFieldValue(sp.rule.Selector)
 	if !ok {
 		return len(*sp.rule.Order)
 	}

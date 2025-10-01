@@ -1,15 +1,41 @@
-package rules
+package playlist
 
 import (
 	"iptv-gateway/internal/config/common"
 	configrules "iptv-gateway/internal/config/rules/playlist"
+	"iptv-gateway/internal/listing/m3u8/store"
 	"iptv-gateway/internal/parser/m3u8"
+	"iptv-gateway/internal/urlgen"
 	"net/url"
 	"regexp"
 	"testing"
 
+	"iptv-gateway/internal/config/rules/channel"
+
 	"gopkg.in/yaml.v3"
 )
+
+type mockPlaylist struct {
+	name string
+}
+
+func (m mockPlaylist) Name() string                    { return m.name }
+func (m mockPlaylist) Playlists() []string             { return nil }
+func (m mockPlaylist) URLGenerator() *urlgen.Generator { return nil }
+func (m mockPlaylist) Rules() []*channel.Rule          { return nil }
+func (m mockPlaylist) IsProxied() bool                 { return false }
+
+func mustTemplate(tmpl string) *common.Template {
+	var t common.Template
+	node := &yaml.Node{
+		Kind:  yaml.ScalarNode,
+		Value: tmpl,
+	}
+	if err := t.UnmarshalYAML(node); err != nil {
+		panic(err)
+	}
+	return &t
+}
 
 func TestMergeChannelsProcessor_CopyTvgId(t *testing.T) {
 	rule := &configrules.MergeDuplicatesRule{
@@ -20,8 +46,7 @@ func TestMergeChannelsProcessor_CopyTvgId(t *testing.T) {
 		},
 	}
 
-	processor := NewMergeDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	playlist := mockPlaylist{name: "test-playlist"}
 
@@ -39,15 +64,24 @@ func TestMergeChannelsProcessor_CopyTvgId(t *testing.T) {
 		Attrs: map[string]string{"tvg-id": "cnn-4k"},
 	}
 
-	ch1 := NewChannel(track1, playlist)
-	ch2 := NewChannel(track2, playlist)
+	ch1 := store.NewChannel(track1, playlist)
+	ch2 := store.NewChannel(track2, playlist)
 
-	store.Add(ch1)
-	store.Add(ch2)
+	s.Add(ch1)
+	s.Add(ch2)
 
-	processor.Apply(store)
+	processor := &MergeDuplicatesProcessor{
+		rule: rule,
+		matcher: &mockDuplicatesMatcher{
+			groups: map[string][]*store.Channel{
+				"CNN": {ch2, ch1}, // ch2 is best
+			},
+		},
+	}
 
-	channels := store.All()
+	processor.Apply(s)
+
+	channels := s.All()
 	if len(channels) != 2 {
 		t.Errorf("Expected 2 channels, got %d", len(channels))
 		return
@@ -79,7 +113,7 @@ func TestMergeChannelsProcessor_SetFieldName(t *testing.T) {
 	}
 
 	processor := NewMergeDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	playlist := mockPlaylist{name: "test-playlist"}
 
@@ -97,15 +131,15 @@ func TestMergeChannelsProcessor_SetFieldName(t *testing.T) {
 		Attrs: map[string]string{"tvg-id": "cnn-4k"},
 	}
 
-	ch1 := NewChannel(track1, playlist)
-	ch2 := NewChannel(track2, playlist)
+	ch1 := store.NewChannel(track1, playlist)
+	ch2 := store.NewChannel(track2, playlist)
 
-	store.Add(ch1)
-	store.Add(ch2)
+	s.Add(ch1)
+	s.Add(ch2)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	channels := store.All()
+	channels := s.All()
 	for _, ch := range channels {
 		if ch.Name() != "CNN Multi-Quality" {
 			t.Errorf("Expected name 'CNN Multi-Quality', got '%s'", ch.Name())
@@ -127,7 +161,7 @@ func TestMergeChannelsProcessor_SetFieldAttr(t *testing.T) {
 	}
 
 	processor := NewMergeDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	playlist := mockPlaylist{name: "test-playlist"}
 
@@ -145,15 +179,15 @@ func TestMergeChannelsProcessor_SetFieldAttr(t *testing.T) {
 		Attrs: map[string]string{"tvg-id": "cnn-4k", "group-title": "News 4K"},
 	}
 
-	ch1 := NewChannel(track1, playlist)
-	ch2 := NewChannel(track2, playlist)
+	ch1 := store.NewChannel(track1, playlist)
+	ch2 := store.NewChannel(track2, playlist)
 
-	store.Add(ch1)
-	store.Add(ch2)
+	s.Add(ch1)
+	s.Add(ch2)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	channels := store.All()
+	channels := s.All()
 	for _, ch := range channels {
 		groupTitle, exists := ch.GetAttr("group-title")
 		if !exists {
@@ -189,7 +223,7 @@ func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
 	}
 
 	processor := NewMergeDuplicatesActionProcessor(rule)
-	store := NewStore()
+	s := store.NewStore()
 
 	playlist := mockPlaylist{name: "test-playlist"}
 
@@ -209,15 +243,15 @@ func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
 		Tags:  map[string]string{"quality": "4K"},
 	}
 
-	ch1 := NewChannel(track1, playlist)
-	ch2 := NewChannel(track2, playlist)
+	ch1 := store.NewChannel(track1, playlist)
+	ch2 := store.NewChannel(track2, playlist)
 
-	store.Add(ch1)
-	store.Add(ch2)
+	s.Add(ch1)
+	s.Add(ch2)
 
-	processor.Apply(store)
+	processor.Apply(s)
 
-	channels := store.All()
+	channels := s.All()
 	for _, ch := range channels {
 		quality, exists := ch.Tags()["quality"]
 		if !exists {
@@ -237,16 +271,4 @@ func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
 			t.Errorf("Expected tvg-id 'cnn-4k', got '%s'", tvgID)
 		}
 	}
-}
-
-func mustTemplate(tmpl string) *common.Template {
-	var t common.Template
-	node := &yaml.Node{
-		Kind:  yaml.ScalarNode,
-		Value: tmpl,
-	}
-	if err := t.UnmarshalYAML(node); err != nil {
-		panic(err)
-	}
-	return &t
 }

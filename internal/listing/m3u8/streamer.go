@@ -5,23 +5,27 @@ import (
 	"fmt"
 	"io"
 	"iptv-gateway/internal/listing"
-	m3u8Rules "iptv-gateway/internal/listing/m3u8/rules"
+	"iptv-gateway/internal/listing/m3u8/rules/channel"
+	"iptv-gateway/internal/listing/m3u8/rules/playlist"
+	"iptv-gateway/internal/listing/m3u8/store"
 	"iptv-gateway/internal/parser/m3u8"
 )
 
 type Streamer struct {
-	subscriptions  []listing.Playlist
-	httpClient     listing.HTTPClient
-	epgURL         string
-	rulesProcessor *m3u8Rules.Processor
+	subscriptions     []listing.Playlist
+	httpClient        listing.HTTPClient
+	epgURL            string
+	channelProcessor  *channel.Processor
+	playlistProcessor *playlist.Processor
 }
 
-func NewStreamer(subs []listing.Playlist, epgLink string, httpClient listing.HTTPClient, rulesProcessor *m3u8Rules.Processor) *Streamer {
+func NewStreamer(subs []listing.Playlist, epgLink string, httpClient listing.HTTPClient, channelProcessor *channel.Processor, playlistProcessor *playlist.Processor) *Streamer {
 	return &Streamer{
-		subscriptions:  subs,
-		httpClient:     httpClient,
-		epgURL:         epgLink,
-		rulesProcessor: rulesProcessor,
+		subscriptions:     subs,
+		httpClient:        httpClient,
+		epgURL:            epgLink,
+		channelProcessor:  channelProcessor,
+		playlistProcessor: playlistProcessor,
 	}
 }
 
@@ -51,19 +55,19 @@ func (s *Streamer) GetAllChannels(ctx context.Context) (map[string]string, error
 	return channelMap, nil
 }
 
-func (s *Streamer) getChannels(ctx context.Context) ([]*m3u8Rules.Channel, error) {
-	store, err := s.fetchPlaylists(ctx)
+func (s *Streamer) getChannels(ctx context.Context) ([]*store.Channel, error) {
+	st, err := s.fetchPlaylists(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	processor := NewProcessor()
 
-	return processor.Process(store, s.rulesProcessor)
+	return processor.Process(st, s.channelProcessor, s.playlistProcessor)
 }
 
-func (s *Streamer) fetchPlaylists(ctx context.Context) (*m3u8Rules.Store, error) {
-	store := m3u8Rules.NewStore()
+func (s *Streamer) fetchPlaylists(ctx context.Context) (*store.Store, error) {
+	st := store.NewStore()
 
 	var decoders []*decoderWrapper
 	for _, sub := range s.subscriptions {
@@ -88,19 +92,19 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*m3u8Rules.Store, error)
 	}
 
 	for _, decoder := range decoders {
-		if err := s.processTracks(ctx, decoder, store); err != nil {
+		if err := s.processTracks(ctx, decoder, st); err != nil {
 			return nil, err
 		}
 	}
 
-	if store.Len() == 0 {
+	if st.Len() == 0 {
 		return nil, fmt.Errorf("no channels found in subscriptions")
 	}
 
-	return store, nil
+	return st, nil
 }
 
-func (s *Streamer) processTracks(ctx context.Context, decoder *decoderWrapper, store *m3u8Rules.Store) error {
+func (s *Streamer) processTracks(ctx context.Context, decoder *decoderWrapper, st *store.Store) error {
 	decoder.StopBuffer()
 
 	for {
@@ -116,8 +120,8 @@ func (s *Streamer) processTracks(ctx context.Context, decoder *decoderWrapper, s
 				return err
 			}
 			if track, ok := item.(*m3u8.Track); ok {
-				ch := m3u8Rules.NewChannel(track, decoder.subscription)
-				store.Add(ch)
+				ch := store.NewChannel(track, decoder.subscription)
+				st.Add(ch)
 			}
 		}
 	}

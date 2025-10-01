@@ -1,4 +1,6 @@
-package rules
+package store
+
+import "iptv-gateway/internal/listing"
 
 type Store struct {
 	channels []*Channel
@@ -13,6 +15,7 @@ func NewStore() *Store {
 }
 
 func (s *Store) Add(channel *Channel) {
+	ensureTvgID(channel)
 	s.channels = append(s.channels, channel)
 	s.counter++
 }
@@ -27,4 +30,15 @@ func (s *Store) All() []*Channel {
 
 func (s *Store) Len() int {
 	return s.counter
+}
+
+func ensureTvgID(ch *Channel) {
+	if tvgID, exists := ch.GetAttr("tvg-id"); exists && tvgID != "" {
+		return
+	}
+	if tvgName, exists := ch.GetAttr("tvg-name"); exists && tvgName != "" {
+		ch.SetAttr("tvg-id", listing.GenerateHashID(tvgName))
+	} else {
+		ch.SetAttr("tvg-id", listing.GenerateHashID(ch.Name()))
+	}
 }

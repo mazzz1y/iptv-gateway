@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/config/rules/playlist"
+	channelconf "iptv-gateway/internal/config/rules/channel"
+	playlistconf "iptv-gateway/internal/config/rules/playlist"
 	"iptv-gateway/internal/listing"
-	m3u8Rules "iptv-gateway/internal/listing/m3u8/rules"
+	"iptv-gateway/internal/listing/m3u8/rules/channel"
+	"iptv-gateway/internal/listing/m3u8/rules/playlist"
 	"iptv-gateway/internal/shell"
 	"iptv-gateway/internal/urlgen"
 
@@ -21,7 +22,8 @@ type Client struct {
 	playlistProviders []*Playlist
 	epgProviders      []*EPG
 	proxy             proxy.Proxy
-	rulesProcessor    *m3u8Rules.Processor
+	channelProcessor  *channel.Processor
+	playlistProcessor *playlist.Processor
 	epgLink           string
 	urlGen            *urlgen.Generator
 }
@@ -33,7 +35,7 @@ type Provider interface {
 	ExpiredLinkStreamer() *shell.Streamer
 }
 
-func NewClient(clientCfg config.Client, urlGen *urlgen.Generator, channelRules []*channel.Rule, playlistRules []*playlist.Rule, publicURL string) (*Client, error) {
+func NewClient(clientCfg config.Client, urlGen *urlgen.Generator, channelRules []*channelconf.Rule, playlistRules []*playlistconf.Rule, publicURL string) (*Client, error) {
 	if clientCfg.Secret == "" {
 		return nil, fmt.Errorf("client secret cannot be empty")
 	}
@@ -44,13 +46,14 @@ func NewClient(clientCfg config.Client, urlGen *urlgen.Generator, channelRules [
 	}
 
 	return &Client{
-		name:           clientCfg.Name,
-		secret:         clientCfg.Secret,
-		semaphore:      sem,
-		proxy:          clientCfg.Proxy,
-		rulesProcessor: m3u8Rules.NewProcessor(clientCfg.Name, channelRules, playlistRules),
-		epgLink:        fmt.Sprintf("%s/%s/epg.xml.gz", publicURL, clientCfg.Secret),
-		urlGen:         urlGen,
+		name:              clientCfg.Name,
+		secret:            clientCfg.Secret,
+		semaphore:         sem,
+		proxy:             clientCfg.Proxy,
+		channelProcessor:  channel.NewRulesProcessor(clientCfg.Name, channelRules),
+		playlistProcessor: playlist.NewRulesProcessor(clientCfg.Name, playlistRules),
+		epgLink:           fmt.Sprintf("%s/%s/epg.xml.gz", publicURL, clientCfg.Secret),
+		urlGen:            urlGen,
 	}, nil
 }
 
@@ -141,6 +144,10 @@ func (c *Client) URLGenerator() *urlgen.Generator {
 	return c.urlGen
 }
 
-func (c *Client) RulesProcessor() *m3u8Rules.Processor {
-	return c.rulesProcessor
+func (c *Client) ChannelProcessor() *channel.Processor {
+	return c.channelProcessor
+}
+
+func (c *Client) PlaylistProcessor() *playlist.Processor {
+	return c.playlistProcessor
 }
