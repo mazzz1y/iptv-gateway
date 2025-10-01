@@ -1,6 +1,6 @@
 # Cache
 
-The cache block configures the caching system for IPTV streams and metadata.
+The cache block configures the caching layer for IPTV streams and metadata. It handles file downloads and caching logic.
 
 ## Key Concepts
 
@@ -18,13 +18,22 @@ path: ""
 ttl: ""
 retention: ""
 compression: false
+http_headers: []
 ```
 
 ## Fields
 
-| Field         | Type      | Required | Default    | Description                                            |
-|:--------------|:----------|:---------|:-----------|:-------------------------------------------------------|
-| `path`        | `string`  | No       | `"/cache"` | Directory path where cache files will be stored        |
-| `ttl`         | `string`  | No       | `"24h"`    | Cache expiration time (e.g., "1h", "30m")              |
-| `retention`   | `string`  | No       | `"30d"`    | How long to keep unaccessed files on disk (e.g., "7d") |
-| `compression` | `boolean` | No       | `false`    | Enable gzip compression for cached files               |
+| Field          | Type                               | Required | Default    | Description                                            |
+|:---------------|:-----------------------------------|:---------|:-----------|:-------------------------------------------------------|
+| `path`         | `string`                           | No       | `"/cache"` | Directory path where cache files will be stored        |
+| `ttl`          | `string`                           | No       | `"24h"`    | Cache expiration time (e.g., "1h", "30m")              |
+| `retention`    | `string`                           | No       | `"30d"`    | How long to keep unaccessed files on disk (e.g., "7d") |
+| `compression`  | `boolean`                          | No       | `false`    | Enable gzip compression for cached files               |
+| `http_headers` | [`[]NameValue`](#namevalue-object) | No       | `[]`       | Extra request headers for outgoing requests            |
+
+### Name/Value Object
+
+| Field   | Type     | Required | Description                          |
+|---------|----------|----------|--------------------------------------|
+| `name`  | `string` | Yes      | Name identifier for the object       |
+| `value` | `string` | Yes      | Value associated with the given name |

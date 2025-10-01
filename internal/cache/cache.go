@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"iptv-gateway/internal/config"
 	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/metrics"
@@ -32,22 +33,22 @@ type Cache struct {
 	compression      bool
 }
 
-func NewCache(cacheDir string, ttl, retention time.Duration, compression bool) (*Cache, error) {
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+func NewCache(cfg config.CacheConfig) (*Cache, error) {
+	if err := os.MkdirAll(cfg.Path, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	cache := &Cache{
-		dir:              cacheDir,
+		dir:              cfg.Path,
 		cleanupTicker:    time.NewTicker(24 * time.Hour),
 		doneCh:           make(chan struct{}),
-		directHttpClient: newDirectHTTPClient(),
-		ttl:              ttl,
-		retention:        retention,
-		compression:      compression,
+		directHttpClient: newDirectHTTPClient(cfg.HttpHeaders),
+		ttl:              time.Duration(cfg.TTL),
+		retention:        time.Duration(cfg.Retention),
+		compression:      cfg.Compression,
 	}
 
-	if retention > 0 {
+	if cfg.Retention > 0 {
 		go cache.cleanupRoutine()
 	}
 
@@ -131,19 +132,6 @@ func (c *Cache) Close() {
 
 	if c.doneCh != nil {
 		close(c.doneCh)
-	}
-}
-
-func newDirectHTTPClient() *http.Client {
-	return &http.Client{
-		Transport: http.DefaultTransport,
-		Timeout:   10 * time.Minute,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 5 {
-				return fmt.Errorf("too many redirects")
-			}
-			return nil
-		},
 	}
 }
 

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"iptv-gateway/internal/config"
+	"iptv-gateway/internal/config/common"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,7 +20,12 @@ func TestNewCache(t *testing.T) {
 		ttl := time.Hour
 		retention := 24 * time.Hour
 
-		cache, err := NewCache(tmpDir, ttl, retention, true)
+		cache, err := NewCache(config.CacheConfig{
+			Path:        tmpDir,
+			TTL:         common.Duration(ttl),
+			Retention:   common.Duration(retention),
+			Compression: true,
+		})
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -49,7 +56,12 @@ func TestNewCache(t *testing.T) {
 	t.Run("creates cache directory", func(t *testing.T) {
 		tmpDir := filepath.Join(t.TempDir(), "nested", "cache")
 
-		cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour, true)
+		cache, err := NewCache(config.CacheConfig{
+			Path:        tmpDir,
+			TTL:         common.Duration(time.Hour),
+			Retention:   common.Duration(24 * time.Hour),
+			Compression: true,
+		})
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -71,7 +83,12 @@ func TestNewCache(t *testing.T) {
 		}
 
 		invalidDir := filepath.Join(tmpFile, "cache")
-		_, err := NewCache(invalidDir, time.Hour, 24*time.Hour, true)
+		_, err := NewCache(config.CacheConfig{
+			Path:        invalidDir,
+			TTL:         common.Duration(time.Hour),
+			Retention:   common.Duration(24 * time.Hour),
+			Compression: true,
+		})
 		if err == nil {
 			t.Error("expected error for invalid directory")
 		}
@@ -79,7 +96,12 @@ func TestNewCache(t *testing.T) {
 }
 
 func TestCache_NewCachedHTTPClient(t *testing.T) {
-	cache, err := NewCache(t.TempDir(), time.Hour, 24*time.Hour, true)
+	cache, err := NewCache(config.CacheConfig{
+		Path:        t.TempDir(),
+		TTL:         common.Duration(time.Hour),
+		Retention:   common.Duration(24 * time.Hour),
+		Compression: true,
+	})
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}
@@ -112,7 +134,13 @@ func TestCache_NewCachedHTTPClient(t *testing.T) {
 
 func TestCache_NewReader(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour, true)
+	cache, err := NewCache(config.CacheConfig{
+		Path:        tmpDir,
+		TTL:         common.Duration(time.Hour),
+		Retention:   common.Duration(24 * time.Hour),
+		Compression: true,
+	})
+
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}
@@ -139,7 +167,7 @@ func TestCache_NewReader(t *testing.T) {
 		}
 
 		if reader.Name == "" {
-			t.Error("expected FieldName to be set")
+			t.Error("expected Name to be set")
 		}
 
 		if reader.FilePath == "" {
@@ -196,7 +224,12 @@ func TestCache_CleanExpired(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			cache, err := NewCache(tmpDir, tc.ttl, tc.retention, true)
+			cache, err := NewCache(config.CacheConfig{
+				Path:        tmpDir,
+				TTL:         common.Duration(tc.ttl),
+				Retention:   common.Duration(tc.retention),
+				Compression: true,
+			})
 			if err != nil {
 				t.Fatalf("failed to create cache: %v", err)
 			}
@@ -243,7 +276,13 @@ func TestCache_CleanExpired(t *testing.T) {
 
 func TestCache_RemoveEntry(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache, err := NewCache(tmpDir, time.Hour, 24*time.Hour, true)
+	cache, err := NewCache(config.CacheConfig{
+		Path:        tmpDir,
+		TTL:         common.Duration(time.Hour),
+		Retention:   common.Duration(24 * time.Hour),
+		Compression: true,
+	})
+
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}
@@ -273,7 +312,7 @@ func TestCache_RemoveEntry(t *testing.T) {
 }
 
 func TestNewDirectHTTPClient(t *testing.T) {
-	client := newDirectHTTPClient()
+	client := newDirectHTTPClient(nil)
 
 	if client == nil {
 		t.Fatal("expected client to be created")
@@ -283,8 +322,11 @@ func TestNewDirectHTTPClient(t *testing.T) {
 		t.Errorf("expected timeout 10m, got %v", client.Timeout)
 	}
 
-	if client.Transport != http.DefaultTransport {
-		t.Error("expected default transport")
+	transport, ok := client.Transport.(*headerTransport)
+	if !ok {
+		t.Errorf("expected *headerTransport, got %T", client.Transport)
+	} else if transport.base != http.DefaultTransport {
+		t.Error("expected default transport to be wrapped")
 	}
 
 	req := &http.Request{}
