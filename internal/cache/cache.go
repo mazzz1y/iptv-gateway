@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/logging"
 	"iptv-gateway/internal/metrics"
 	"net/http"
@@ -116,11 +115,7 @@ func (c *Cache) NewReader(ctx context.Context, url string) (*Reader, error) {
 	logging.Debug(
 		ctx, "file access", "cache", formatCacheStatus(s), "url", logging.SanitizeURL(url))
 
-	metrics.ProxyRequestsTotal.WithLabelValues(
-		ctxutil.ClientName(ctx),
-		ctxutil.RequestType(ctx),
-		cacheStatus,
-	).Inc()
+	metrics.IncProxyRequests(ctx, cacheStatus)
 
 	return reader, err
 }

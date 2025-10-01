@@ -71,7 +71,6 @@ func (m *Demuxer) GetReader(ctx context.Context, req Request) (io.ReadCloser, er
 
 	clientCtx := ctxutil.WithStreamID(ctx, req.StreamKey)
 	streamCtx := context.WithoutCancel(clientCtx)
-	hidden := ctxutil.ChannelHidden(streamCtx)
 
 	sr := &streamReader{
 		PipeReader: pr,
@@ -98,16 +97,10 @@ func (m *Demuxer) GetReader(ctx context.Context, req Request) (io.ReadCloser, er
 			return nil, ErrSubscriptionSemaphore
 		}
 		go m.startStream(streamCtx, req)
-		if !hidden {
-			logging.Info(streamCtx, "started new stream")
-		}
+		logging.Info(streamCtx, "started new stream")
 	} else {
-		if !hidden {
-			subscriptionName := ctxutil.ProviderName(clientCtx)
-			channelID := ctxutil.ChannelID(clientCtx)
-			metrics.StreamsReusedTotal.WithLabelValues(subscriptionName, channelID).Inc()
-			logging.Info(clientCtx, "joined existing stream")
-		}
+		metrics.IncStreamsReused(ctx)
+		logging.Info(clientCtx, "joined existing stream")
 	}
 
 	return sr, nil
@@ -115,13 +108,9 @@ func (m *Demuxer) GetReader(ctx context.Context, req Request) (io.ReadCloser, er
 
 func (m *Demuxer) startStream(ctx context.Context, req Request) {
 	key := req.StreamKey
-	hidden := ctxutil.ChannelHidden(ctx)
 
-	subscriptionName := ctxutil.ProviderName(ctx)
-	if !hidden {
-		metrics.PlaylistStreamsActive.WithLabelValues(subscriptionName).Inc()
-		defer metrics.PlaylistStreamsActive.WithLabelValues(subscriptionName).Dec()
-	}
+	metrics.IncPlaylistStreamsActive(ctx)
+	defer metrics.DecPlaylistStreamsActive(ctx)
 
 	unlock := m.LockStream(key)
 	writer := m.pool.GetWriter(key)

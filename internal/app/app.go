@@ -134,7 +134,7 @@ func (m *Manager) addPlaylistProvider(cl *Client, playlistConf config.Playlist) 
 		sem = semaphore.NewWeighted(playlistConf.Proxy.ConcurrentStreams)
 	}
 
-	metrics.PlaylistStreamsActive.WithLabelValues(playlistConf.Name).Set(0)
+	metrics.SetPlaylistStreamsActive(playlistConf.Name, 0)
 
 	if err := cl.BuildPlaylistProvider(
 		playlistConf, m.config.Proxy, sem); err != nil {

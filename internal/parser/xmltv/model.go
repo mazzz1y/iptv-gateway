@@ -75,16 +75,16 @@ type Icon struct {
 }
 
 type Credits struct {
-	Directors    []string `xml:"director,omitempty"    json:"directors,omitempty"`
-	Actors       []Actor  `xml:"actor,omitempty"       json:"actors,omitempty"`
-	Writers      []string `xml:"writer,omitempty"      json:"writers,omitempty"`
+	Directors     []string `xml:"director,omitempty"    json:"directors,omitempty"`
+	Actors        []Actor  `xml:"actor,omitempty"       json:"actors,omitempty"`
+	Writers       []string `xml:"writer,omitempty"      json:"writers,omitempty"`
 	Screenwriters []string `xml:"adapter,omitempty"     json:"screenwriters,omitempty"`
-	Producers    []string `xml:"producer,omitempty"    json:"producers,omitempty"`
-	Composers    []string `xml:"composer,omitempty"    json:"composers,omitempty"`
-	Editors      []string `xml:"editor,omitempty"      json:"editors,omitempty"`
-	Presenters   []string `xml:"presenter,omitempty"   json:"presenters,omitempty"`
-	Commentators []string `xml:"commentator,omitempty" json:"commentators,omitempty"`
-	Guests       []string `xml:"guest,omitempty"       json:"guests,omitempty"`
+	Producers     []string `xml:"producer,omitempty"    json:"producers,omitempty"`
+	Composers     []string `xml:"composer,omitempty"    json:"composers,omitempty"`
+	Editors       []string `xml:"editor,omitempty"      json:"editors,omitempty"`
+	Presenters    []string `xml:"presenter,omitempty"   json:"presenters,omitempty"`
+	Commentators  []string `xml:"commentator,omitempty" json:"commentators,omitempty"`
+	Guests        []string `xml:"guest,omitempty"       json:"guests,omitempty"`
 }
 
 type Actor struct {

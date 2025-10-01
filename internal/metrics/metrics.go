@@ -1,6 +1,9 @@
 package metrics
 
 import (
+	"context"
+	"iptv-gateway/internal/ctxutil"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 )
@@ -27,7 +30,7 @@ const (
 var (
 	Registry = prometheus.NewRegistry()
 
-	PlaylistStreamsActive = prometheus.NewGaugeVec(
+	playlistStreamsActive = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iptv_playlist_streams_active",
 			Help: "Currently active playlist streams",
@@ -35,37 +38,37 @@ var (
 		[]string{"playlist_name"},
 	)
 
-	ClientStreamsActive = NewAutoCleanGauge(
+	clientStreamsActive = NewAutoCleanGauge(
 		"iptv_client_streams_active",
 		"Currently active client streams",
-		[]string{"client_name", "playlist_name", "channel_id"},
+		[]string{"client_name", "playlist_name", "channel_name"},
 	)
 
-	StreamsReusedTotal = prometheus.NewCounterVec(
+	streamsReusedTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iptv_streams_reused_total",
 			Help: "Total number of reused streams",
 		},
-		[]string{"playlist_name", "channel_id"},
+		[]string{"playlist_name", "channel_name"},
 	)
 
-	StreamsFailuresTotal = prometheus.NewCounterVec(
+	streamsFailuresTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iptv_streams_failures_total",
 			Help: "Total number of stream failures",
 		},
-		[]string{"client_name", "playlist_name", "channel_id", "reason"},
+		[]string{"client_name", "playlist_name", "channel_name", "reason"},
 	)
 
-	ListingDownloadTotal = prometheus.NewCounterVec(
+	listingDownloadTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iptv_listing_downloads_total",
 			Help: "Total number of listing downloads by client and type",
 		},
-		[]string{"client_name", "listing_type"},
+		[]string{"client_name", "request_type"},
 	)
 
-	ProxyRequestsTotal = prometheus.NewCounterVec(
+	proxyRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iptv_proxy_requests_total",
 			Help: "Total proxy requests by client, type and cache status",
@@ -74,13 +77,87 @@ var (
 	)
 )
 
+func IncPlaylistStreamsActive(ctx context.Context) {
+	if ctxutil.ChannelHidden(ctx) {
+		return
+	}
+	subscriptionName := ctxutil.ProviderName(ctx)
+	playlistStreamsActive.WithLabelValues(subscriptionName).Inc()
+}
+
+func DecPlaylistStreamsActive(ctx context.Context) {
+	if ctxutil.ChannelHidden(ctx) {
+		return
+	}
+	subscriptionName := ctxutil.ProviderName(ctx)
+	playlistStreamsActive.WithLabelValues(subscriptionName).Dec()
+}
+
+func SetPlaylistStreamsActive(playlistName string, value float64) {
+	playlistStreamsActive.WithLabelValues(playlistName).Set(value)
+}
+
+func IncClientStreamsActive(ctx context.Context) {
+	if ctxutil.ChannelHidden(ctx) {
+		return
+	}
+
+	channelID := ctxutil.ChannelName(ctx)
+	clientName := ctxutil.ClientName(ctx)
+	playlistName := ctxutil.ProviderName(ctx)
+	clientStreamsActive.WithLabelValues(clientName, playlistName, channelID).Inc()
+}
+
+func DecClientStreamsActive(ctx context.Context) {
+	if ctxutil.ChannelHidden(ctx) {
+		return
+	}
+
+	channelID := ctxutil.ChannelName(ctx)
+	clientName := ctxutil.ClientName(ctx)
+	playlistName := ctxutil.ProviderName(ctx)
+	clientStreamsActive.WithLabelValues(clientName, playlistName, channelID).Dec()
+}
+
+func IncStreamsReused(ctx context.Context) {
+	if ctxutil.ChannelHidden(ctx) {
+		return
+	}
+	subscriptionName := ctxutil.ProviderName(ctx)
+	channelID := ctxutil.ChannelName(ctx)
+	streamsReusedTotal.WithLabelValues(subscriptionName, channelID).Inc()
+}
+
+func IncStreamsFailures(ctx context.Context, reason string) {
+	if ctxutil.ChannelHidden(ctx) {
+		return
+	}
+
+	channelName := ctxutil.ChannelName(ctx)
+	clientName := ctxutil.ClientName(ctx)
+	playlistName := ctxutil.ProviderName(ctx)
+	streamsFailuresTotal.WithLabelValues(clientName, playlistName, channelName, reason).Inc()
+}
+
+func IncListingDownload(ctx context.Context) {
+	clientName := ctxutil.ClientName(ctx)
+	requestType := ctxutil.RequestType(ctx)
+	listingDownloadTotal.WithLabelValues(clientName, requestType).Inc()
+}
+
+func IncProxyRequests(ctx context.Context, cacheStatus string) {
+	clientName := ctxutil.ClientName(ctx)
+	requestType := ctxutil.RequestType(ctx)
+	proxyRequestsTotal.WithLabelValues(clientName, requestType, cacheStatus).Inc()
+}
+
 func init() {
-	Registry.MustRegister(ClientStreamsActive)
-	Registry.MustRegister(PlaylistStreamsActive)
-	Registry.MustRegister(StreamsReusedTotal)
-	Registry.MustRegister(StreamsFailuresTotal)
-	Registry.MustRegister(ListingDownloadTotal)
-	Registry.MustRegister(ProxyRequestsTotal)
+	Registry.MustRegister(clientStreamsActive)
+	Registry.MustRegister(playlistStreamsActive)
+	Registry.MustRegister(streamsReusedTotal)
+	Registry.MustRegister(streamsFailuresTotal)
+	Registry.MustRegister(listingDownloadTotal)
+	Registry.MustRegister(proxyRequestsTotal)
 	Registry.MustRegister(collectors.NewGoCollector(
 		collectors.WithoutGoCollectorRuntimeMetrics(),
 	))

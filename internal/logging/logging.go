@@ -59,6 +59,9 @@ func SetLevelAndFormat(l, f string) {
 }
 
 func Info(ctx context.Context, msg string, args ...any) {
+	if ctxutil.ChannelHidden(ctx) {
+		return
+	}
 	log(ctx, slog.LevelInfo, msg, args...)
 }
 

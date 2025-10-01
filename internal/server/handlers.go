@@ -62,7 +62,7 @@ func (s *Server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics.ListingDownloadTotal.WithLabelValues(client.Name(), metrics.RequestTypePlaylist).Inc()
+	metrics.IncListingDownload(ctx)
 }
 
 func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
@@ -87,8 +87,7 @@ func (s *Server) handleEPG(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := ctxutil.Client(ctx).(*app.Client)
-	metrics.ListingDownloadTotal.WithLabelValues(client.Name(), metrics.RequestTypeEPG).Inc()
+	metrics.IncListingDownload(ctx)
 }
 
 func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
@@ -113,8 +112,7 @@ func (s *Server) handleEPGgz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := ctxutil.Client(ctx).(*app.Client)
-	metrics.ListingDownloadTotal.WithLabelValues(client.Name(), metrics.RequestTypeEPG).Inc()
+	metrics.IncListingDownload(ctx)
 }
 
 func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
@@ -135,10 +133,11 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, data *urlgen.Data) {
+	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypeFile)
+
 	stream := data.File
 
 	logging.Debug(ctx, "proxying file", "url", stream.URL)
-	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypeFile)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, stream.URL, nil)
 	if err != nil {

@@ -72,8 +72,9 @@ func (s *Server) proxyAuthMiddleware(next http.Handler) http.Handler {
 				}
 
 				ctx = ctxutil.WithClient(ctx, client)
-				ctx = ctxutil.WithProvider(ctx, provider)
 				ctx = ctxutil.WithStreamData(ctx, data)
+				ctx = ctxutil.WithProviderType(ctx, provider.Type())
+				ctx = ctxutil.WithProviderName(ctx, provider.Name())
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -82,7 +83,6 @@ func (s *Server) proxyAuthMiddleware(next http.Handler) http.Handler {
 				provider := s.getProviderFromData(client, data)
 				if provider != nil && provider.ExpiredLinkStreamer() != nil {
 					ctx = ctxutil.WithClient(ctx, client)
-					ctx = ctxutil.WithProvider(ctx, provider)
 					provider.ExpiredLinkStreamer().Stream(ctx, w)
 				} else {
 					http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)

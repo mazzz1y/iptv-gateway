@@ -41,6 +41,7 @@ func (s *Server) handleStreamProxy(ctx context.Context, w http.ResponseWriter, r
 	client := ctxutil.Client(ctx).(*app.Client)
 	data := ctxutil.StreamData(ctx).(*urlgen.Data)
 
+	ctx = ctxutil.WithRequestType(ctx, metrics.RequestTypePlaylist)
 	ctx = ctxutil.WithChannelName(ctx, data.StreamData.ChannelName)
 
 	if !s.acquireSemaphores(ctx) {
@@ -139,6 +140,8 @@ func (s *Server) tryStream(
 	playlist *app.Playlist, stream urlgen.Stream, streamIndex int) streamResult {
 
 	ctx = ctxutil.WithChannelHidden(ctx, stream.Hidden)
+	ctx = ctxutil.WithProviderType(ctx, metrics.RequestTypePlaylist)
+	ctx = ctxutil.WithProviderName(ctx, playlist.Name())
 
 	streamURL := buildStreamURL(stream.URL, r.URL.RawQuery)
 	streamKey := buildStreamKey(stream.URL, r.URL.RawQuery)
@@ -159,7 +162,7 @@ func (s *Server) tryStream(
 
 	reader, err := s.demux.GetReader(ctx, demuxReq)
 	if errors.Is(err, demux.ErrSubscriptionSemaphore) {
-		s.handleSubscriptionError(ctx, playlist, stream, streamIndex)
+		s.handleSubscriptionError(ctx, streamIndex)
 		return streamResult{false, true, false}
 	}
 	if err != nil {
@@ -169,51 +172,29 @@ func (s *Server) tryStream(
 	defer reader.Close()
 
 	logging.Debug(ctx, "started stream", "stream_index", streamIndex)
-	result := s.streamToResponse(ctx, w, reader, playlist, stream)
-	return result
+	return s.streamToResponse(ctx, w, reader)
 }
 
-func (s *Server) handleSubscriptionError(
-	ctx context.Context,
-	playlist *app.Playlist, stream urlgen.Stream, streamIndex int) {
-
+func (s *Server) handleSubscriptionError(ctx context.Context, streamIndex int) {
 	logging.Error(
 		ctx, demux.ErrSubscriptionSemaphore,
 		"failed to get stream - subscription semaphore", "stream_index", streamIndex)
 
-	if !stream.Hidden {
-		data := ctxutil.StreamData(ctx).(*urlgen.Data)
-		clientName := ctxutil.ClientName(ctx)
-		playlistName := playlist.Name()
-		metrics.StreamsFailuresTotal.WithLabelValues(
-			clientName, playlistName, data.StreamData.ChannelName, metrics.FailureReasonPlaylistLimit,
-		).Inc()
-	}
+	metrics.IncStreamsFailures(ctx, metrics.FailureReasonPlaylistLimit)
 }
 
 func (s *Server) streamToResponse(
-	ctx context.Context,
-	w http.ResponseWriter, reader io.ReadCloser, playlist *app.Playlist, stream urlgen.Stream) streamResult {
+	ctx context.Context, w http.ResponseWriter, reader io.ReadCloser) streamResult {
 
-	data := ctxutil.StreamData(ctx).(*urlgen.Data)
-	clientName := ctxutil.ClientName(ctx)
-	playlistName := playlist.Name()
-
-	if !stream.Hidden {
-		metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.StreamData.ChannelName).Inc()
-		defer metrics.ClientStreamsActive.WithLabelValues(clientName, playlistName, data.StreamData.ChannelName).Dec()
-	}
+	metrics.IncClientStreamsActive(ctx)
+	defer metrics.DecClientStreamsActive(ctx)
 
 	w.Header().Set("Content-Type", streamContentType)
 	written, err := io.Copy(w, reader)
 
 	if err == nil && written == 0 {
-		if !stream.Hidden {
-			logging.Error(ctx, errors.New("no data written to response"), "")
-			metrics.StreamsFailuresTotal.WithLabelValues(
-				clientName, playlistName, data.StreamData.ChannelName, metrics.FailureReasonUpstreamError,
-			).Inc()
-		}
+		logging.Error(ctx, errors.New("no data written to response"), "")
+		metrics.IncStreamsFailures(ctx, metrics.FailureReasonUpstreamError)
 		return streamResult{false, false, true}
 	}
 

@@ -6,7 +6,6 @@ import (
 	"iptv-gateway/internal/app"
 	"iptv-gateway/internal/ctxutil"
 	"iptv-gateway/internal/metrics"
-	"iptv-gateway/internal/urlgen"
 	"iptv-gateway/internal/utils"
 	"time"
 
@@ -20,7 +19,6 @@ const (
 
 func (s *Server) acquireSemaphores(ctx context.Context) bool {
 	c := ctxutil.Client(ctx).(*app.Client)
-	data := ctxutil.StreamData(ctx).(*urlgen.Data)
 
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -29,8 +27,7 @@ func (s *Server) acquireSemaphores(ctx context.Context) bool {
 			if sem == nil || utils.AcquireSemaphore(gCtx, sem, semaphoreTimeout, reason) {
 				return nil
 			}
-			metrics.StreamsFailuresTotal.WithLabelValues(
-				c.Name(), ctxutil.ProviderName(ctx), data.StreamData.ChannelName, reason).Inc()
+			metrics.IncStreamsFailures(ctx, reason)
 			return fmt.Errorf("failed to acquire semaphore: %s", reason)
 		}
 	}

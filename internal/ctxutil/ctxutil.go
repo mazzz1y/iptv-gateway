@@ -12,20 +12,15 @@ const (
 	clientKey        contextKey = "client"
 	clientNameKey    contextKey = "client_name"
 	requestIDKey     contextKey = "request_id"
+	requestTypeKey   contextKey = "request_type"
 	channelHiddenKey contextKey = "channel_hidden"
 	streamDataKey    contextKey = "stream_data"
-	providerKey      contextKey = "provider"
 	providerTypeKey  contextKey = "provider_type"
 	providerNameKey  contextKey = "provider_name"
 	streamIDKey      contextKey = "stream_id"
-	channelIDKey     contextKey = "channel_id"
+	channelNameKey   contextKey = "channel_name"
 	semaphoreNameKey contextKey = "semaphore_name"
 )
-
-type Listing interface {
-	Name() string
-	Type() string
-}
 
 func WithRequestID(ctx context.Context) context.Context {
 	b := make([]byte, 4)
@@ -40,12 +35,6 @@ func WithClient(ctx context.Context, client any) context.Context {
 	return context.WithValue(ctx, clientKey, client)
 }
 
-func WithProvider(ctx context.Context, src Listing) context.Context {
-	ctx = context.WithValue(ctx, providerNameKey, src.Name())
-	ctx = context.WithValue(ctx, providerTypeKey, src.Type())
-	return context.WithValue(ctx, providerKey, src)
-}
-
 func WithStreamData(ctx context.Context, data any) context.Context {
 	return context.WithValue(ctx, streamDataKey, data)
 }
@@ -54,8 +43,8 @@ func WithStreamID(ctx context.Context, streamID string) context.Context {
 	return context.WithValue(ctx, streamIDKey, streamID)
 }
 
-func WithChannelName(ctx context.Context, channelID string) context.Context {
-	return context.WithValue(ctx, channelIDKey, channelID)
+func WithChannelName(ctx context.Context, channelName string) context.Context {
+	return context.WithValue(ctx, channelNameKey, channelName)
 }
 
 func WithChannelHidden(ctx context.Context, hidden bool) context.Context {
@@ -66,8 +55,16 @@ func WithSemaphoreName(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, semaphoreNameKey, name)
 }
 
-func WithRequestType(ctx context.Context, requestType string) context.Context {
-	return context.WithValue(ctx, channelHiddenKey, requestType)
+func WithProviderType(ctx context.Context, providerType string) context.Context {
+	return context.WithValue(ctx, providerTypeKey, providerType)
+}
+
+func WithProviderName(ctx context.Context, providerName string) context.Context {
+	return context.WithValue(ctx, providerNameKey, providerName)
+}
+
+func WithRequestType(ctx context.Context, reqType string) context.Context {
+	return context.WithValue(ctx, requestTypeKey, reqType)
 }
 
 func RequestID(ctx context.Context) string {
@@ -88,10 +85,6 @@ func ClientName(ctx context.Context) string {
 	return ""
 }
 
-func Provider(ctx context.Context) any {
-	return ctx.Value(providerKey)
-}
-
 func ProviderName(ctx context.Context) string {
 	if v := ctx.Value(providerNameKey); v != nil {
 		return v.(string)
@@ -101,6 +94,13 @@ func ProviderName(ctx context.Context) string {
 
 func ProviderType(ctx context.Context) string {
 	if v := ctx.Value(providerTypeKey); v != nil {
+		return v.(string)
+	}
+	return ""
+}
+
+func RequestType(ctx context.Context) string {
+	if v := ctx.Value(requestTypeKey); v != nil {
 		return v.(string)
 	}
 	return ""
@@ -117,8 +117,8 @@ func StreamID(ctx context.Context) string {
 	return ""
 }
 
-func ChannelID(ctx context.Context) string {
-	if v := ctx.Value(channelIDKey); v != nil {
+func ChannelName(ctx context.Context) string {
+	if v := ctx.Value(channelNameKey); v != nil {
 		return v.(string)
 	}
 	return ""
@@ -136,13 +136,6 @@ func SemaphoreName(ctx context.Context) string {
 		return v.(string)
 	}
 	return ""
-}
-
-func RequestType(ctx context.Context) string {
-	if reqType, ok := ctx.Value(channelHiddenKey).(string); ok {
-		return reqType
-	}
-	return "unknown"
 }
 
 func LogFields(ctx context.Context) []any {
@@ -166,7 +159,7 @@ func LogFields(ctx context.Context) []any {
 	if name := SemaphoreName(ctx); name != "" {
 		fields = append(fields, "semaphore_name", name)
 	}
-	if id := ChannelID(ctx); id != "" {
+	if id := ChannelName(ctx); id != "" {
 		fields = append(fields, "channel_id", id)
 	}
 
