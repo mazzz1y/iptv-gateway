@@ -230,22 +230,29 @@ func TestRemoveDuplicatesProcessor_setPattern(t *testing.T) {
 		},
 		FinalValue: &configrules.RemoveDuplicatesFinalValue{
 			Selector: &common.Selector{Type: common.SelectorName},
-			Template: mustTemplate("{{.BaseName}} HQ-Preferred"),
+			Template: mustTemplate("{{.Channel.BaseName}} HQ-Preferred"),
 		},
 	}
 
 	processor := NewRemoveDuplicatesActionProcessor(rule)
 	store := NewStore()
 
+	playlist := mockPlaylist{name: "test-playlist"}
+
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
 	uri3, _ := url.Parse("http://example.com/url3")
 	uri4, _ := url.Parse("http://example.com/url4")
 
-	ch1 := &Channel{track: &m3u8.Track{Name: "Discovery Channel HD", URI: uri1}}
-	ch2 := &Channel{track: &m3u8.Track{Name: "Discovery Channel 4K", URI: uri2}}
-	ch3 := &Channel{track: &m3u8.Track{Name: "National Geographic UHD", URI: uri3}}
-	ch4 := &Channel{track: &m3u8.Track{Name: "National Geographic", URI: uri4}}
+	track1 := &m3u8.Track{Name: "Discovery Channel HD", URI: uri1}
+	track2 := &m3u8.Track{Name: "Discovery Channel 4K", URI: uri2}
+	track3 := &m3u8.Track{Name: "National Geographic UHD", URI: uri3}
+	track4 := &m3u8.Track{Name: "National Geographic", URI: uri4}
+
+	ch1 := NewChannel(track1, playlist)
+	ch2 := NewChannel(track2, playlist)
+	ch3 := NewChannel(track3, playlist)
+	ch4 := NewChannel(track4, playlist)
 
 	store.Add(ch1)
 	store.Add(ch2)
@@ -301,26 +308,31 @@ func TestRemoveDuplicatesProcessor_setFieldAttr(t *testing.T) {
 				Type:  common.SelectorAttr,
 				Value: "group-title",
 			},
-			Template: mustTemplate("{{.BaseName}} Group"),
+			Template: mustTemplate("{{.Channel.BaseName}} Group"),
 		},
 	}
 
 	processor := NewRemoveDuplicatesActionProcessor(rule)
 	store := NewStore()
 
+	playlist := mockPlaylist{name: "test-playlist"}
+
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
 
-	ch1 := &Channel{track: &m3u8.Track{
+	track1 := &m3u8.Track{
 		Name:  "CNN HD",
 		URI:   uri1,
 		Attrs: map[string]string{"group-title": "News HD"},
-	}}
-	ch2 := &Channel{track: &m3u8.Track{
+	}
+	track2 := &m3u8.Track{
 		Name:  "CNN 4K",
 		URI:   uri2,
 		Attrs: map[string]string{"group-title": "News 4K"},
-	}}
+	}
+
+	ch1 := NewChannel(track1, playlist)
+	ch2 := NewChannel(track2, playlist)
 
 	store.Add(ch1)
 	store.Add(ch2)
@@ -365,28 +377,33 @@ func TestRemoveDuplicatesProcessor_setFieldTag(t *testing.T) {
 				Type:  common.SelectorTag,
 				Value: "quality",
 			},
-			Template: mustTemplate("{{.BaseName}} Multi"),
+			Template: mustTemplate("{{.Channel.BaseName}} Multi"),
 		},
 	}
 
 	processor := NewRemoveDuplicatesActionProcessor(rule)
 	store := NewStore()
 
+	playlist := mockPlaylist{name: "test-playlist"}
+
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
 
-	ch1 := &Channel{track: &m3u8.Track{
+	track1 := &m3u8.Track{
 		Name:  "CNN HD",
 		URI:   uri1,
 		Attrs: map[string]string{"group-title": "News HD"},
 		Tags:  map[string]string{"quality": "HD"},
-	}}
-	ch2 := &Channel{track: &m3u8.Track{
+	}
+	track2 := &m3u8.Track{
 		Name:  "CNN 4K",
 		URI:   uri2,
 		Attrs: map[string]string{"group-title": "News 4K"},
 		Tags:  map[string]string{"quality": "4K"},
-	}}
+	}
+
+	ch1 := NewChannel(track1, playlist)
+	ch2 := NewChannel(track2, playlist)
 
 	store.Add(ch1)
 	store.Add(ch2)

@@ -42,11 +42,15 @@ func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*
 				if p.rule.FinalValue != nil {
 					tmplMap := map[string]any{
 						"Channel": map[string]any{
-							"Name":  ch.Name(),
-							"Attrs": ch.Attrs(),
-							"Tags":  ch.Tags(),
+							"BaseName": baseName,
+							"Name":     ch.Name(),
+							"Attrs":    ch.Attrs(),
+							"Tags":     ch.Tags(),
 						},
-						"BaseName": baseName,
+						"Playlist": map[string]any{
+							"Name":      ch.Playlist().Name(),
+							"IsProxied": ch.Playlist().IsProxied(),
+						},
 					}
 
 					var buf bytes.Buffer

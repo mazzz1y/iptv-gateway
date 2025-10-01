@@ -19,13 +19,15 @@ set_field:
 | `template`  | `gotemplate`                   | Yes      | The template definition for the new value |
 | `condition` | [`Condition`](../condition.md) | No       | Optional, restricts rule activation       |
 
-#### Template values
+## Template Variables
 
-| Variable             | Description            |
-|----------------------|------------------------|
-| `{{.Channel.Name}}`  | Original channel name  |
-| `{{.Channel.Attrs}}` | Channel attributes map |
-| `{{.Channel.Tags}}`  | Channel tags map       |
+| Variable                  | Type              | Description                                |
+|---------------------------|-------------------|--------------------------------------------|
+| `{{.Channel.Name}}`       | string            | The original channel name.                 |
+| `{{.Channel.Attrs}}`      | map[string]string | A map containing the channel's attributes. |
+| `{{.Channel.Tags}}`       | map[string]string | A map containing the channel's tags.       |
+| `{{.Playlist.Name}}`      | string            | The channel's playlist name.               |
+| `{{.Playlist.IsProxied}}` | bool              | Indicates whether the playlist is proxied. |
 
 ## Examples
 

@@ -1,6 +1,6 @@
-### Final Value
+# Final Value
 
-Final value allows customizing the result channel after removing duplicates. Used in deduplication rules.
+Final value allows customizing the result channel after merging/removing duplicates. Used in deduplication rules.
 
 ```yaml
 final_value:
@@ -8,11 +8,13 @@ final_value:
   template: ""
 ```
 
-#### Template values
+## Template Variables
 
-| Variable             | Description            |
-|----------------------|------------------------|
-| `{{.Channel.Name}}`  | Original channel name  |
-| `{{.Channel.Attrs}}` | Channel attributes map |
-| `{{.Channel.Tags}}`  | Channel tags map       |
-| `{{.BaseName}}`      | Duplicates basename    |
+| Variable                  | Type              | Description                                               |
+|---------------------------|-------------------|-----------------------------------------------------------|
+| `{{.Channel.Name}}`       | string            | The original channel name.                                |
+| `{{.Channel.Attrs}}`      | map[string]string | A map containing the channel's attributes.                |
+| `{{.Channel.Tags}}`       | map[string]string | A map containing the channel's tags.                      |
+| `{{.Channel.BaseName}}`   | string            | Duplicates basename                                       |
+| `{{.Playlist.Name}}`      | string            | The best channel's playlist name.                         |
+| `{{.Playlist.IsProxied}}` | bool              | Indicates whether the best channel's playlist is proxied. |

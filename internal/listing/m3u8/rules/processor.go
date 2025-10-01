@@ -85,11 +85,16 @@ func (p *Processor) processSetField(ch *Channel, rule *channel.SetFieldRule) {
 		return
 	}
 
+	pl := ch.Playlist()
 	tmplMap := map[string]any{
 		"Channel": map[string]any{
 			"Name":  ch.Name(),
 			"Attrs": ch.Attrs(),
 			"Tags":  ch.Tags(),
+		},
+		"Playlist": map[string]any{
+			"Name":      pl.Name(),
+			"IsProxied": pl.IsProxied(),
 		},
 	}
 	var buf bytes.Buffer
@@ -191,7 +196,7 @@ func (p *Processor) evaluateConditionFieldCondition(ch *Channel, condition commo
 		return false
 	}
 
-	if len(condition.Playlists) > 0 && !p.matchesExactStrings(ch.Subscription().Name(), condition.Playlists) {
+	if len(condition.Playlists) > 0 && !p.matchesExactStrings(ch.Playlist().Name(), condition.Playlists) {
 		return false
 	}
 

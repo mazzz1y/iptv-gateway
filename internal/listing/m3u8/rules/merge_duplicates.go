@@ -56,11 +56,15 @@ func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*Chann
 		if p.rule.FinalValue != nil {
 			tmplMap := map[string]any{
 				"Channel": map[string]any{
-					"Name":  best.Name(),
-					"Attrs": best.Attrs(),
-					"Tags":  best.Tags(),
+					"BaseName": baseName,
+					"Name":     best.Name(),
+					"Attrs":    best.Attrs(),
+					"Tags":     best.Tags(),
 				},
-				"BaseName": baseName,
+				"Playlist": map[string]any{
+					"Name":      best.Playlist().Name(),
+					"IsProxied": best.Playlist().IsProxied(),
+				},
 			}
 
 			var buf bytes.Buffer

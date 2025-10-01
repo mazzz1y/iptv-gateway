@@ -38,7 +38,7 @@ func (p *Processor) Process(store *rules.Store, rulesProcessor *rules.Processor)
 			continue
 		}
 
-		if ch.Subscription().IsProxied() {
+		if ch.Playlist().IsProxied() {
 			if err := p.processProxyLinks(ch); err != nil {
 				return nil, err
 			}
@@ -80,14 +80,14 @@ func (p *Processor) trackChannel(ch *rules.Channel) {
 }
 
 func (p *Processor) addURLChannel(existingChannel, newChannel *rules.Channel) {
-	if !newChannel.Subscription().IsProxied() || newChannel.URI() == nil {
+	if !newChannel.Playlist().IsProxied() || newChannel.URI() == nil {
 		return
 	}
 
 	newStream := urlgen.Stream{
 		ProviderInfo: urlgen.ProviderInfo{
 			ProviderType: urlgen.ProviderTypePlaylist,
-			ProviderName: newChannel.Subscription().Name(),
+			ProviderName: newChannel.Playlist().Name(),
 		},
 		URL:    newChannel.URI().String(),
 		Hidden: newChannel.IsHidden(),
@@ -95,7 +95,7 @@ func (p *Processor) addURLChannel(existingChannel, newChannel *rules.Channel) {
 
 	p.channelStreams[existingChannel] = append(p.channelStreams[existingChannel], newStream)
 
-	urlGen := existingChannel.Subscription().URLGenerator()
+	urlGen := existingChannel.Playlist().URLGenerator()
 	u, err := urlGen.CreateStreamURL(existingChannel.Name(), p.channelStreams[existingChannel])
 	if err == nil {
 		existingChannel.SetURI(u)
@@ -103,14 +103,14 @@ func (p *Processor) addURLChannel(existingChannel, newChannel *rules.Channel) {
 }
 
 func (p *Processor) processProxyLinks(ch *rules.Channel) error {
-	subscription := ch.Subscription()
+	subscription := ch.Playlist()
 	urlGen := subscription.URLGenerator()
 
 	for key, value := range ch.Attrs() {
 		if isURL(value) {
 			u, err := urlGen.CreateFileURL(urlgen.ProviderInfo{
 				ProviderType: urlgen.ProviderTypePlaylist,
-				ProviderName: ch.Subscription().Name(),
+				ProviderName: ch.Playlist().Name(),
 			}, value)
 			if err != nil {
 				return fmt.Errorf("failed to encode attribute URL: %w", err)
@@ -125,7 +125,7 @@ func (p *Processor) processProxyLinks(ch *rules.Channel) error {
 			stream := urlgen.Stream{
 				ProviderInfo: urlgen.ProviderInfo{
 					ProviderType: urlgen.ProviderTypePlaylist,
-					ProviderName: ch.Subscription().Name(),
+					ProviderName: ch.Playlist().Name(),
 				},
 				URL:    uriStr,
 				Hidden: ch.IsHidden(),

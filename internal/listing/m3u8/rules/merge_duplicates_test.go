@@ -23,19 +23,24 @@ func TestMergeChannelsProcessor_CopyTvgId(t *testing.T) {
 	processor := NewMergeDuplicatesActionProcessor(rule)
 	store := NewStore()
 
+	playlist := mockPlaylist{name: "test-playlist"}
+
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
 
-	ch1 := &Channel{track: &m3u8.Track{
+	track1 := &m3u8.Track{
 		Name:  "CNN HD",
 		URI:   uri1,
 		Attrs: map[string]string{"tvg-id": "cnn-hd"},
-	}}
-	ch2 := &Channel{track: &m3u8.Track{
+	}
+	track2 := &m3u8.Track{
 		Name:  "CNN 4K",
 		URI:   uri2,
 		Attrs: map[string]string{"tvg-id": "cnn-4k"},
-	}}
+	}
+
+	ch1 := NewChannel(track1, playlist)
+	ch2 := NewChannel(track2, playlist)
 
 	store.Add(ch1)
 	store.Add(ch2)
@@ -69,26 +74,31 @@ func TestMergeChannelsProcessor_SetFieldName(t *testing.T) {
 		},
 		FinalValue: &configrules.MergeDuplicatesFinalValue{
 			Selector: &common.Selector{Type: common.SelectorName},
-			Template: mustTemplate("{{.BaseName}} Multi-Quality"),
+			Template: mustTemplate("{{.Channel.BaseName}} Multi-Quality"),
 		},
 	}
 
 	processor := NewMergeDuplicatesActionProcessor(rule)
 	store := NewStore()
 
+	playlist := mockPlaylist{name: "test-playlist"}
+
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
 
-	ch1 := &Channel{track: &m3u8.Track{
+	track1 := &m3u8.Track{
 		Name:  "CNN HD",
 		URI:   uri1,
 		Attrs: map[string]string{"tvg-id": "cnn-hd"},
-	}}
-	ch2 := &Channel{track: &m3u8.Track{
+	}
+	track2 := &m3u8.Track{
 		Name:  "CNN 4K",
 		URI:   uri2,
 		Attrs: map[string]string{"tvg-id": "cnn-4k"},
-	}}
+	}
+
+	ch1 := NewChannel(track1, playlist)
+	ch2 := NewChannel(track2, playlist)
 
 	store.Add(ch1)
 	store.Add(ch2)
@@ -112,26 +122,31 @@ func TestMergeChannelsProcessor_SetFieldAttr(t *testing.T) {
 		},
 		FinalValue: &configrules.MergeDuplicatesFinalValue{
 			Selector: &common.Selector{Type: common.SelectorAttr, Value: "group-title"},
-			Template: mustTemplate("{{.BaseName}} Group"),
+			Template: mustTemplate("{{.Channel.BaseName}} Group"),
 		},
 	}
 
 	processor := NewMergeDuplicatesActionProcessor(rule)
 	store := NewStore()
 
+	playlist := mockPlaylist{name: "test-playlist"}
+
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
 
-	ch1 := &Channel{track: &m3u8.Track{
+	track1 := &m3u8.Track{
 		Name:  "CNN HD",
 		URI:   uri1,
 		Attrs: map[string]string{"tvg-id": "cnn-hd", "group-title": "News HD"},
-	}}
-	ch2 := &Channel{track: &m3u8.Track{
+	}
+	track2 := &m3u8.Track{
 		Name:  "CNN 4K",
 		URI:   uri2,
 		Attrs: map[string]string{"tvg-id": "cnn-4k", "group-title": "News 4K"},
-	}}
+	}
+
+	ch1 := NewChannel(track1, playlist)
+	ch2 := NewChannel(track2, playlist)
 
 	store.Add(ch1)
 	store.Add(ch2)
@@ -169,28 +184,33 @@ func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
 		},
 		FinalValue: &configrules.MergeDuplicatesFinalValue{
 			Selector: &common.Selector{Type: common.SelectorTag, Value: "quality"},
-			Template: mustTemplate("{{.BaseName}} Multi"),
+			Template: mustTemplate("{{.Channel.BaseName}} Multi"),
 		},
 	}
 
 	processor := NewMergeDuplicatesActionProcessor(rule)
 	store := NewStore()
 
+	playlist := mockPlaylist{name: "test-playlist"}
+
 	uri1, _ := url.Parse("http://example.com/url1")
 	uri2, _ := url.Parse("http://example.com/url2")
 
-	ch1 := &Channel{track: &m3u8.Track{
+	track1 := &m3u8.Track{
 		Name:  "CNN HD",
 		URI:   uri1,
 		Attrs: map[string]string{"tvg-id": "cnn-hd"},
 		Tags:  map[string]string{"quality": "HD"},
-	}}
-	ch2 := &Channel{track: &m3u8.Track{
+	}
+	track2 := &m3u8.Track{
 		Name:  "CNN 4K",
 		URI:   uri2,
 		Attrs: map[string]string{"tvg-id": "cnn-4k"},
 		Tags:  map[string]string{"quality": "4K"},
-	}}
+	}
+
+	ch1 := NewChannel(track1, playlist)
+	ch2 := NewChannel(track2, playlist)
 
 	store.Add(ch1)
 	store.Add(ch2)

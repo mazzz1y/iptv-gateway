@@ -50,7 +50,9 @@ nav:
               - Remove Duplicates: config/rules/playlist_rules/remove_duplicates.md
               - Merge Duplicates: config/rules/playlist_rules/merge_duplicates.md
               - Sort: config/rules/playlist_rules/sort.md
-          - Condition: config/rules/condition.md
-          - Selector: config/rules/selector.md
+          - Shared Objects:
+              - Condition: config/rules/condition.md
+              - Selector: config/rules/selector.md
+              - Final Value: config/rules/final_value.md
   - Examples: examples.md
   - Metrics: metrics.md

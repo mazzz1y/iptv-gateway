@@ -30,7 +30,7 @@ func (c *Channel) Track() *m3u8.Track {
 	return c.track
 }
 
-func (c *Channel) Subscription() listing.Playlist {
+func (c *Channel) Playlist() listing.Playlist {
 	return c.playlist
 }
 
