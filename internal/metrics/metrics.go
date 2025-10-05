@@ -60,10 +60,10 @@ var (
 		[]string{"client_name", "playlist_name", "channel_name", "reason"},
 	)
 
-	listingDownloadTotal = prometheus.NewCounterVec(
+	listingRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "iptv_listing_downloads_total",
-			Help: "Total number of listing downloads by client and type",
+			Name: "iptv_listing_requests_total",
+			Help: "Total number of listing requests by client and type",
 		},
 		[]string{"client_name", "request_type"},
 	)
@@ -142,7 +142,7 @@ func IncStreamsFailures(ctx context.Context, reason string) {
 func IncListingDownload(ctx context.Context) {
 	clientName := ctxutil.ClientName(ctx)
 	requestType := ctxutil.RequestType(ctx)
-	listingDownloadTotal.WithLabelValues(clientName, requestType).Inc()
+	listingRequestsTotal.WithLabelValues(clientName, requestType).Inc()
 }
 
 func IncProxyRequests(ctx context.Context, cacheStatus string) {
@@ -156,7 +156,7 @@ func init() {
 	Registry.MustRegister(playlistStreamsActive)
 	Registry.MustRegister(streamsReusedTotal)
 	Registry.MustRegister(streamsFailuresTotal)
-	Registry.MustRegister(listingDownloadTotal)
+	Registry.MustRegister(listingRequestsTotal)
 	Registry.MustRegister(proxyRequestsTotal)
 	Registry.MustRegister(collectors.NewGoCollector(
 		collectors.WithoutGoCollectorRuntimeMetrics(),
