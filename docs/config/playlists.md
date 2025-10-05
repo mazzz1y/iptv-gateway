@@ -5,9 +5,10 @@ Playlists define collections of IPTV channels from M3U/M3U8 sources. Each playli
 ## YAML Structure
 
 ```yaml
-- name: "playlist-name"
-  sources: []
-  proxy: {}
+playlists:
+  - name: "playlist-name"
+    sources: []
+    proxy: {}
 ```
 
 ## Fields

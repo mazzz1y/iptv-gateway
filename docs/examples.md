@@ -109,7 +109,6 @@ epgs:
       - "https://sports.com/guide.xml"
       - "https://sports2.com/guide.xml.gz"
 
-# Global rules applied to all channels and playlists
 channel_rules:
   # Set sports group for sports channels
   - set_field:

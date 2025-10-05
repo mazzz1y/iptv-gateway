@@ -5,8 +5,9 @@ Log configuration controls the application's logging behavior.
 ## YAML Structure
 
 ```yaml
-level: ""
-format: ""
+logs:
+  level: ""
+  format: ""
 ```
 
 ## Fields

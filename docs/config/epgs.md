@@ -6,9 +6,10 @@ multiple sources.
 ## YAML Structure
 
 ```yaml
-- name: ""
-  sources: []
-  proxy: {}
+epgs:
+  - name: ""
+    sources: []
+    proxy: {}
 ```
 
 ## Fields

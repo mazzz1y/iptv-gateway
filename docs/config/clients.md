@@ -17,11 +17,12 @@ Each client can access the following endpoints:
 ## YAML Structure
 
 ```yaml
-- name: ""
-  secret: ""
-  proxy: {}
-  playlists: []
-  epgs: []
+clients:
+  - name: ""
+    secret: ""
+    proxy: {}
+    playlists: []
+    epgs: []
 ```
 
 ## Fields

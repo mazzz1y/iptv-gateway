@@ -24,30 +24,29 @@ hide:
   }
 }
 </style>
-
 ---
+
+![Diagram](./assets/diagram.svg)
 
 ### :material-playlist-music: Playlist Control
 
 Take full control of your M3U playlists. Filter out unwanted channels, sort by your preferences, rename groups, or
 modify any field. The gateway processes everything on-the-fly.
 
-Duplicate channels with different quality markers (4K/HD/SD) are automatically detected and can be consolidated based on
-your rules.
+Exact channel duplicates with the same `tvg-id` or name will be merged into a single channel using fallback logic. The first channel has higher priority, and the others will act as fallbacks if the first stream becomes unavailable for any reason.
 
 EPG data streams directly to clients without loading entire XML files into memory. Attach multiple EPG sources and the
 gateway intelligently filters to include only relevant program data.
 
 ### :material-shield-lock: Smart Proxying
 
-Generate encrypted URLs with optional TTL that completely hide your original sources. Your clients receive secure links
-they can't decrypt.
+Generate encrypted URLs with an optional TTL that completely hide your original sources. Your clients get secure links they can't decrypt.
 
-The gateway operates statelessly — rename channels, modify playlists, or update configurations without breaking existing
-client links. Everything just continues to work.
+The gateway operates statelessly — you can rename channels, modify playlists, or update configurations without breaking existing client links. Everything just keeps working.
 
-When multiple clients request the same stream, the gateway automatically demultiplexes from a single upstream
-connection, reducing bandwidth and server load.
+When multiple clients request the same stream, the gateway automatically demultiplexes from a single upstream connection, reducing bandwidth and server load.
+
+Exact channel duplicates with the same `tvg-id` or name are merged into a single channel using fallback logic. The first channel has higher priority, and the others act as fallbacks if the first stream becomes unavailable for any reason.
 
 **Need to transcode?** Configure any FFmpeg command or external tool for stream processing. The gateway handles the
 pipeline, you define the transformation.
@@ -60,7 +59,7 @@ Mix and match rules to create exactly the experience each client requires.
 
     ---
 
-    All remote content is cached on disk with proper header respect. The gateway reuses cached data whenever possible, reducing upstream requests.
+    All remote files is cached on disk. The gateway reuses cached data whenever possible, reducing upstream requests.
 
 - :material-valve:{ .lg .middle } [Rate Limiting](config/proxy.md)
 

@@ -14,22 +14,23 @@ The cache block configures the caching layer for IPTV streams and metadata. It h
 ## YAML Structure
 
 ```yaml
-path: ""
-ttl: ""
-retention: ""
-compression: false
-http_headers: []
+cache:
+  path: ""
+  ttl: ""
+  retention: ""
+  compression: false
+  http_headers: []
 ```
 
 ## Fields
 
-| Field          | Type                               | Required | Default    | Description                                            |
-|:---------------|:-----------------------------------|:---------|:-----------|:-------------------------------------------------------|
-| `path`         | `string`                           | No       | `"/cache"` | Directory path where cache files will be stored        |
-| `ttl`          | `string`                           | No       | `"24h"`    | Cache expiration time (e.g., "1h", "30m")              |
-| `retention`    | `string`                           | No       | `"30d"`    | How long to keep unaccessed files on disk (e.g., "7d") |
-| `compression`  | `boolean`                          | No       | `false`    | Enable gzip compression for cached files               |
-| `http_headers` | [`[]NameValue`](#namevalue-object) | No       | `[]`       | Extra request headers for outgoing requests            |
+| Field          | Type                               | Required | Default     | Description                                            |
+|:---------------|:-----------------------------------|:---------|:------------|:-------------------------------------------------------|
+| `path`         | `string`                           | No       | `"./cache"` | Directory path where cache files will be stored        |
+| `ttl`          | `string`                           | No       | `"24h"`     | Cache expiration time (e.g., "1h", "30m")              |
+| `retention`    | `string`                           | No       | `"30d"`     | How long to keep unaccessed files on disk (e.g., "7d") |
+| `compression`  | `boolean`                          | No       | `false`     | Enable gzip compression for cached files               |
+| `http_headers` | [`[]NameValue`](#namevalue-object) | No       | `[]`        | Extra request headers for outgoing requests            |
 
 ### Name/Value Object
 
