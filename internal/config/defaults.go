@@ -23,7 +23,6 @@ func DefaultConfig() *Config {
 			"text",
 		},
 		URLGenerator: URLGeneratorConfig{
-			Secret:    "xxx",
 			StreamTTL: common.Duration(30 * 24 * time.Hour),
 			FileTTL:   common.Duration(0),
 		},

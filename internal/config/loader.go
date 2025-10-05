@@ -43,7 +43,6 @@ func Load(path string) (*Config, error) {
 		}
 
 		dec := yaml.NewDecoder(f)
-		dec.KnownFields(true)
 		if err := dec.Decode(c); err != nil {
 			f.Close()
 			return nil, err
