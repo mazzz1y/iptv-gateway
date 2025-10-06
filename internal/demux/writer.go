@@ -2,7 +2,7 @@ package demux
 
 import (
 	"io"
-	"iptv-gateway/internal/ioutil"
+	"majmun/internal/ioutil"
 	"sync"
 )
 

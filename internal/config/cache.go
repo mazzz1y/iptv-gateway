@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/common"
+	"majmun/internal/config/common"
 )
 
 type CacheConfig struct {

@@ -1,4 +1,4 @@
-# IPTV Gateway
+# Majmun
 
 > ⚠️ **Warning**: This project is currently under construction. Some features might be unstable or incomplete.
 
@@ -8,11 +8,11 @@ This app allows you to distribute playlists and XMLTV files to your TVs and cent
 
 ## Usage
 
-https://mazzz1y.github.io/iptv-gateway/
+https://mazzz1y.github.io/majmun/
 
 ```bash
 docker run -d -p 8080:8080 \
   -v $PWD/cache:/cache \
   -v $PWD/config.yaml:/config/config.yaml:ro \
-  ghcr.io/mazzz1y/iptv-gateway:latest
+  ghcr.io/mazzz1y/majmun:latest
 ```

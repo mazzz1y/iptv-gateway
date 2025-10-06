@@ -1,10 +1,10 @@
 package store
 
 import (
-	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/listing"
-	"iptv-gateway/internal/parser/m3u8"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/config/common"
+	"majmun/internal/listing"
+	"majmun/internal/parser/m3u8"
+	"majmun/internal/urlgen"
 	"net/url"
 	"time"
 )

@@ -5,7 +5,7 @@ hide:
 ---
 <div style="max-width: 850px; margin: 0 auto;" markdown>
 
-# IPTV Gateway
+# Majmun
 
 <div style="display: flex; align-items: center; gap: 1em; flex-wrap: wrap;">
   <img src="assets/logo-tv.svg" alt="logo" width="100"/>
@@ -80,3 +80,7 @@ Mix and match rules to create exactly the experience each client requires.
     Export Prometheus metrics to monitor usage patterns per client.
 
 </div>
+
+---
+
+Why **Majmun**? It means 🐒 in Balkan languages. It's just for fun and to avoid interfering with other apps

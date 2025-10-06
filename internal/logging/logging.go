@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"iptv-gateway/internal/ctxutil"
+	"majmun/internal/ctxutil"
 	"log/slog"
 	"net/http"
 	"net/url"

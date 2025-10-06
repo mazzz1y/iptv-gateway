@@ -1,9 +1,9 @@
 package playlist
 
 import (
-	"iptv-gateway/internal/config/common"
-	playlistconf "iptv-gateway/internal/config/rules/playlist"
-	"iptv-gateway/internal/listing/m3u8/store"
+	"majmun/internal/config/common"
+	playlistconf "majmun/internal/config/rules/playlist"
+	"majmun/internal/listing/m3u8/store"
 )
 
 type Processor struct {

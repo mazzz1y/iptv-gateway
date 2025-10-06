@@ -2,7 +2,7 @@ package cache
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/common"
+	"majmun/internal/config/common"
 	"net/http"
 	"net/http/httptest"
 	"testing"

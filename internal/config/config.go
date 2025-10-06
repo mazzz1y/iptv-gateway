@@ -2,10 +2,10 @@ package config
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/config/rules/playlist"
+	"majmun/internal/config/common"
+	"majmun/internal/config/proxy"
+	"majmun/internal/config/rules/channel"
+	"majmun/internal/config/rules/playlist"
 	"strings"
 )
 

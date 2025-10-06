@@ -1,9 +1,9 @@
 package pattern_matcher
 
 import (
-	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/listing/m3u8/store"
-	"iptv-gateway/internal/parser/m3u8"
+	"majmun/internal/config/common"
+	"majmun/internal/listing/m3u8/store"
+	"majmun/internal/parser/m3u8"
 	"net/url"
 	"regexp"
 	"testing"

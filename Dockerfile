@@ -4,7 +4,7 @@ ENV CGO_ENABLED=0
 COPY . /src
 
 RUN cd /src && \
-  go build -ldflags="-s -w" -trimpath -o /iptv-gateway ./cmd/iptv-gateway
+  go build -ldflags="-s -w" -trimpath -o /majmun ./cmd/majmun
 
 FROM ubuntu:24.04
 
@@ -13,8 +13,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /iptv-gateway /iptv-gateway
+COPY --from=build /majmun /majmun
 
 USER 1337
 
-ENTRYPOINT ["/iptv-gateway"]
+ENTRYPOINT ["/majmun"]

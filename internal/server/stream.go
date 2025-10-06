@@ -8,12 +8,12 @@ import (
 	"syscall"
 	"time"
 
-	"iptv-gateway/internal/app"
-	"iptv-gateway/internal/ctxutil"
-	"iptv-gateway/internal/demux"
-	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/metrics"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/app"
+	"majmun/internal/ctxutil"
+	"majmun/internal/demux"
+	"majmun/internal/logging"
+	"majmun/internal/metrics"
+	"majmun/internal/urlgen"
 )
 
 const (

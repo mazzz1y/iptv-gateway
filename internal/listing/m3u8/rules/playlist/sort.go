@@ -1,8 +1,8 @@
 package playlist
 
 import (
-	"iptv-gateway/internal/config/rules/playlist"
-	"iptv-gateway/internal/listing/m3u8/store"
+	"majmun/internal/config/rules/playlist"
+	"majmun/internal/listing/m3u8/store"
 	"sort"
 )
 

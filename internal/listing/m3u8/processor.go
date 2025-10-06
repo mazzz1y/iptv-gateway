@@ -2,11 +2,11 @@ package m3u8
 
 import (
 	"fmt"
-	"iptv-gateway/internal/listing/m3u8/rules/channel"
-	"iptv-gateway/internal/listing/m3u8/rules/playlist"
-	"iptv-gateway/internal/listing/m3u8/store"
-	"iptv-gateway/internal/parser/m3u8"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/listing/m3u8/rules/channel"
+	"majmun/internal/listing/m3u8/rules/playlist"
+	"majmun/internal/listing/m3u8/store"
+	"majmun/internal/parser/m3u8"
+	"majmun/internal/urlgen"
 	"net/url"
 	"strings"
 )

@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/ioutil"
-	"iptv-gateway/internal/listing"
-	"iptv-gateway/internal/parser/xmltv"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/ioutil"
+	"majmun/internal/listing"
+	"majmun/internal/parser/xmltv"
+	"majmun/internal/urlgen"
 )
 
 type Streamer struct {

@@ -2,7 +2,7 @@ package channel
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/common"
+	"majmun/internal/config/common"
 )
 
 type RemoveChannelRule struct {

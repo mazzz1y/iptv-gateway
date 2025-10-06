@@ -3,8 +3,8 @@ package utils
 import (
 	"context"
 	"errors"
-	"iptv-gateway/internal/ctxutil"
-	"iptv-gateway/internal/logging"
+	"majmun/internal/ctxutil"
+	"majmun/internal/logging"
 	"time"
 
 	"golang.org/x/sync/semaphore"

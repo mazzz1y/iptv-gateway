@@ -3,10 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
-	"iptv-gateway/internal/app"
-	"iptv-gateway/internal/ctxutil"
-	"iptv-gateway/internal/metrics"
-	"iptv-gateway/internal/utils"
+	"majmun/internal/app"
+	"majmun/internal/ctxutil"
+	"majmun/internal/metrics"
+	"majmun/internal/utils"
 	"time"
 
 	"golang.org/x/sync/errgroup"

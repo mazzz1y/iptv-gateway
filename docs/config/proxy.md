@@ -4,7 +4,7 @@ The proxy block configures the streaming proxy functionality, also known as "rem
 This feature allows the gateway to act as an intermediary between IPTV clients and upstream sources, providing stream
 processing, transcoding, and error handling capabilities.
 
-When proxying is enabled, the links in the playlist will be encrypted and will point to the IPTV Gateway app.
+When proxying is enabled, the links in the playlist will be encrypted and will point to the Majmun app.
 
 The default configuration uses FFmpeg for remuxing and is ready to use out of the box. Most users can enable proxy
 functionality by simply setting `enabled` to `true`. Advanced users can customize commands to add transcoding,

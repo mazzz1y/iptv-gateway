@@ -2,12 +2,12 @@ package playlist
 
 import (
 	"bytes"
-	configrules "iptv-gateway/internal/config/rules/playlist"
-	"iptv-gateway/internal/listing/m3u8/rules/playlist/pattern_matcher"
-	"iptv-gateway/internal/listing/m3u8/store"
+	configrules "majmun/internal/config/rules/playlist"
+	"majmun/internal/listing/m3u8/rules/playlist/pattern_matcher"
+	"majmun/internal/listing/m3u8/store"
 
-	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/parser/m3u8"
+	"majmun/internal/config/common"
+	"majmun/internal/parser/m3u8"
 )
 
 type MergeDuplicatesProcessor struct {

@@ -1,13 +1,13 @@
 # Configuration
 
-IPTV Gateway can read configuration from a file or from a directory by combining multiple files based on top-level
+Majmun can read configuration from a file or from a directory by combining multiple files based on top-level
 elements.
 
 By default, it reads configuration from `config.yaml` in the current directory.
 
 ```bash
-iptv-gateway -config ./config.yaml # from file
-iptv-gateway -config ./config      # from directory
+majmun -config ./config.yaml # from file
+majmun -config ./config      # from directory
 ```
 
 !!! note "Hint"

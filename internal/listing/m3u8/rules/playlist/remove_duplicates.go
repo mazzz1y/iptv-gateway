@@ -2,10 +2,10 @@ package playlist
 
 import (
 	"bytes"
-	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/config/rules/playlist"
-	"iptv-gateway/internal/listing/m3u8/rules/playlist/pattern_matcher"
-	"iptv-gateway/internal/listing/m3u8/store"
+	"majmun/internal/config/common"
+	"majmun/internal/config/rules/playlist"
+	"majmun/internal/listing/m3u8/rules/playlist/pattern_matcher"
+	"majmun/internal/listing/m3u8/store"
 )
 
 type RemoveDuplicatesProcessor struct {

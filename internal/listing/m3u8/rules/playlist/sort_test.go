@@ -1,10 +1,10 @@
 package playlist
 
 import (
-	"iptv-gateway/internal/config/common"
-	configrules "iptv-gateway/internal/config/rules/playlist"
-	"iptv-gateway/internal/listing/m3u8/store"
-	"iptv-gateway/internal/parser/m3u8"
+	"majmun/internal/config/common"
+	configrules "majmun/internal/config/rules/playlist"
+	"majmun/internal/listing/m3u8/store"
+	"majmun/internal/parser/m3u8"
 	"regexp"
 	"testing"
 )

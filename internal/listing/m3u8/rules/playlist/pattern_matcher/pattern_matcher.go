@@ -1,12 +1,12 @@
 package pattern_matcher
 
 import (
-	"iptv-gateway/internal/listing/m3u8/store"
+	"majmun/internal/listing/m3u8/store"
 	"regexp"
 	"sort"
 	"strings"
 
-	"iptv-gateway/internal/config/common"
+	"majmun/internal/config/common"
 )
 
 type PatternMatcher struct {

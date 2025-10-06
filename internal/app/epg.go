@@ -1,9 +1,9 @@
 package app
 
 import (
-	"iptv-gateway/internal/config/proxy"
-	"iptv-gateway/internal/shell"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/config/proxy"
+	"majmun/internal/shell"
+	"majmun/internal/urlgen"
 )
 
 type EPG struct {

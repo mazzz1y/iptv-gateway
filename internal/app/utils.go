@@ -1,8 +1,8 @@
 package app
 
 import (
-	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/config/proxy"
+	"majmun/internal/config/common"
+	"majmun/internal/config/proxy"
 )
 
 func uniqueNames(names []string) []string {

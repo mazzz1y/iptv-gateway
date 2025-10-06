@@ -2,10 +2,10 @@ package server
 
 import (
 	"errors"
-	"iptv-gateway/internal/app"
-	"iptv-gateway/internal/ctxutil"
-	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/app"
+	"majmun/internal/ctxutil"
+	"majmun/internal/logging"
+	"majmun/internal/urlgen"
 	"net/http"
 	"time"
 

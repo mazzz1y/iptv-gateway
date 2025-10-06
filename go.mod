@@ -1,4 +1,4 @@
-module iptv-gateway
+module majmun
 
 go 1.23.0
 

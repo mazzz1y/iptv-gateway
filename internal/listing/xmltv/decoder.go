@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"iptv-gateway/internal/listing"
-	"iptv-gateway/internal/parser/xmltv"
+	"majmun/internal/listing"
+	"majmun/internal/parser/xmltv"
 )
 
 type decoderWrapper struct {

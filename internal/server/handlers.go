@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"time"
 
-	"iptv-gateway/internal/app"
-	"iptv-gateway/internal/ctxutil"
-	"iptv-gateway/internal/listing/m3u8"
-	"iptv-gateway/internal/listing/xmltv"
-	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/metrics"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/app"
+	"majmun/internal/ctxutil"
+	"majmun/internal/listing/m3u8"
+	"majmun/internal/listing/xmltv"
+	"majmun/internal/logging"
+	"majmun/internal/metrics"
+	"majmun/internal/urlgen"
 )
 
 const streamContentType = "video/mp2t"

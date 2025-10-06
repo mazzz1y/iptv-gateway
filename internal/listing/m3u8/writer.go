@@ -3,9 +3,9 @@ package m3u8
 import (
 	"errors"
 	"io"
-	"iptv-gateway/internal/ioutil"
-	"iptv-gateway/internal/listing/m3u8/store"
-	"iptv-gateway/internal/parser/m3u8"
+	"majmun/internal/ioutil"
+	"majmun/internal/listing/m3u8/store"
+	"majmun/internal/parser/m3u8"
 	"syscall"
 )
 

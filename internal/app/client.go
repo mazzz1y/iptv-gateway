@@ -2,15 +2,15 @@ package app
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/config/proxy"
-	channelconf "iptv-gateway/internal/config/rules/channel"
-	playlistconf "iptv-gateway/internal/config/rules/playlist"
-	"iptv-gateway/internal/listing"
-	"iptv-gateway/internal/listing/m3u8/rules/channel"
-	"iptv-gateway/internal/listing/m3u8/rules/playlist"
-	"iptv-gateway/internal/shell"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/config"
+	"majmun/internal/config/proxy"
+	channelconf "majmun/internal/config/rules/channel"
+	playlistconf "majmun/internal/config/rules/playlist"
+	"majmun/internal/listing"
+	"majmun/internal/listing/m3u8/rules/channel"
+	"majmun/internal/listing/m3u8/rules/playlist"
+	"majmun/internal/shell"
+	"majmun/internal/urlgen"
 
 	"golang.org/x/sync/semaphore"
 )

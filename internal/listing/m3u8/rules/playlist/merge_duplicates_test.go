@@ -1,16 +1,16 @@
 package playlist
 
 import (
-	"iptv-gateway/internal/config/common"
-	configrules "iptv-gateway/internal/config/rules/playlist"
-	"iptv-gateway/internal/listing/m3u8/store"
-	"iptv-gateway/internal/parser/m3u8"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/config/common"
+	configrules "majmun/internal/config/rules/playlist"
+	"majmun/internal/listing/m3u8/store"
+	"majmun/internal/parser/m3u8"
+	"majmun/internal/urlgen"
 	"net/url"
 	"regexp"
 	"testing"
 
-	"iptv-gateway/internal/config/rules/channel"
+	"majmun/internal/config/rules/channel"
 
 	"gopkg.in/yaml.v3"
 )

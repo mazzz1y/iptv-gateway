@@ -3,12 +3,12 @@ package server
 import (
 	"context"
 	"errors"
-	"iptv-gateway/internal/app"
-	"iptv-gateway/internal/cache"
-	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/demux"
-	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/metrics"
+	"majmun/internal/app"
+	"majmun/internal/cache"
+	"majmun/internal/config"
+	"majmun/internal/demux"
+	"majmun/internal/logging"
+	"majmun/internal/metrics"
 	"net/http"
 	"time"
 

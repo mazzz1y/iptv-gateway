@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"iptv-gateway/internal/ioutil"
+	"majmun/internal/ioutil"
 	"net/http"
 	"os"
 	"strings"

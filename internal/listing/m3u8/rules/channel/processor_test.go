@@ -1,15 +1,15 @@
 package channel
 
 import (
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/listing/m3u8/store"
+	"majmun/internal/config/rules/channel"
+	"majmun/internal/listing/m3u8/store"
 	"net/url"
 	"regexp"
 	"testing"
 
-	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/parser/m3u8"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/config/common"
+	"majmun/internal/parser/m3u8"
+	"majmun/internal/urlgen"
 )
 
 func mustCompile(pattern string) *regexp.Regexp {

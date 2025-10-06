@@ -1,6 +1,6 @@
 package store
 
-import "iptv-gateway/internal/listing"
+import "majmun/internal/listing"
 
 type Store struct {
 	channels []*Channel

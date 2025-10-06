@@ -2,9 +2,9 @@ package channel
 
 import (
 	"bytes"
-	"iptv-gateway/internal/config/common"
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/listing/m3u8/store"
+	"majmun/internal/config/common"
+	"majmun/internal/config/rules/channel"
+	"majmun/internal/listing/m3u8/store"
 )
 
 type Processor struct {

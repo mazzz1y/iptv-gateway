@@ -4,9 +4,9 @@ import (
 	"context"
 	"flag"
 
-	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/server"
+	"majmun/internal/config"
+	"majmun/internal/logging"
+	"majmun/internal/server"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,7 +17,7 @@ func main() {
 	configPath := flag.String("config", "config.yaml", "path to configuration (file or dir)")
 	flag.Parse()
 
-	logging.Info(ctx, "starting iptv-gateway", "config_path", *configPath)
+	logging.Info(ctx, "starting majmun", "config_path", *configPath)
 
 	c, err := config.Load(*configPath)
 	if err != nil {

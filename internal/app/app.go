@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 	"fmt"
-	"iptv-gateway/internal/config"
-	"iptv-gateway/internal/logging"
-	"iptv-gateway/internal/metrics"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/config"
+	"majmun/internal/logging"
+	"majmun/internal/metrics"
+	"majmun/internal/urlgen"
 	"time"
 
 	"golang.org/x/sync/semaphore"

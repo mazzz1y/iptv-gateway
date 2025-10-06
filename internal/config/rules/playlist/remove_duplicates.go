@@ -2,7 +2,7 @@ package playlist
 
 import (
 	"fmt"
-	"iptv-gateway/internal/config/common"
+	"majmun/internal/config/common"
 )
 
 type RemoveDuplicatesFinalValue struct {

@@ -1,8 +1,8 @@
 package listing
 
 import (
-	"iptv-gateway/internal/config/rules/channel"
-	"iptv-gateway/internal/urlgen"
+	"majmun/internal/config/rules/channel"
+	"majmun/internal/urlgen"
 	"net/http"
 	"net/url"
 	"time"

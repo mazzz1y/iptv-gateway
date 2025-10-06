@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"context"
-	"iptv-gateway/internal/ctxutil"
+	"majmun/internal/ctxutil"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
