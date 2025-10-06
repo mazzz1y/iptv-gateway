@@ -29,7 +29,7 @@ func TestNewDirectHTTPClient_ExtraHeaders(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	}))
 	defer server.Close()
 
@@ -38,7 +38,7 @@ func TestNewDirectHTTPClient_ExtraHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if requestCount != 3 {
 		t.Errorf("expected 3 requests (1 initial + 2 redirects), got %d", requestCount)
@@ -90,7 +90,7 @@ func TestNewDirectHTTPClient_NoRedirects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	for _, header := range extraHeaders {
 		if got := capturedHeader.Get(header.Name); got != header.Value {

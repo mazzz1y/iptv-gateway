@@ -111,14 +111,14 @@ func (s *Server) Stop() error {
 	logging.Info(ctx, "stopping http server")
 	if err := s.server.Shutdown(ctx); err != nil {
 		logging.Error(ctx, err, "server shutdown timeout, force closing connections")
-		s.server.Close()
+		_ = s.server.Close()
 	}
 
 	if s.metricsServer != nil {
 		logging.Info(ctx, "stopping metrics server")
 		if err := s.metricsServer.Shutdown(ctx); err != nil {
 			logging.Error(ctx, err, "metrics server shutdown timeout, force closing connections")
-			s.metricsServer.Close()
+			_ = s.metricsServer.Close()
 		}
 	}
 

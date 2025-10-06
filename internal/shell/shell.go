@@ -93,9 +93,12 @@ func (s *Streamer) Stream(ctx context.Context, w io.Writer) (int64, error) {
 		<-ctx.Done()
 		logging.Debug(ctx, "context canceled, stopping shell command")
 		if run.Process != nil {
-			run.Process.Kill()
+			err = run.Process.Kill()
+			if err != nil {
+				logging.Error(ctx, err, "failed to kill process")
+			}
 		}
-		run.Wait()
+		_ = run.Wait()
 		logging.Debug(ctx, "shell command exited")
 	}()
 

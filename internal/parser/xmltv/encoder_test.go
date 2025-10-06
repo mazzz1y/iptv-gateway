@@ -152,7 +152,6 @@ func TestXMLEncoder_WriteHeaderFooter(t *testing.T) {
 	require.NoError(t, err) // footer already written
 	assert.True(t, encoder.footerWritten)
 
-	pos = buf.Len()
 	err = encoder.WriteFooter()
 	require.Error(t, err)
 

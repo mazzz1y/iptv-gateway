@@ -153,7 +153,7 @@ func (s *Server) handleFileProxy(ctx context.Context, w http.ResponseWriter, dat
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode > 299 {
 		logging.Error(ctx, fmt.Errorf("status code: %d", resp.StatusCode), "upstream returned error")
@@ -218,7 +218,7 @@ func buildStreamKey(baseURL, rawQuery string) string {
 func generateHash(parts ...any) string {
 	h := sha256.New()
 	for _, part := range parts {
-		h.Write([]byte(fmt.Sprint(part)))
+		_, _ = fmt.Fprint(h, part)
 	}
 	return hex.EncodeToString(h.Sum(nil)[:4])
 }

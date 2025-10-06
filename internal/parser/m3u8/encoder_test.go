@@ -30,7 +30,7 @@ func TestEncoderBasicEncoding(t *testing.T) {
 	err := encoder.Encode(track)
 	require.NoError(t, err)
 
-	encoder.Close()
+	_ = encoder.Close()
 
 	expected := "#EXTM3U\n#EXTINF:-1 group-title=\"News\" tvg-id=\"test1\" tvg-logo=\"http://example.com/logo.png\" tvg-name=\"Test Channel\",Test Channel\nhttp://example.com/stream1\n"
 	assert.Equal(t, expected, buffer.String())
@@ -53,7 +53,7 @@ func TestEncoderWithHeaderAttrs(t *testing.T) {
 	err := encoder.Encode(track)
 	require.NoError(t, err)
 
-	encoder.Close()
+	_ = encoder.Close()
 
 	expected := "#EXTM3U x-tvg-url=\"http://example.com/epg.xml\"\n#EXTINF:-1,Test Channel\nhttp://example.com/stream1\n"
 	assert.Equal(t, expected, buffer.String())
@@ -80,7 +80,7 @@ func TestEncoderWithTags(t *testing.T) {
 	err := encoder.Encode(track)
 	require.NoError(t, err)
 
-	encoder.Close()
+	_ = encoder.Close()
 
 	output := buffer.String()
 	lines := strings.Split(strings.TrimSpace(output), "\n")

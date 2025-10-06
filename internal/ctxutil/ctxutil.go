@@ -24,7 +24,7 @@ const (
 
 func WithRequestID(ctx context.Context) context.Context {
 	b := make([]byte, 4)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return context.WithValue(ctx, requestIDKey, hex.EncodeToString(b))
 }
 

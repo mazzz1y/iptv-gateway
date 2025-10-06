@@ -79,7 +79,7 @@ func (s *Streamer) fetchPlaylists(ctx context.Context) (*store.Store, error) {
 	defer func() {
 		for _, decoder := range decoders {
 			if decoder != nil {
-				decoder.Close()
+				_ = decoder.Close()
 			}
 		}
 	}()

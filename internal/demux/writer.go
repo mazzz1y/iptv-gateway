@@ -132,7 +132,7 @@ func (sw *StreamWriter) Close() {
 
 	for client, cw := range sw.clients {
 		cw.Close()
-		client.Close()
+		_ = client.Close()
 		delete(sw.clients, client)
 	}
 

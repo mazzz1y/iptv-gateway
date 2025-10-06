@@ -30,10 +30,6 @@ func TestNewCache(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cache == nil {
-			t.Fatal("expected cache to be created")
-		}
-
 		if cache.dir != tmpDir {
 			t.Errorf("expected dir %s, got %s", tmpDir, cache.dir)
 		}
@@ -109,10 +105,6 @@ func TestCache_NewCachedHTTPClient(t *testing.T) {
 
 	client := cache.NewCachedHTTPClient()
 
-	if client == nil {
-		t.Fatal("expected client to be created")
-	}
-
 	if client.Timeout != 10*time.Minute {
 		t.Errorf("expected timeout 10m, got %v", client.Timeout)
 	}
@@ -152,7 +144,7 @@ func TestCache_NewReader(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("#EXTM3U\n#EXTINF:10.0,\ntest.ts\n"))
+			_, _ = w.Write([]byte("#EXTM3U\n#EXTINF:10.0,\ntest.ts\n"))
 		}))
 		defer server.Close()
 
@@ -160,7 +152,7 @@ func TestCache_NewReader(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		if reader.URL != server.URL {
 			t.Errorf("expected URL %s, got %s", server.URL, reader.URL)
@@ -314,10 +306,6 @@ func TestCache_RemoveEntry(t *testing.T) {
 func TestNewDirectHTTPClient(t *testing.T) {
 	client := newDirectHTTPClient(nil)
 
-	if client == nil {
-		t.Fatal("expected client to be created")
-	}
-
 	if client.Timeout != 10*time.Minute {
 		t.Errorf("expected timeout 10m, got %v", client.Timeout)
 	}
@@ -348,7 +336,7 @@ func createTestMetadata(path string, cachedAt int64) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	return json.NewEncoder(file).Encode(metadata)
 }

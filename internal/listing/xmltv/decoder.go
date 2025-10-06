@@ -11,7 +11,6 @@ import (
 type decoderWrapper struct {
 	*listing.BaseDecoder
 	subscription listing.EPG
-	channelsDone bool
 	sourceURL    string
 }
 

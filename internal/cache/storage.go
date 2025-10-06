@@ -16,7 +16,7 @@ func (r *Reader) SaveMetadata() error {
 	if err != nil {
 		return err
 	}
-	defer metaFile.Close()
+	defer func() { _ = metaFile.Close() }()
 
 	headers := make(map[string]string, len(forwardedHeaders))
 
@@ -35,8 +35,8 @@ func (r *Reader) SaveMetadata() error {
 }
 
 func (r *Reader) Cleanup() {
-	os.Remove(r.FilePath)
-	os.Remove(r.MetaPath)
+	_ = os.Remove(r.FilePath)
+	_ = os.Remove(r.MetaPath)
 }
 
 func readMetadata(metaPath string) (Metadata, error) {
@@ -44,7 +44,7 @@ func readMetadata(metaPath string) (Metadata, error) {
 	if err != nil {
 		return Metadata{}, err
 	}
-	defer metaFile.Close()
+	defer func() { _ = metaFile.Close() }()
 
 	var m Metadata
 	if err := json.NewDecoder(metaFile).Decode(&m); err != nil {

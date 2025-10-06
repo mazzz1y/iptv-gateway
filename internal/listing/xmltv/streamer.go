@@ -43,7 +43,7 @@ func NewStreamer(subs []listing.EPG, httpClient listing.HTTPClient, channelIDToN
 
 func (s *Streamer) WriteToGzip(ctx context.Context, w io.Writer) (int64, error) {
 	gzWriter, _ := gzip.NewWriterLevel(w, gzip.BestSpeed)
-	defer gzWriter.Close()
+	defer func() { _ = gzWriter.Close() }()
 	return s.WriteTo(ctx, gzWriter)
 }
 
@@ -54,7 +54,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 
 	bytesCounter := ioutil.NewCountWriter(w)
 	encoder := xmltv.NewEncoder(bytesCounter)
-	defer encoder.Close()
+	defer func() { _ = encoder.Close() }()
 
 	var decoders []*decoderWrapper
 	for _, sub := range s.subscriptions {
@@ -65,7 +65,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 	defer func() {
 		for _, decoder := range decoders {
 			if decoder != nil {
-				decoder.Close()
+				_ = decoder.Close()
 			}
 		}
 	}()
@@ -98,7 +98,7 @@ func (s *Streamer) WriteTo(ctx context.Context, w io.Writer) (int64, error) {
 
 func (s *Streamer) processChannels(ctx context.Context, decoder *decoderWrapper, encoder Encoder) error {
 	decoder.StopBuffer()
-	defer decoder.StartBuffering(ctx)
+	defer func() { _ = decoder.StartBuffering(ctx) }()
 
 	for {
 		select {

@@ -79,11 +79,6 @@ func TestGenerator_CreateURL(t *testing.T) {
 				return
 			}
 
-			if u == nil {
-				t.Error("createURL() returned nil url")
-				return
-			}
-
 			if !strings.HasPrefix(u.String(), g.PublicURL) {
 				t.Errorf("createURL() url doesn't start with public url: %v", u.String())
 			}
@@ -157,10 +152,6 @@ func TestGenerator_CreateStreamURL(t *testing.T) {
 		t.Fatalf("CreateStreamURL() failed: %v", err)
 	}
 
-	if u == nil {
-		t.Fatal("CreateStreamURL() returned nil URL")
-	}
-
 	if !strings.HasPrefix(u.String(), g.PublicURL) {
 		t.Errorf("CreateStreamURL() URL doesn't start with public URL")
 	}
@@ -208,10 +199,6 @@ func TestGenerator_CreateFileURL(t *testing.T) {
 	u, err := g.CreateFileURL(providerInfo, fileURL)
 	if err != nil {
 		t.Fatalf("CreateFileURL() failed: %v", err)
-	}
-
-	if u == nil {
-		t.Fatal("CreateFileURL() returned nil URL")
 	}
 
 	if !strings.HasPrefix(u.String(), g.PublicURL) {

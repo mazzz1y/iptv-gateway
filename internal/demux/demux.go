@@ -93,7 +93,7 @@ func (m *Demuxer) GetReader(ctx context.Context, req Request) (io.ReadCloser, er
 		if utils.AcquireSemaphore(streamCtx, req.Semaphore, semaphoreTimeout, "subscription") {
 			logging.Debug(streamCtx, "acquired subscription semaphore")
 		} else {
-			sr.Close()
+			_ = sr.Close()
 			return nil, ErrSubscriptionSemaphore
 		}
 		go m.startStream(streamCtx, req)

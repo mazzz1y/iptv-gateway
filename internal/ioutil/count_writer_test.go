@@ -92,12 +92,12 @@ func TestCountWriter_Count(t *testing.T) {
 	data1 := []byte("first write")
 	data2 := []byte("second write")
 
-	cw.Write(data1)
+	_, _ = cw.Write(data1)
 	if count := cw.Count(); count != int64(len(data1)) {
 		t.Errorf("expected count %d, got %d", len(data1), count)
 	}
 
-	cw.Write(data2)
+	_, _ = cw.Write(data2)
 	expectedTotal := int64(len(data1) + len(data2))
 	if count := cw.Count(); count != expectedTotal {
 		t.Errorf("expected count %d, got %d", expectedTotal, count)

@@ -97,7 +97,7 @@ func (r *Reader) getCachedHeaders() map[string]string {
 }
 
 func (r *Reader) createCacheFile() error {
-	os.Remove(r.FilePath)
+	_ = os.Remove(r.FilePath)
 	file, err := os.Create(r.FilePath)
 	if err != nil {
 		return fmt.Errorf("failed to create cache file: %w", err)
@@ -194,7 +194,7 @@ func (r *Reader) isModifiedSince(lastModified time.Time, etag string) bool {
 	if err != nil {
 		return true
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	r.originResponse = resp
 
@@ -224,7 +224,7 @@ func (r *Reader) newCachedReader() (io.ReadCloser, error) {
 	if r.compression {
 		gzipR, err := gzip.NewReader(file)
 		if err != nil {
-			file.Close()
+			_ = file.Close()
 			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 		}
 		return ioutil.NewReaderWithCloser(gzipR, gzipR.Close), nil
@@ -245,7 +245,7 @@ func (r *Reader) newDirectReader(ctx context.Context) (io.ReadCloser, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
@@ -255,7 +255,7 @@ func (r *Reader) newDirectReader(ctx context.Context) (io.ReadCloser, error) {
 	if r.isGzippedContent(resp) {
 		gzipReader, err := gzip.NewReader(resp.Body)
 		if err != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 		}
 		return ioutil.NewReaderWithCloser(gzipReader, gzipReader.Close), nil
@@ -276,7 +276,7 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
@@ -286,7 +286,7 @@ func (r *Reader) newCachingReader(ctx context.Context) (io.ReadCloser, error) {
 
 	err = r.createCacheFile()
 	if err != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, err
 	}
 

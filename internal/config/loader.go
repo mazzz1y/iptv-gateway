@@ -44,13 +44,13 @@ func Load(path string) (*Config, error) {
 
 		dec := yaml.NewDecoder(f)
 		if err := dec.Decode(c); err != nil {
-			f.Close()
+			_ = f.Close()
 			return nil, err
 		}
 		if err := c.Validate(); err != nil {
 			return nil, err
 		}
-		f.Close()
+		_ = f.Close()
 	}
 
 	return c, nil

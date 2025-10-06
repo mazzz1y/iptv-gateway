@@ -83,7 +83,10 @@ func (s *Server) proxyAuthMiddleware(next http.Handler) http.Handler {
 				provider := s.getProviderFromData(client, data)
 				if provider != nil && provider.ExpiredLinkStreamer() != nil {
 					ctx = ctxutil.WithClient(ctx, client)
-					provider.ExpiredLinkStreamer().Stream(ctx, w)
+					_, err := provider.ExpiredLinkStreamer().Stream(ctx, w)
+					if err != nil {
+						logging.Error(ctx, err, "failed to stream expired link response")
+					}
 				} else {
 					http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				}
