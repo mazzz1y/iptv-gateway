@@ -1,6 +1,6 @@
 # Metrics
 
-The Majmun provides comprehensive Prometheus metrics for monitoring system performance, stream statistics, and
+Majmun provides comprehensive Prometheus metrics for monitoring system performance, stream statistics, and
 client activity.
 
 ## YAML Configuration

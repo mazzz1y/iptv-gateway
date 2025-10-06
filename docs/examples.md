@@ -1,6 +1,9 @@
 # Configuration Examples
 
-This page provides example configurations to help clients get started quickly.
+!!! note "Exposed endpoints"
+    - `{public_url}/{client_secret}/playlist.m3u8`
+    - `{public_url}/{client_secret}/epg.xml`
+    - `{public_url}/{client_secret}/epg.xml.gz`
 
 ## Simple Configuration
 
@@ -30,7 +33,7 @@ clients:
 
 ## Advanced Configuration
 
-A full-featured setup including proxying, global rules, and multiple sources.
+A full-featured setup including proxying, rules, and multiple sources.
 
 ```yaml
 logs:
