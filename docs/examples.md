@@ -1,3 +1,5 @@
+<div style="max-width: 850px; margin: 0 auto;" markdown>
+
 # Configuration Examples
 
 !!! note "Exposed endpoints"

@@ -1,7 +1,8 @@
+<div style="max-width: 850px; margin: 0 auto;" markdown>
+
 # Metrics
 
-Majmun provides comprehensive Prometheus metrics for monitoring system performance, stream statistics, and
-client activity.
+Majmun provides Prometheus metrics for monitoring system performance, stream statistics, and client activity.
 
 ## YAML Configuration
 

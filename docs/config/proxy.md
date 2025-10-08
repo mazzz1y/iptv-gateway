@@ -1,10 +1,10 @@
 # Proxy
 
 The proxy block configures the streaming proxy functionality, also known as "remuxing".
-This feature allows the gateway to act as an intermediary between IPTV clients and upstream sources, providing stream
+This feature allows the app to act as an intermediary between IPTV clients and upstream sources, providing stream
 processing, transcoding, and error handling capabilities.
 
-When proxying is enabled, the links in the playlist will be encrypted and will point to the Majmun app.
+When proxying is enabled, the links in the playlist will be encrypted and will point to the `public_url`.
 
 The default configuration uses FFmpeg for remuxing and is ready to use out of the box. Most users can enable proxy
 functionality by simply setting `enabled` to `true`. Advanced users can customize commands to add transcoding,
@@ -21,6 +21,11 @@ filtering, or other stream processing features.
 !!! note "Concurrency Handling"
 
     Concurrency is handled at the global, subscription, and client levels separately.
+
+!!! note "Command Handling"
+
+    Majmun expects the command to output video stream data to `stdout`. `stderr` will be printed to the debug logs. 
+    If the command exits with empty stdout, an upstream error will be triggered.
 
 ## YAML Structure
 
@@ -63,9 +68,13 @@ proxy:
 
 ### Command Object
 
+!!! note "Command String Format"
+    Command can be specified as a string or an array of strings, similar to Dockerfile syntax. If the command is specified
+    as a string, it will be wrapped in a `/bin/sh` shell.
+
 | Field                | Type                               | Required | Description                              |
 |----------------------|------------------------------------|----------|------------------------------------------|
-| `command`            | `[]gotemplate`                     | No       | Command array to execute                 |
+| `command`            | `gotemplate` or `[]gotemplate`     | No       | Command array to execute                 |
 | `template_variables` | [`[]NameValue`](#namevalue-object) | No       | Variables available in command templates |
 | `env_variables`      | [`[]NameValue`](#namevalue-object) | No       | Environment variables for the command    |
 

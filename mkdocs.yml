@@ -1,10 +1,10 @@
 site_name: Majmun
 site_url: https://mazzz1y.github.io/majmun
+repo_url: https://github.com/mazzz1y/majmun
 theme:
   name: material
   logo: assets/logo.svg
   favicon: assets/logo.svg
-  custom_dir: docs/overrides
   palette:
     scheme: slate
   features:
@@ -29,6 +29,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Install: install.md
   - Configuration:
       - Overview: config.md
       - Logs: config/logs.md
