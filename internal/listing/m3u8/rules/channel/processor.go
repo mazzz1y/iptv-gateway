@@ -123,6 +123,9 @@ func (p *Processor) processMarkHidden(ch *store.Channel, rule *channel.MarkHidde
 }
 
 func (p *Processor) matchesCondition(ch *store.Channel, condition common.Condition) bool {
+	if ch.IsRemoved() {
+		return false
+	}
 	if condition.IsEmpty() {
 		return true
 	}
