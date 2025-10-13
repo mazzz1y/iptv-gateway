@@ -29,8 +29,17 @@ func NewProcessor() *Processor {
 func (p *Processor) Process(
 	ctx context.Context,
 	st *store.Store, channelProcessor *channel.Processor, playlistProcessor *playlist.Processor) ([]*store.Channel, error) {
-	channelProcessor.Apply(ctx, st)
-	playlistProcessor.Apply(ctx, st)
+
+	var err error
+	err = channelProcessor.Apply(ctx, st)
+	if err != nil {
+		return nil, err
+	}
+
+	err = playlistProcessor.Apply(ctx, st)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, ch := range st.All() {
 		if ch.IsRemoved() {

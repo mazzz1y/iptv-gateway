@@ -1,15 +1,14 @@
 package channel
 
 import (
+	"majmun/internal/config/common"
 	"majmun/internal/config/rules/channel"
 	"majmun/internal/listing/m3u8/store"
+	"majmun/internal/parser/m3u8"
+	"majmun/internal/urlgen"
 	"net/url"
 	"regexp"
 	"testing"
-
-	"majmun/internal/config/common"
-	"majmun/internal/parser/m3u8"
-	"majmun/internal/urlgen"
 )
 
 func mustCompile(pattern string) *regexp.Regexp {
@@ -28,20 +27,15 @@ func (m mockPlaylist) IsProxied() bool                 { return false }
 
 func TestConditionLogic(t *testing.T) {
 	playlist := mockPlaylist{name: "pl1"}
-	uri, _ := url.Parse("http://example.com/stream")
-	track := &m3u8.Track{
-		Name: "Channel A",
-		URI:  uri,
-		Tags: map[string]string{"cat": "restricted"},
-	}
-	ch := store.NewChannel(track, playlist)
 	processor := NewRulesProcessor("client1", nil)
 
 	tests := []struct {
+		name        string
 		condition   common.Condition
 		expectMatch bool
 	}{
 		{
+			name: "client and tag both match",
 			condition: common.Condition{
 				Clients:  common.StringOrArr{"client1", "client2"},
 				Selector: &common.Selector{Type: common.SelectorTag, Value: "cat"},
@@ -50,6 +44,7 @@ func TestConditionLogic(t *testing.T) {
 			expectMatch: true,
 		},
 		{
+			name: "client matches but tag pattern doesn't",
 			condition: common.Condition{
 				Clients:  common.StringOrArr{"client1", "client2"},
 				Selector: &common.Selector{Type: common.SelectorTag, Value: "cat"},
@@ -58,6 +53,7 @@ func TestConditionLogic(t *testing.T) {
 			expectMatch: false,
 		},
 		{
+			name: "client doesn't match",
 			condition: common.Condition{
 				Clients:  common.StringOrArr{"client3"},
 				Selector: &common.Selector{Type: common.SelectorTag, Value: "cat"},
@@ -66,12 +62,14 @@ func TestConditionLogic(t *testing.T) {
 			expectMatch: false,
 		},
 		{
+			name: "client matches with no other conditions",
 			condition: common.Condition{
 				Clients: common.StringOrArr{"client1", "client2"},
 			},
 			expectMatch: true,
 		},
 		{
+			name: "no client condition, tag matches",
 			condition: common.Condition{
 				Selector: &common.Selector{Type: common.SelectorTag, Value: "cat"},
 				Patterns: common.RegexpArr{mustCompile("restricted")},
@@ -81,16 +79,26 @@ func TestConditionLogic(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := processor.matchesCondition(ch, tt.condition)
-		if result != tt.expectMatch {
-			t.Errorf("matchesCondition() = %v, want %v", result, tt.expectMatch)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			uri, _ := url.Parse("http://example.com/stream")
+			track := &m3u8.Track{
+				Name: "Channel A",
+				URI:  uri,
+				Tags: map[string]string{"cat": "restricted"},
+			}
+			ch := store.NewChannel(track, playlist)
 
-		rule := &channel.RemoveChannelRule{Condition: &tt.condition}
-		shouldRemove := processor.processRemoveChannel(ch, rule)
-		if shouldRemove != tt.expectMatch {
-			t.Errorf("processRemoveChannel() = %v, want %v", shouldRemove, tt.expectMatch)
-		}
+			result := processor.matchesCondition(ch, tt.condition)
+			if result != tt.expectMatch {
+				t.Errorf("matchesCondition() = %v, want %v", result, tt.expectMatch)
+			}
+
+			rule := &channel.RemoveChannelRule{Condition: &tt.condition}
+			processor.processRemoveChannel(ch, rule)
+			if ch.IsRemoved() != tt.expectMatch {
+				t.Errorf("processRemoveChannel() = %v, want %v", ch.IsRemoved(), tt.expectMatch)
+			}
+		})
 	}
 }
 
@@ -108,13 +116,13 @@ func TestPlaylistCondition(t *testing.T) {
 
 	result := processor.matchesCondition(ch, condition)
 	if !result {
-		t.Error("Expected match when both client and playlist match")
+		t.Error("expected match when both client and playlist match")
 	}
 
 	condition.Playlists = common.StringOrArr{"pl3"}
 	result = processor.matchesCondition(ch, condition)
 	if result {
-		t.Error("Expected no match when playlist doesn't match")
+		t.Error("expected no match when playlist doesn't match")
 	}
 }
 
@@ -148,19 +156,19 @@ func TestAdultChannelFilteringWithClientAndOrConditions(t *testing.T) {
 
 	result := restrictedProcessor.matchesCondition(ch, condition)
 	if !result {
-		t.Error("Expected match for restricted client with adult content")
+		t.Error("expected match for restricted client with adult content")
 	}
 
 	allowedProcessor := NewRulesProcessor("living-room", nil)
 	result = allowedProcessor.matchesCondition(ch, condition)
 	if result {
-		t.Error("Expected no match for non-restricted client - adult content should be available")
+		t.Error("expected no match for non-restricted client - adult content should be available")
 	}
 
 	restrictedProcessor2 := NewRulesProcessor("tv2-bedroom", nil)
 	result = restrictedProcessor2.matchesCondition(ch, condition)
 	if !result {
-		t.Error("Expected match for tv2-bedroom restricted client with adult content")
+		t.Error("expected match for tv2-bedroom restricted client with adult content")
 	}
 }
 
@@ -174,7 +182,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	emptyCondition := common.Condition{}
 	result := processor.evaluateField(ch, emptyCondition)
 	if !result {
-		t.Error("Expected true for empty field condition")
+		t.Error("expected true for empty field condition")
 	}
 
 	conditionWithOnlyOr := common.Condition{
@@ -187,7 +195,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	}
 	result = processor.evaluateField(ch, conditionWithOnlyOr)
 	if !result {
-		t.Error("Expected true when no field conditions are specified")
+		t.Error("expected true when no field conditions are specified")
 	}
 
 	conditionMissingAttr := common.Condition{
@@ -196,7 +204,7 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	}
 	result = processor.evaluateField(ch, conditionMissingAttr)
 	if result {
-		t.Error("Expected false for non-existent attribute")
+		t.Error("expected false for non-existent attribute")
 	}
 
 	conditionMissingTag := common.Condition{
@@ -205,6 +213,6 @@ func TestEvaluateFieldConditionEdgeCases(t *testing.T) {
 	}
 	result = processor.evaluateField(ch, conditionMissingTag)
 	if result {
-		t.Error("Expected false for non-existent tag")
+		t.Error("expected false for non-existent tag")
 	}
 }

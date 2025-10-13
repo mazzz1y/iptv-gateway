@@ -2,11 +2,10 @@ package playlist
 
 import (
 	"bytes"
+	"majmun/internal/config/common"
 	configrules "majmun/internal/config/rules/playlist"
 	"majmun/internal/listing/m3u8/rules/playlist/pattern_matcher"
 	"majmun/internal/listing/m3u8/store"
-
-	"majmun/internal/config/common"
 	"majmun/internal/parser/m3u8"
 )
 
@@ -21,15 +20,15 @@ func NewMergeDuplicatesActionProcessor(rule *configrules.MergeDuplicatesRule) *M
 	return &MergeDuplicatesProcessor{rule: rule}
 }
 
-func (p *MergeDuplicatesProcessor) Apply(store *store.Store) {
+func (p *MergeDuplicatesProcessor) Apply(store *store.Store) error {
 	if p.matcher == nil {
 		p.matcher = pattern_matcher.NewPatternMatcher(store.All(), p.rule.Selector, p.rule.Patterns)
 	}
 	grouped := p.matcher.GroupChannels()
-	p.processMergeGroups(grouped)
+	return p.processMergeGroups(grouped)
 }
 
-func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*store.Channel) {
+func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*store.Channel) error {
 	for baseName, group := range groups {
 		if len(group) <= 1 {
 			continue
@@ -58,20 +57,23 @@ func (p *MergeDuplicatesProcessor) processMergeGroups(groups map[string][]*store
 			}
 
 			var buf bytes.Buffer
-			if err := p.rule.FinalValue.Template.ToTemplate().Execute(&buf, tmplMap); err == nil {
-				finalValue := buf.String()
+			if err := p.rule.FinalValue.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
+				return err
+			}
+			finalValue := buf.String()
 
-				for _, ch := range group {
-					switch p.rule.FinalValue.Selector.Type {
-					case common.SelectorName:
-						ch.SetName(finalValue)
-					case common.SelectorAttr:
-						ch.SetAttr(p.rule.FinalValue.Selector.Value, finalValue)
-					case common.SelectorTag:
-						ch.SetTag(p.rule.FinalValue.Selector.Value, finalValue)
-					}
+			for _, ch := range group {
+				switch p.rule.FinalValue.Selector.Type {
+				case common.SelectorName:
+					ch.SetName(finalValue)
+				case common.SelectorAttr:
+					ch.SetAttr(p.rule.FinalValue.Selector.Value, finalValue)
+				case common.SelectorTag:
+					ch.SetTag(p.rule.FinalValue.Selector.Value, finalValue)
 				}
 			}
+
 		}
 	}
+	return nil
 }

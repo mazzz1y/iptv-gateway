@@ -79,7 +79,9 @@ func TestMergeChannelsProcessor_CopyTvgId(t *testing.T) {
 		},
 	}
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	channels := s.All()
 	if len(channels) != 2 {
@@ -137,7 +139,9 @@ func TestMergeChannelsProcessor_SetFieldName(t *testing.T) {
 	s.Add(ch1)
 	s.Add(ch2)
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	channels := s.All()
 	for _, ch := range channels {
@@ -185,7 +189,9 @@ func TestMergeChannelsProcessor_SetFieldAttr(t *testing.T) {
 	s.Add(ch1)
 	s.Add(ch2)
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	channels := s.All()
 	for _, ch := range channels {
@@ -249,7 +255,9 @@ func TestMergeChannelsProcessor_SetFieldTag(t *testing.T) {
 	s.Add(ch1)
 	s.Add(ch2)
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	channels := s.All()
 	for _, ch := range channels {

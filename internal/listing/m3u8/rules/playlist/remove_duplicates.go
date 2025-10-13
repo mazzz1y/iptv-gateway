@@ -19,15 +19,15 @@ func NewRemoveDuplicatesActionProcessor(rule *playlist.RemoveDuplicatesRule) *Re
 	return &RemoveDuplicatesProcessor{rule: rule}
 }
 
-func (p *RemoveDuplicatesProcessor) Apply(store *store.Store) {
+func (p *RemoveDuplicatesProcessor) Apply(store *store.Store) error {
 	if p.matcher == nil {
 		p.matcher = pattern_matcher.NewPatternMatcher(store.All(), p.rule.Selector, p.rule.Patterns)
 	}
 	grouped := p.matcher.GroupChannels()
-	p.processDuplicateGroups(grouped)
+	return p.processDuplicateGroups(grouped)
 }
 
-func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*store.Channel) {
+func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*store.Channel) error {
 	for baseName, group := range groups {
 		if len(group) <= 1 {
 			continue
@@ -52,18 +52,19 @@ func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*
 					}
 
 					var buf bytes.Buffer
-					if err := p.rule.FinalValue.Template.ToTemplate().Execute(&buf, tmplMap); err == nil {
-						finalValue := buf.String()
+					if err := p.rule.FinalValue.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
+						return err
+					}
+					finalValue := buf.String()
 
-						if p.rule.FinalValue.Selector != nil {
-							switch p.rule.FinalValue.Selector.Type {
-							case common.SelectorName:
-								ch.SetName(finalValue)
-							case common.SelectorAttr:
-								ch.SetAttr(p.rule.FinalValue.Selector.Value, finalValue)
-							case common.SelectorTag:
-								ch.SetTag(p.rule.FinalValue.Selector.Value, finalValue)
-							}
+					if p.rule.FinalValue.Selector != nil {
+						switch p.rule.FinalValue.Selector.Type {
+						case common.SelectorName:
+							ch.SetName(finalValue)
+						case common.SelectorAttr:
+							ch.SetAttr(p.rule.FinalValue.Selector.Value, finalValue)
+						case common.SelectorTag:
+							ch.SetTag(p.rule.FinalValue.Selector.Value, finalValue)
 						}
 					}
 				}
@@ -72,4 +73,5 @@ func (p *RemoveDuplicatesProcessor) processDuplicateGroups(groups map[string][]*
 			}
 		}
 	}
+	return nil
 }

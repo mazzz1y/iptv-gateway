@@ -45,7 +45,9 @@ func TestRemoveDuplicatesProcessor_shouldNotRemoveIdenticalChannels(t *testing.T
 	s.Add(ch3)
 	s.Add(ch4)
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	activeChannels := make([]*store.Channel, 0)
 	for _, ch := range s.All() {
@@ -125,7 +127,9 @@ func TestRemoveDuplicatesProcessor_setPattern(t *testing.T) {
 		},
 	}
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	activeChannels := make([]*store.Channel, 0)
 	for _, ch := range s.All() {
@@ -203,7 +207,9 @@ func TestRemoveDuplicatesProcessor_setFieldAttr(t *testing.T) {
 	s.Add(ch1)
 	s.Add(ch2)
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	activeChannels := make([]*store.Channel, 0)
 	for _, ch := range s.All() {
@@ -274,7 +280,9 @@ func TestRemoveDuplicatesProcessor_setFieldTag(t *testing.T) {
 	s.Add(ch1)
 	s.Add(ch2)
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	activeChannels := make([]*store.Channel, 0)
 	for _, ch := range s.All() {
@@ -342,7 +350,9 @@ func TestRemoveDuplicatesProcessor_onlyPatternChannels(t *testing.T) {
 	s.Add(ch5)
 	s.Add(ch6)
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	activeChannels := make([]*store.Channel, 0)
 	for _, ch := range s.All() {
@@ -429,7 +439,9 @@ func TestRemoveDuplicatesProcessor_emptyPatternPriority(t *testing.T) {
 	s.Add(ch1)
 	s.Add(ch2)
 
-	processor.Apply(s)
+	if err := processor.Apply(s); err != nil {
+		t.Fatal(err)
+	}
 
 	activeChannels := make([]*store.Channel, 0)
 	for _, ch := range s.All() {

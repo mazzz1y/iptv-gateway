@@ -3,10 +3,10 @@ package channel
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"majmun/internal/config/common"
 	"majmun/internal/config/rules/channel"
 	"majmun/internal/listing/m3u8/store"
-	"majmun/internal/logging"
 )
 
 type Processor struct {
@@ -21,33 +21,37 @@ func NewRulesProcessor(clientName string, rules []*channel.Rule) *Processor {
 	}
 }
 
-func (p *Processor) Apply(ctx context.Context, store *store.Store) {
+func (p *Processor) Apply(ctx context.Context, store *store.Store) error {
 	for _, ch := range store.All() {
-		for _, rule := range p.rules {
-			p.processChannelRule(ctx, ch, rule)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		for i, rule := range p.rules {
+			if err := p.processChannelRule(ch, rule); err != nil {
+				return fmt.Errorf("channel_rule[%d]: %w", i, err)
+			}
 		}
 	}
+	return nil
 }
 
-func (p *Processor) processChannelRule(ctx context.Context, ch *store.Channel, rule *channel.Rule) (stop bool) {
-	if rule.SetField != nil {
-		p.processSetField(ctx, ch, rule.SetField)
-		stop = false
-	} else if rule.RemoveField != nil {
+func (p *Processor) processChannelRule(ch *store.Channel, rule *channel.Rule) error {
+	switch {
+	case rule.SetField != nil:
+		return p.processSetField(ch, rule.SetField)
+	case rule.RemoveField != nil:
 		p.processRemoveField(ch, rule.RemoveField)
-		stop = false
-	} else if rule.RemoveChannel != nil {
-		stop = p.processRemoveChannel(ch, rule.RemoveChannel)
-	} else if rule.MarkHidden != nil {
+	case rule.RemoveChannel != nil:
+		p.processRemoveChannel(ch, rule.RemoveChannel)
+	case rule.MarkHidden != nil:
 		p.processMarkHidden(ch, rule.MarkHidden)
-		stop = false
 	}
-	return
+	return nil
 }
 
-func (p *Processor) processSetField(ctx context.Context, ch *store.Channel, rule *channel.SetFieldRule) {
+func (p *Processor) processSetField(ch *store.Channel, rule *channel.SetFieldRule) error {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
-		return
+		return nil
 	}
 
 	pl := ch.Playlist()
@@ -65,12 +69,7 @@ func (p *Processor) processSetField(ctx context.Context, ch *store.Channel, rule
 	var buf bytes.Buffer
 
 	if err := rule.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
-		logging.Error(ctx, err, "failed to process template",
-			"channel_name", ch.Name(),
-			"playlist_name", pl.Name(),
-			"selector", rule.Selector.Raw,
-		)
-		return
+		return err
 	}
 
 	value := buf.String()
@@ -82,6 +81,7 @@ func (p *Processor) processSetField(ctx context.Context, ch *store.Channel, rule
 	case common.SelectorTag:
 		ch.SetTag(rule.Selector.Value, value)
 	}
+	return nil
 }
 
 func (p *Processor) processRemoveField(ch *store.Channel, rule *channel.RemoveFieldRule) {
@@ -107,12 +107,11 @@ func (p *Processor) processRemoveField(ch *store.Channel, rule *channel.RemoveFi
 	}
 }
 
-func (p *Processor) processRemoveChannel(ch *store.Channel, rule *channel.RemoveChannelRule) bool {
+func (p *Processor) processRemoveChannel(ch *store.Channel, rule *channel.RemoveChannelRule) {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
-		return false
+		return
 	}
 	ch.MarkRemoved()
-	return true
 }
 
 func (p *Processor) processMarkHidden(ch *store.Channel, rule *channel.MarkHiddenRule) {
