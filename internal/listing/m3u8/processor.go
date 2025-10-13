@@ -1,6 +1,7 @@
 package m3u8
 
 import (
+	"context"
 	"fmt"
 	"majmun/internal/listing/m3u8/rules/channel"
 	"majmun/internal/listing/m3u8/rules/playlist"
@@ -26,8 +27,9 @@ func NewProcessor() *Processor {
 }
 
 func (p *Processor) Process(
+	ctx context.Context,
 	st *store.Store, channelProcessor *channel.Processor, playlistProcessor *playlist.Processor) ([]*store.Channel, error) {
-	channelProcessor.Apply(st)
+	channelProcessor.Apply(ctx, st)
 	playlistProcessor.Apply(st)
 
 	for _, ch := range st.All() {

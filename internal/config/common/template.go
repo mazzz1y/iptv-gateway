@@ -19,6 +19,7 @@ func (t *Template) UnmarshalYAML(value *yaml.Node) error {
 	if err != nil {
 		return err
 	}
+
 	*t = Template(*tmpl)
 	return nil
 }

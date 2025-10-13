@@ -63,7 +63,7 @@ func (s *Streamer) getChannels(ctx context.Context) ([]*store.Channel, error) {
 
 	processor := NewProcessor()
 
-	return processor.Process(st, s.channelProcessor, s.playlistProcessor)
+	return processor.Process(ctx, st, s.channelProcessor, s.playlistProcessor)
 }
 
 func (s *Streamer) fetchPlaylists(ctx context.Context) (*store.Store, error) {

@@ -2,9 +2,11 @@ package channel
 
 import (
 	"bytes"
+	"context"
 	"majmun/internal/config/common"
 	"majmun/internal/config/rules/channel"
 	"majmun/internal/listing/m3u8/store"
+	"majmun/internal/logging"
 )
 
 type Processor struct {
@@ -19,17 +21,17 @@ func NewRulesProcessor(clientName string, rules []*channel.Rule) *Processor {
 	}
 }
 
-func (p *Processor) Apply(store *store.Store) {
+func (p *Processor) Apply(ctx context.Context, store *store.Store) {
 	for _, ch := range store.All() {
 		for _, rule := range p.rules {
-			p.processChannelRule(ch, rule)
+			p.processChannelRule(ctx, ch, rule)
 		}
 	}
 }
 
-func (p *Processor) processChannelRule(ch *store.Channel, rule *channel.Rule) (stop bool) {
+func (p *Processor) processChannelRule(ctx context.Context, ch *store.Channel, rule *channel.Rule) (stop bool) {
 	if rule.SetField != nil {
-		p.processSetField(ch, rule.SetField)
+		p.processSetField(ctx, ch, rule.SetField)
 		stop = false
 	} else if rule.RemoveField != nil {
 		p.processRemoveField(ch, rule.RemoveField)
@@ -43,7 +45,7 @@ func (p *Processor) processChannelRule(ch *store.Channel, rule *channel.Rule) (s
 	return
 }
 
-func (p *Processor) processSetField(ch *store.Channel, rule *channel.SetFieldRule) {
+func (p *Processor) processSetField(ctx context.Context, ch *store.Channel, rule *channel.SetFieldRule) {
 	if rule.Condition != nil && !p.matchesCondition(ch, *rule.Condition) {
 		return
 	}
@@ -63,6 +65,11 @@ func (p *Processor) processSetField(ch *store.Channel, rule *channel.SetFieldRul
 	var buf bytes.Buffer
 
 	if err := rule.Template.ToTemplate().Execute(&buf, tmplMap); err != nil {
+		logging.Error(ctx, err, "failed to process template",
+			"channel_name", ch.Name(),
+			"playlist_name", pl.Name(),
+			"selector", string(rule.Selector.Type)+"/"+rule.Selector.Value,
+		)
 		return
 	}
 
