@@ -28,16 +28,14 @@ func NewProcessor() *Processor {
 
 func (p *Processor) Process(
 	ctx context.Context,
-	st *store.Store, channelProcessor *channel.Processor, playlistProcessor *playlist.Processor) ([]*store.Channel, error) {
+	st *store.Store,
+	channelProcessor *channel.Processor,
+	playlistProcessor *playlist.Processor) ([]*store.Channel, error) {
 
-	var err error
-	err = channelProcessor.Apply(ctx, st)
-	if err != nil {
+	if err := channelProcessor.Apply(ctx, st); err != nil {
 		return nil, err
 	}
-
-	err = playlistProcessor.Apply(ctx, st)
-	if err != nil {
+	if err := playlistProcessor.Apply(ctx, st); err != nil {
 		return nil, err
 	}
 
@@ -46,100 +44,101 @@ func (p *Processor) Process(
 			continue
 		}
 
-		if existingChannel := p.isDuplicate(ch); existingChannel != nil {
-			p.mergeStream(existingChannel, ch)
+		if existingChannel := p.findDuplicate(ch); existingChannel != nil {
+			p.addStreamToChannel(existingChannel, ch)
 			continue
 		}
 
 		if ch.Playlist().IsProxied() {
-			if err := p.processProxyLinks(ch); err != nil {
+			if err := p.proxyChannelAttributes(ch); err != nil {
 				return nil, err
 			}
 		}
 
+		if ch.URI() != nil {
+			p.channelStreams[ch] = []urlgen.Stream{p.createStream(ch)}
+		} else {
+			p.channelStreams[ch] = nil
+		}
+
 		p.trackChannel(ch)
-		p.channelStreams[ch] = nil
 	}
 
-	result := make([]*store.Channel, 0, len(p.channelStreams))
-	for _, ch := range st.All() {
-		if _, exists := p.channelStreams[ch]; exists {
-			result = append(result, ch)
+	for ch := range p.channelStreams {
+		if ch.Playlist().IsProxied() && len(p.channelStreams[ch]) > 0 {
+			p.updateChannelURI(ch)
 		}
 	}
 
-	return result, nil
+	return p.collectResults(st), nil
 }
 
-func (p *Processor) isDuplicate(ch *store.Channel) *store.Channel {
+func (p *Processor) findDuplicate(ch *store.Channel) *store.Channel {
 	id, hasID := ch.GetAttr(m3u8.AttrTvgID)
-	trackName := strings.ToLower(ch.Name())
-
 	if hasID && id != "" {
-		if existingChannel, exists := p.channelsByID[id]; exists {
-			return existingChannel
+		if existing, exists := p.channelsByID[id]; exists {
+			return existing
 		}
 	} else {
-		if existingChannel, exists := p.channelsByName[trackName]; exists {
-			return existingChannel
+		trackName := strings.ToLower(ch.Name())
+		if existing, exists := p.channelsByName[trackName]; exists {
+			return existing
 		}
 	}
-
 	return nil
 }
 
 func (p *Processor) trackChannel(ch *store.Channel) {
 	id, hasID := ch.GetAttr(m3u8.AttrTvgID)
-	trackName := strings.ToLower(ch.Name())
-
 	if hasID && id != "" {
 		p.channelsByID[id] = ch
 	} else {
+		trackName := strings.ToLower(ch.Name())
 		p.channelsByName[trackName] = ch
 	}
 }
 
-func (p *Processor) mergeStream(existingChannel, newChannel *store.Channel) {
-	if !newChannel.Playlist().IsProxied() || newChannel.URI() == nil {
+func (p *Processor) createStream(ch *store.Channel) urlgen.Stream {
+	return urlgen.Stream{
+		ProviderInfo: urlgen.ProviderInfo{
+			ProviderType: urlgen.ProviderTypePlaylist,
+			ProviderName: ch.Playlist().Name(),
+		},
+		URL:    ch.URI().String(),
+		Hidden: ch.IsHidden(),
+	}
+}
+
+func (p *Processor) addStreamToChannel(existingChannel, newChannel *store.Channel) {
+	if newChannel.URI() == nil {
 		return
 	}
 
 	if newChannel.Priority() > existingChannel.Priority() {
-		p.trackChannel(newChannel)
-
 		if streams, exists := p.channelStreams[existingChannel]; exists {
 			p.channelStreams[newChannel] = streams
 			delete(p.channelStreams, existingChannel)
 		}
-
+		p.trackChannel(newChannel)
 		existingChannel = newChannel
 	}
 
-	p.channelStreams[existingChannel] = append(p.channelStreams[existingChannel], urlgen.Stream{
-		ProviderInfo: urlgen.ProviderInfo{
-			ProviderType: urlgen.ProviderTypePlaylist,
-			ProviderName: newChannel.Playlist().Name(),
-		},
-		URL:    newChannel.URI().String(),
-		Hidden: newChannel.IsHidden(),
-	})
-
-	urlGen := existingChannel.Playlist().URLGenerator()
-	if u, err := urlGen.CreateStreamURL(existingChannel.Name(), p.channelStreams[existingChannel]); err == nil {
-		existingChannel.SetURI(u)
-	}
+	p.channelStreams[existingChannel] = append(
+		p.channelStreams[existingChannel],
+		p.createStream(newChannel),
+	)
 }
 
-func (p *Processor) processProxyLinks(ch *store.Channel) error {
-	subscription := ch.Playlist()
-	urlGen := subscription.URLGenerator()
+func (p *Processor) proxyChannelAttributes(ch *store.Channel) error {
+	urlGen := ch.Playlist().URLGenerator()
+	providerInfo := urlgen.ProviderInfo{
+		ProviderType: urlgen.ProviderTypePlaylist,
+		ProviderName: ch.Playlist().Name(),
+	}
 
 	for key, value := range ch.Attrs() {
 		if isURL(value) {
-			u, err := urlGen.CreateFileURL(urlgen.ProviderInfo{
-				ProviderType: urlgen.ProviderTypePlaylist,
-				ProviderName: ch.Playlist().Name(),
-			}, value)
+			u, err := urlGen.CreateFileURL(providerInfo, value)
 			if err != nil {
 				return fmt.Errorf("failed to encode attribute URL: %w", err)
 			}
@@ -147,29 +146,29 @@ func (p *Processor) processProxyLinks(ch *store.Channel) error {
 		}
 	}
 
-	if ch.URI() != nil {
-		uriStr := ch.URI().String()
-		if isURL(uriStr) {
-			stream := urlgen.Stream{
-				ProviderInfo: urlgen.ProviderInfo{
-					ProviderType: urlgen.ProviderTypePlaylist,
-					ProviderName: ch.Playlist().Name(),
-				},
-				URL:    uriStr,
-				Hidden: ch.IsHidden(),
-			}
+	return nil
+}
 
-			p.channelStreams[ch] = []urlgen.Stream{stream}
-
-			u, err := urlGen.CreateStreamURL(ch.Name(), p.channelStreams[ch])
-			if err != nil {
-				return fmt.Errorf("failed to encode stream URL: %w", err)
-			}
-			ch.SetURI(u)
-		}
+func (p *Processor) updateChannelURI(ch *store.Channel) {
+	streams := p.channelStreams[ch]
+	if len(streams) == 0 {
+		return
 	}
 
-	return nil
+	urlGen := ch.Playlist().URLGenerator()
+	if u, err := urlGen.CreateStreamURL(ch.Name(), streams); err == nil {
+		ch.SetURI(u)
+	}
+}
+
+func (p *Processor) collectResults(st *store.Store) []*store.Channel {
+	result := make([]*store.Channel, 0, len(p.channelStreams))
+	for _, ch := range st.All() {
+		if _, exists := p.channelStreams[ch]; exists {
+			result = append(result, ch)
+		}
+	}
+	return result
 }
 
 func isURL(str string) bool {
