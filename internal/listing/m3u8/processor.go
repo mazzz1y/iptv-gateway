@@ -30,7 +30,7 @@ func (p *Processor) Process(
 	ctx context.Context,
 	st *store.Store, channelProcessor *channel.Processor, playlistProcessor *playlist.Processor) ([]*store.Channel, error) {
 	channelProcessor.Apply(ctx, st)
-	playlistProcessor.Apply(st)
+	playlistProcessor.Apply(ctx, st)
 
 	for _, ch := range st.All() {
 		if ch.IsRemoved() {
