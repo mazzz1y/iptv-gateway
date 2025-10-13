@@ -68,7 +68,7 @@ func (p *Processor) processSetField(ctx context.Context, ch *store.Channel, rule
 		logging.Error(ctx, err, "failed to process template",
 			"channel_name", ch.Name(),
 			"playlist_name", pl.Name(),
-			"selector", string(rule.Selector.Type)+"/"+rule.Selector.Value,
+			"selector", rule.Selector.Raw,
 		)
 		return
 	}
