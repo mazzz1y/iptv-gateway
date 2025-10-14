@@ -11,6 +11,7 @@ set_field:
   condition: {}
 ```
 
+
 ## Fields
 
 | Field       | Type                           | Required | Description                               |
@@ -21,13 +22,17 @@ set_field:
 
 ## Template Variables
 
-| Variable                  | Type              | Description                                |
-|---------------------------|-------------------|--------------------------------------------|
-| `{{.Channel.Name}}`       | string            | The original channel name.                 |
-| `{{.Channel.Attrs}}`      | map[string]string | A map containing the channel's attributes. |
-| `{{.Channel.Tags}}`       | map[string]string | A map containing the channel's tags.       |
-| `{{.Playlist.Name}}`      | string            | The channel's playlist name.               |
-| `{{.Playlist.IsProxied}}` | bool              | Indicates whether the playlist is proxied. |
+!!! note "Error handling"
+    If the template refers to `nil` or if any other runtime template execution error occurs,
+    playlist generation will fail.
+
+| Variable                  | Type                | Description                                |
+|---------------------------|---------------------|--------------------------------------------|
+| `{{.Channel.Name}}`       | string              | The original channel name.                 |
+| `{{.Channel.Attrs}}`      | `map[string]string` | A map containing the channel's attributes. |
+| `{{.Channel.Tags}}`       | `map[string]string` | A map containing the channel's tags.       |
+| `{{.Playlist.Name}}`      | string              | The channel's playlist name.               |
+| `{{.Playlist.IsProxied}}` | bool                | Indicates whether the playlist is proxied. |
 
 ## Examples
 

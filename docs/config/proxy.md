@@ -24,7 +24,7 @@ filtering, or other stream processing features.
 
 !!! note "Command Handling"
 
-    Majmun expects the command to output video stream data to `stdout`. `stderr` will be printed to the debug logs. 
+    Majmun expects the command to output video stream data to `stdout`. `stderr` will be printed to the debug logs.
     If the command exits with empty stdout, an upstream error will be triggered.
 
 ## YAML Structure
