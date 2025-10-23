@@ -35,7 +35,7 @@ func (sp *SortProcessor) Apply(st *store.Store) {
 			if !jOk {
 				return true
 			}
-			return iVal < jVal
+			return naturalLess(iVal, jVal)
 		})
 		st.Replace(channels)
 		return
@@ -59,7 +59,7 @@ func (sp *SortProcessor) Apply(st *store.Store) {
 		if iPriority != jPriority {
 			return iPriority < jPriority
 		}
-		return groupNames[i] < groupNames[j]
+		return naturalLess(groupNames[i], groupNames[j])
 	})
 
 	for _, groupName := range groupNames {
@@ -78,7 +78,7 @@ func (sp *SortProcessor) Apply(st *store.Store) {
 			if !jOk {
 				return true
 			}
-			return iVal < jVal
+			return naturalLess(iVal, jVal)
 		})
 		sortedChannels = append(sortedChannels, groupChannels...)
 	}
